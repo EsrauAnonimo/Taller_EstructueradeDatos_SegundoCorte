@@ -1,13 +1,13 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 import os
 import json
 
 from dotenv import load_dotenv
-from .persistencia import PersistenciaBase
-from ..modelos.multilista import Multilist
-from ..entidades.grupo import Grupo
-from ..entidades.investigador import Investigador
-from ..entidades.producto import Producto
+from persistencia import PersistenciaBase
+from modelos.multilista import Multilist
+from entidades.grupo import Grupo
+from entidades.investigador import Investigador
+from entidades.producto import Producto
 
 load_dotenv()
 
@@ -27,10 +27,10 @@ class PersistenciaPostgres(PersistenciaBase):
             import psycopg2
             self.psycopg2 = psycopg2
         except Exception as e:
-            raise Exception('psycopg2 no está instalado') from e
+            raise Exception('psycopg2 no estÃ¡ instalado') from e
 
     def connect(self):
-        """Abre la conexión si no está abierta."""
+        """Abre la conexiÃ³n si no estÃ¡ abierta."""
         if self.conn is None or self.conn.closed:
             try:
                 self.conn = self.psycopg2.connect(
@@ -45,13 +45,13 @@ class PersistenciaPostgres(PersistenciaBase):
         return self.conn
 
     def close(self):
-        """Cierra la conexión."""
+        """Cierra la conexiÃ³n."""
         if self.conn is not None and not self.conn.closed:
             self.conn.close()
             self.conn = None
 
     def exists(self):
-        """Verifica si la conexión es exitosa y las tablas existen."""
+        """Verifica si la conexiÃ³n es exitosa y las tablas existen."""
         try:
             conn = self.connect()
             cur = conn.cursor()
@@ -74,7 +74,7 @@ class PersistenciaPostgres(PersistenciaBase):
 
     @classmethod
     def from_multilist(cls, multilist):
-        """Serializa una multilista a diccionarios para inserción."""
+        """Serializa una multilista a diccionarios para inserciÃ³n."""
         grupos = []
         current_group = multilist.head_group
         while current_group is not None:
@@ -287,3 +287,4 @@ class PersistenciaPostgres(PersistenciaBase):
             return {"grupos": grupos_list}
         finally:
             cur.close()
+
