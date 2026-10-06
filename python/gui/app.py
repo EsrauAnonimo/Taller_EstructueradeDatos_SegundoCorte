@@ -46,8 +46,8 @@ class MainWindow(QMainWindow):
     def init_persistence(self):
         try:
             p = PersistenciaPostgres()
-            if p.conectar():
-                p.desconectar()
+            if p.connect():
+                p.desconnect()
                 self.persistencia = p
                 print('Persistencia activa: PostgreSQL')
                 return
@@ -69,7 +69,7 @@ class MainWindow(QMainWindow):
         self.status_bar.showMessage('Capa de persistencia: '+name)
     def load_data(self):
         try:
-            datos=self.persistencia.cargar()
+            datos=self.persistencia.load()
             self.multilista=Multilist(); self.grupo_crud=GrupoCRUD(self.multilista); self.inv_crud=InvestigadorCRUD(self.multilista); self.prod_crud=ProductoCRUD(self.multilista)
             if datos:
                 if 'grupos' in datos:
@@ -93,7 +93,7 @@ class MainWindow(QMainWindow):
     def save_data(self):
         try:
             datos={'grupos':[g.to_dict() if hasattr(g,'to_dict') else g.__dict__ for g in self.grupo_crud.listar()],'investigadores':[i.to_dict() if hasattr(i,'to_dict') else i.__dict__ for i in self.inv_crud.listar()],'productos':[p.to_dict() if hasattr(p,'to_dict') else p.__dict__ for p in self.prod_crud.listar()]}
-            self.persistencia.guardar(datos)
+            self.persistencia.save(datos)
         except Exception:
             pass
 def main():
