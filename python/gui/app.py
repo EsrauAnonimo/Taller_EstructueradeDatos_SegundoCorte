@@ -20,7 +20,7 @@ from gui.styles import STYLES
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('PEA-i - Programa EstadÃ­stico de AnÃ¡lisis de InvestigaciÃ³n')
+        self.setWindowTitle('PEA-i - Programa EstadÃ­stico de Análisis de InvestigaciÃ³n')
         self.setMinimumSize(1200,700)
         self.persistencia = None
         self.multilista = Multilist()
