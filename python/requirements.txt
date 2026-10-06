@@ -1,9 +1,8 @@
-﻿streamlit
-plotly
+﻿PyQt6
+matplotlib
 pandas
 requests
 beautifulsoup4
 psycopg2-binary
 python-dotenv
-streamlit
-plotly
+pdfplumber
