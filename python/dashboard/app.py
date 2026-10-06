@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Aplicación Streamlit para el dashboard."""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import streamlit as st
 from persistencia.persistencia_postgres import PersistenciaPostgres
