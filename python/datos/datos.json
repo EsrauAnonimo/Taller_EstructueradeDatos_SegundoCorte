@@ -1,0 +1,62 @@
+{
+  "grupos": [
+    {
+      "id": 1,
+      "code": "COL0001",
+      "name": "Grupo Demo",
+      "category": "A",
+      "leader": "Demo",
+      "active": true,
+      "fecha_creacion": "2023-01-15"
+    }
+  ],
+  "investigadores": [
+    {
+      "id": 1,
+      "cedula": "12345",
+      "name": "Investigador Uno",
+      "email": "uno@demo.com",
+      "grupo_id": 1,
+      "active": true,
+      "fecha_creacion": "2023-01-15"
+    },
+    {
+      "id": 2,
+      "cedula": "67890",
+      "name": "Investigador Dos",
+      "email": "dos@demo.com",
+      "grupo_id": 1,
+      "active": true,
+      "fecha_creacion": "2023-01-15"
+    }
+  ],
+  "productos": [
+    {
+      "id": 1,
+      "title": "Producto Uno",
+      "type": "Artículo",
+      "year": 2022,
+      "grupo_id": 1,
+      "investigador_id": 1,
+      "active": true
+    },
+    {
+      "id": 2,
+      "title": "Producto Dos",
+      "type": "Libro",
+      "year": 2023,
+      "grupo_id": 1,
+      "investigador_id": 2,
+      "active": true
+    },
+    {
+      "id": 3,
+      "title": "Producto Tres",
+      "type": "Ponencia",
+      "year": 2024,
+      "grupo_id": 1,
+      "investigador_id": 1,
+      "active": true
+    }
+  ]
+}

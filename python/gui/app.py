@@ -54,6 +54,10 @@ class App(ctk.CTk):
 
         self.create_menu()
         self.load_data()
+        try:
+            self.load_tabs_data()
+        except Exception:
+            pass
 
     def init_persistence(self):
         try:
@@ -63,19 +67,21 @@ class App(ctk.CTk):
                 self.persistencia = p
                 return
         except Exception as e:
-            print('Error al intentar conectar:', e)
+            print('Persistencia PostgreSQL no disponible:', e)
+
         self.persistencia = PersistenciaJSON()
-        try:
-            messagebox.showwarning('Persistencia', 'Usando persistencia JSON (PostgreSQL no disponible)')
-        except Exception:
-            pass
 
     def update_status(self):
-        name = 'PostgreSQL' if isinstance(self.persistencia, PersistenciaPostgres) else 'JSON'
-        try:
-            self.status_label.configure(text='Persistencia: ' + name)
-        except Exception:
-            pass
+        if isinstance(self.persistencia, PersistenciaPostgres):
+            try:
+                self.status_label.configure(text='Persistencia: PostgreSQL')
+            except Exception:
+                pass
+        else:
+            try:
+                self.status_label.configure(text='Persistencia: JSON (Postgres no disponible)')
+            except Exception:
+                pass
 
     def create_menu(self):
         menubar = tk.Menu(self)
@@ -125,6 +131,10 @@ class App(ctk.CTk):
                             pass
         except Exception:
             pass
+        try:
+            self.load_tabs_data()
+        except Exception:
+            pass
 
     def save_data(self):
         try:
@@ -137,81 +147,3 @@ class App(ctk.CTk):
             messagebox.showinfo('Guardar', 'Datos guardados correctamente')
         except Exception:
             pass
-
-    def download_scienti(self):
-        try:
-            url = simpledialog.askstring('SCIENTI', 'Ingrese la URL del grupo:', initialvalue='')
-            if not url:
-                return
-            datos = scienti.download_group(url)
-            if not datos:
-                raise Exception('Sin datos')
-            for g in datos.get('grupos', []):
-                try:
-                    self.grupo_crud.crear(g)
-                except Exception:
-                    pass
-            for i in datos.get('investigadores', []):
-                try:
-                    self.inv_crud.crear(i)
-                except Exception:
-                    pass
-            for p in datos.get('productos', []):
-                try:
-                    self.prod_crud.crear(p)
-                except Exception:
-                    pass
-            self.save_data()
-            messagebox.showinfo('Éxito', 'Datos descargados y guardados')
-        except Exception as e:
-            messagebox.showerror('Error', 'No se pudo descargar. ¿Desea cargar desde CSV?')
-            self.load_csv()
-
-    def load_csv(self):
-        try:
-            path = filedialog.askopenfilename(filetypes=[('CSV', '*.csv'), ('Todos', '*.*')])
-            if not path:
-                return
-            datos = scienti.download_from_csv(path)
-            if not datos:
-                return
-            for g in datos.get('grupos', []):
-                try:
-                    self.grupo_crud.crear(g)
-                except Exception:
-                    pass
-            for i in datos.get('investigadores', []):
-                try:
-                    self.inv_crud.crear(i)
-                except Exception:
-                    pass
-            for p in datos.get('productos', []):
-                try:
-                    self.prod_crud.crear(p)
-                except Exception:
-                    pass
-            self.save_data()
-            messagebox.showinfo('Éxito', 'Datos cargados desde CSV')
-        except Exception:
-            messagebox.showerror('Error', 'No se pudo cargar el archivo')
-
-    def about(self):
-        messagebox.showinfo('Acerca de', 'PEA-i - Programa Estadístico de Análisis de Investigación')
-
-    def load_tabs_data(self):
-        try:
-            self.grupos_tab.refresh()
-            self.investigadores_tab.refresh()
-            self.productos_tab.refresh()
-            self.estadisticas_tab.refresh()
-        except Exception:
-            pass
-
-
-def main():
-    app = App()
-    app.mainloop()
-
-
-if __name__ == '__main__':
-    main()

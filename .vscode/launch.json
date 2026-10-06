@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "PEA-i GUI",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/python/gui/app.py",
+            "cwd": "/python",
+            "console": "integratedTerminal"
+        }
+    ]
+}
