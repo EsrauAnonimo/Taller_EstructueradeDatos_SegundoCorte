@@ -1,14 +1,39 @@
 # -*- coding: utf-8 -*-
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton
-class InvestigadoresTab(QWidget):
-    def __init__(self, app, parent=None):
-        super().__init__(parent)
+import customtkinter as ctk
+from tkinter import ttk
+
+
+class InvestigadoresTab(ctk.CTkFrame):
+    def __init__(self, app):
+        super().__init__(app)
         self.app = app
-        self.table = QTableWidget(0,7)
-        self.table.setHorizontalHeaderLabels(['ID','Cédula','Nombres','Apellidos','Email','Grupo','Activo'])
-        btn_layout = QHBoxLayout()
-        btn_layout.addWidget(QPushButton('Crear')); btn_layout.addWidget(QPushButton('Editar'))
-        btn_layout.addWidget(QPushButton('Actualizar')); btn_layout.addStretch()
-        layout = QVBoxLayout(); layout.addLayout(btn_layout); layout.addWidget(self.table); self.setLayout(layout)
-    def load_data(self):
-        pass
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
+        toolbar = ctk.CTkFrame(self, fg_color='transparent')
+        toolbar.grid(row=0, column=0, sticky='ew', padx=10, pady=5)
+        ctk.CTkButton(toolbar, text='Crear', command=self.create).pack(side='left', padx=2)
+        ctk.CTkButton(toolbar, text='Editar', command=self.edit).pack(side='left', padx=2)
+        ctk.CTkButton(toolbar, text='Desactivar', command=self.deactivate).pack(side='left', padx=2)
+        ctk.CTkButton(toolbar, text='Activar', command=self.activate).pack(side='left', padx=2)
+        ctk.CTkButton(toolbar, text='Eliminar', command=self.delete).pack(side='left', padx=2)
+        ctk.CTkButton(toolbar, text='Actualizar', command=self.refresh).pack(side='right', padx=2)
+
+        table_frame = ctk.CTkFrame(self)
+        table_frame.grid(row=1, column=0, sticky='nsew', padx=10, pady=5)
+        table_frame.grid_rowconfigure(0, weight=1)
+        table_frame.grid_columnconfigure(0, weight=1)
+        columns = ('id', 'name', 'email', 'group', 'active')
+        self.tree = ttk.Treeview(table_frame, columns=columns, show='headings')
+        for c in columns:
+            self.tree.heading(c, text=c.title())
+            self.tree.column(c, width=120)
+        self.tree.grid(row=0, column=0, sticky='nsew')
+        self.refresh()
+
+    def create(self): pass
+    def edit(self): pass
+    def deactivate(self): pass
+    def activate(self): pass
+    def delete(self): pass
+    def refresh(self): pass

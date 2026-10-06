@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
+"""Ventana principal con CustomTkinter."""
 import sys
 import traceback
 from pathlib import Path
+import tkinter as tk
+from tkinter import messagebox, filedialog, simpledialog
+
+import customtkinter as ctk
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-print('Iniciando PEA-i GUI...')
-from PyQt6.QtWidgets import QMainWindow, QApplication, QTabWidget, QMessageBox, QStatusBar
-from PyQt6.QtGui import QAction
+
 from persistencia.persistencia_postgres import PersistenciaPostgres
 from persistencia.persistencia_json import PersistenciaJSON
 from modelos.multilista import Multilist
@@ -16,96 +20,198 @@ from gui.tabs.grupos_tab import GruposTab
 from gui.tabs.investigadores_tab import InvestigadoresTab
 from gui.tabs.productos_tab import ProductosTab
 from gui.tabs.estadisticas_tab import EstadisticasTab
-from gui.styles import STYLES
-class MainWindow(QMainWindow):
+from gui.styles import apply_theme
+from scraping import scienti
+
+
+class App(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('PEA-i - Programa EstadÃƒÂ­stico de AnÃƒÂ¡lisis de InvestigaciÃƒÂ³n')
-        self.setMinimumSize(1200,700)
+        apply_theme()
+        self.title('PEA-i - Programa Estadístico de Análisis de Investigación')
+        self.geometry('1200x700')
+        self.minsize(1200, 700)
+
         self.persistencia = None
         self.multilista = Multilist()
         self.grupo_crud = GrupoCRUD(self.multilista)
         self.inv_crud = InvestigadorCRUD(self.multilista)
         self.prod_crud = ProductoCRUD(self.multilista)
+
         self.init_persistence()
-        self.tab_widget = QTabWidget()
-        self.grupos_tab = GruposTab(self)
-        self.investigadores_tab = InvestigadoresTab(self)
-        self.productos_tab = ProductosTab(self)
-        self.estadisticas_tab = EstadisticasTab(self)
-        self.tab_widget.addTab(self.grupos_tab,'Grupos')
-        self.tab_widget.addTab(self.investigadores_tab,'Investigadores')
-        self.tab_widget.addTab(self.productos_tab,'Productos')
-        self.tab_widget.addTab(self.estadisticas_tab,'EstadÃƒÂ­sticas')
-        self.setCentralWidget(self.tab_widget)
-        self.create_menu()
-        self.status_bar = QStatusBar()
-        self.setStatusBar(self.status_bar)
+
+        self.tabview = ctk.CTkTabview(self)
+        self.tabview.pack(fill='both', expand=True, padx=10, pady=(10, 5))
+
+        self.grupos_tab = GruposTab(self.tabview.add('Grupos'))
+        self.investigadores_tab = InvestigadoresTab(self.tabview.add('Investigadores'))
+        self.productos_tab = ProductosTab(self.tabview.add('Productos'))
+        self.estadisticas_tab = EstadisticasTab(self.tabview.add('Estadísticas'))
+
+        self.status_label = ctk.CTkLabel(self, text='Persistencia: ...')
+        self.status_label.pack(fill='x', padx=10, pady=(0, 10))
         self.update_status()
+
+        self.create_menu()
         self.load_data()
+
     def init_persistence(self):
         try:
             p = PersistenciaPostgres()
             if p.connect():
                 p.close()
                 self.persistencia = p
-                print('Persistencia activa: PostgreSQL')
                 return
         except Exception as e:
-            print('Error al intentar conectar:',e)
+            print('Error al intentar conectar:', e)
         self.persistencia = PersistenciaJSON()
-        print('Persistencia activa: JSON')
-        QMessageBox.warning(self,'Advertencia','Usando JSON.')
-    def create_menu(self):
-        m = self.menuBar()
-        a = m.addMenu('Archivo')
-        ac = QAction('Cargar datos',self); ag=QAction('Guardar datos',self); asx=QAction('Salir',self)
-        ac.triggered.connect(self.load_data); ag.triggered.connect(self.save_data); asx.triggered.connect(self.close)
-        a.addAction(ac); a.addAction(ag); a.addSeparator(); a.addAction(asx)
-        d = m.addMenu('Datos'); dd=QAction('Descargar del SCIENTI',self); d.addAction(dd)
-        h = m.addMenu('Ayuda'); ha=QAction('Acerca de',self); ha.triggered.connect(lambda:QMessageBox.information(self,'Acerca de','PEA-i')); h.addAction(ha)
+        try:
+            messagebox.showwarning('Persistencia', 'Usando persistencia JSON (PostgreSQL no disponible)')
+        except Exception:
+            pass
+
     def update_status(self):
-        name='PostgreSQL' if isinstance(self.persistencia,PersistenciaPostgres) else 'JSON'
-        self.status_bar.showMessage('Capa de persistencia: '+name)
+        name = 'PostgreSQL' if isinstance(self.persistencia, PersistenciaPostgres) else 'JSON'
+        try:
+            self.status_label.configure(text='Persistencia: ' + name)
+        except Exception:
+            pass
+
+    def create_menu(self):
+        menubar = tk.Menu(self)
+        file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label='Cargar datos', command=self.load_data)
+        file_menu.add_command(label='Guardar datos', command=self.save_data)
+        file_menu.add_separator()
+        file_menu.add_command(label='Salir', command=self.quit)
+        menubar.add_cascade(label='Archivo', menu=file_menu)
+
+        data_menu = tk.Menu(menubar, tearoff=0)
+        data_menu.add_command(label='Descargar del SCIENTI', command=self.download_scienti)
+        data_menu.add_command(label='Cargar desde CSV', command=self.load_csv)
+        menubar.add_cascade(label='Datos', menu=data_menu)
+
+        help_menu = tk.Menu(menubar, tearoff=0)
+        help_menu.add_command(label='Acerca de', command=self.about)
+        menubar.add_cascade(label='Ayuda', menu=help_menu)
+
+        self.configure(menu=menubar)
+
     def load_data(self):
         try:
-            datos=self.persistencia.load()
-            self.multilista=Multilist(); self.grupo_crud=GrupoCRUD(self.multilista); self.inv_crud=InvestigadorCRUD(self.multilista); self.prod_crud=ProductoCRUD(self.multilista)
+            datos = self.persistencia.load()
+            self.multilista = Multilist()
+            self.grupo_crud = GrupoCRUD(self.multilista)
+            self.inv_crud = InvestigadorCRUD(self.multilista)
+            self.prod_crud = ProductoCRUD(self.multilista)
             if datos:
                 if 'grupos' in datos:
                     for g in datos['grupos']:
-                        obj=self.grupo_crud.from_dict(g) if hasattr(self.grupo_crud,'from_dict') else g
-                        self.grupo_crud.agregar(obj)
+                        try:
+                            self.grupo_crud.crear(g)
+                        except Exception:
+                            pass
                 if 'investigadores' in datos:
                     for i in datos['investigadores']:
-                        obj=self.inv_crud.from_dict(i) if hasattr(self.inv_crud,'from_dict') else i
-                        self.inv_crud.agregar(obj)
+                        try:
+                            self.inv_crud.crear(i)
+                        except Exception:
+                            pass
                 if 'productos' in datos:
                     for p in datos['productos']:
-                        obj=self.prod_crud.from_dict(p) if hasattr(self.prod_crud,'from_dict') else p
-                        self.prod_crud.agregar(obj)
+                        try:
+                            self.prod_crud.crear(p)
+                        except Exception:
+                            pass
         except Exception:
             pass
-        try:
-            self.grupos_tab.load_data(); self.investigadores_tab.load_data(); self.productos_tab.load_data(); self.estadisticas_tab.load_data()
-        except Exception:
-            pass
+
     def save_data(self):
         try:
-            datos={'grupos':[g.to_dict() if hasattr(g,'to_dict') else g.__dict__ for g in self.grupo_crud.listar()],'investigadores':[i.to_dict() if hasattr(i,'to_dict') else i.__dict__ for i in self.inv_crud.listar()],'productos':[p.to_dict() if hasattr(p,'to_dict') else p.__dict__ for p in self.prod_crud.listar()]}
+            datos = {
+                'grupos': [g.to_dict() if hasattr(g, 'to_dict') else g.__dict__ for g in self.grupo_crud.listar()],
+                'investigadores': [i.to_dict() if hasattr(i, 'to_dict') else i.__dict__ for i in self.inv_crud.listar()],
+                'productos': [p.to_dict() if hasattr(p, 'to_dict') else p.__dict__ for p in self.prod_crud.listar()],
+            }
             self.persistencia.save(datos)
+            messagebox.showinfo('Guardar', 'Datos guardados correctamente')
         except Exception:
             pass
+
+    def download_scienti(self):
+        try:
+            url = simpledialog.askstring('SCIENTI', 'Ingrese la URL del grupo:', initialvalue='')
+            if not url:
+                return
+            datos = scienti.download_group(url)
+            if not datos:
+                raise Exception('Sin datos')
+            for g in datos.get('grupos', []):
+                try:
+                    self.grupo_crud.crear(g)
+                except Exception:
+                    pass
+            for i in datos.get('investigadores', []):
+                try:
+                    self.inv_crud.crear(i)
+                except Exception:
+                    pass
+            for p in datos.get('productos', []):
+                try:
+                    self.prod_crud.crear(p)
+                except Exception:
+                    pass
+            self.save_data()
+            messagebox.showinfo('Éxito', 'Datos descargados y guardados')
+        except Exception as e:
+            messagebox.showerror('Error', 'No se pudo descargar. ¿Desea cargar desde CSV?')
+            self.load_csv()
+
+    def load_csv(self):
+        try:
+            path = filedialog.askopenfilename(filetypes=[('CSV', '*.csv'), ('Todos', '*.*')])
+            if not path:
+                return
+            datos = scienti.download_from_csv(path)
+            if not datos:
+                return
+            for g in datos.get('grupos', []):
+                try:
+                    self.grupo_crud.crear(g)
+                except Exception:
+                    pass
+            for i in datos.get('investigadores', []):
+                try:
+                    self.inv_crud.crear(i)
+                except Exception:
+                    pass
+            for p in datos.get('productos', []):
+                try:
+                    self.prod_crud.crear(p)
+                except Exception:
+                    pass
+            self.save_data()
+            messagebox.showinfo('Éxito', 'Datos cargados desde CSV')
+        except Exception:
+            messagebox.showerror('Error', 'No se pudo cargar el archivo')
+
+    def about(self):
+        messagebox.showinfo('Acerca de', 'PEA-i - Programa Estadístico de Análisis de Investigación')
+
+    def load_tabs_data(self):
+        try:
+            self.grupos_tab.refresh()
+            self.investigadores_tab.refresh()
+            self.productos_tab.refresh()
+            self.estadisticas_tab.refresh()
+        except Exception:
+            pass
+
+
 def main():
-    try:
-        app=QApplication(sys.argv)
-        app.setStyleSheet(STYLES)
-        w=MainWindow()
-        w.show()
-        print('Mostrando ventana principal...')
-        sys.exit(app.exec())
-    except Exception as e:
-        print('Error al iniciar la GUI:',e)
-        traceback.print_exc()
-if __name__=='__main__':
+    app = App()
+    app.mainloop()
+
+
+if __name__ == '__main__':
     main()
