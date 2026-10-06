@@ -218,3 +218,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Datos locales de prueba
+python/datos/*.json
+!python/datos/.gitkeep
