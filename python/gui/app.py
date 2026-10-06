@@ -20,7 +20,7 @@ from gui.styles import STYLES
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('PEA-i - Programa Estadístico de Análisis de Investigación')
+        self.setWindowTitle('PEA-i - Programa EstadÃ­stico de AnÃ¡lisis de InvestigaciÃ³n')
         self.setMinimumSize(1200,700)
         self.persistencia = None
         self.multilista = Multilist()
@@ -36,7 +36,7 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.grupos_tab,'Grupos')
         self.tab_widget.addTab(self.investigadores_tab,'Investigadores')
         self.tab_widget.addTab(self.productos_tab,'Productos')
-        self.tab_widget.addTab(self.estadisticas_tab,'Estadísticas')
+        self.tab_widget.addTab(self.estadisticas_tab,'EstadÃ­sticas')
         self.setCentralWidget(self.tab_widget)
         self.create_menu()
         self.status_bar = QStatusBar()
@@ -47,7 +47,7 @@ class MainWindow(QMainWindow):
         try:
             p = PersistenciaPostgres()
             if p.connect():
-                p.desconnect()
+                p.close()
                 self.persistencia = p
                 print('Persistencia activa: PostgreSQL')
                 return
