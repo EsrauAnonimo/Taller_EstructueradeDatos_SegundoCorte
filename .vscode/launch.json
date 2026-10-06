@@ -5,8 +5,8 @@
             "name": "PEA-i GUI",
             "type": "debugpy",
             "request": "launch",
-            "program": "/python/gui/app.py",
-            "cwd": "/python",
+            "program": "${workspaceFolder}/python/gui/app.py",
+            "cwd": "${workspaceFolder}/python",
             "console": "integratedTerminal"
         }
     ]
