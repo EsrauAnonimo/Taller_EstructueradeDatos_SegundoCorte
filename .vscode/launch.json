@@ -7,7 +7,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/python/gui/app.py",
             "cwd": "${workspaceFolder}/python",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": false
         }
     ]
 }
