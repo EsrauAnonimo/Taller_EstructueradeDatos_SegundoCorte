@@ -1,3 +1,16 @@
 {
-    "grupos": []
+    "grupos": [
+        {
+            "grupo": {
+                "id": "GRP-1",
+                "codigo_gruplac": "GRP-1",
+                "nombre": "Grupo SCIENTI",
+                "categoria": "",
+                "lider": "",
+                "activo": true,
+                "fecha_creacion": ""
+            },
+            "investigadores": []
+        }
+    ]
 }
