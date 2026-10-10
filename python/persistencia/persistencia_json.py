@@ -11,8 +11,11 @@ from entidades.producto import Producto
 class PersistenciaJSON(PersistenciaBase):
     """Persistencia de datos en formato JSON."""
 
-    def __init__(self, filepath="python/datos/datos.json"):
+    def __init__(self, filepath=None):
         """Inicializa la persistencia con la ruta del archivo JSON."""
+        if filepath is None:
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            filepath = os.path.join(base_dir, "datos", "datos.json")
         self.filepath = filepath
         self._ensure_dir()
 

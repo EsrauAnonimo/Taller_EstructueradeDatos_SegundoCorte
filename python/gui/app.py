@@ -25,6 +25,8 @@ from gui.tabs.grupos_tab import GruposTab
 from gui.tabs.investigadores_tab import InvestigadoresTab
 from gui.tabs.productos_tab import ProductosTab
 from gui.tabs.estadisticas_tab import EstadisticasTab
+from gui.dialogs.url_modal import UrlImportModal
+from gui.widgets.menu_bar import MenuBarModerno
 from gui.styles import (
     COLORS,
     RADIUS,
@@ -119,55 +121,113 @@ class App(ctk.CTk):
             pass
 
     def create_menu(self):
-        """Configura la barra de menú superior con tkinter.Menu."""
-        menubar = tk.Menu(self)
+        """Configura la barra de menú superior moderna integrada (MenuBarModerno)."""
+        self.menu_bar = MenuBarModerno(self, app=self)
+        self.menu_bar.pack(side='top', fill='x')
 
-        # Menú Archivo
-        file_menu = tk.Menu(menubar, tearoff=0)
-        file_menu.add_command(label="Cargar datos", command=self.load_data)
-        file_menu.add_command(label="Guardar datos", command=self.save_data)
-        file_menu.add_separator()
-        file_menu.add_command(label="Salir", command=self.quit)
-        menubar.add_cascade(label="Archivo", menu=file_menu)
+        # 1. Menú Archivo
+        self.menu_bar.add_menu("Archivo", [
+            {
+                'label': "Cargar datos",
+                'icon': "📂",
+                'shortcut': "Ctrl+O",
+                'command': self.load_data,
+                'enabled': True,
+            },
+            {
+                'label': "Guardar datos",
+                'icon': "💾",
+                'shortcut': "Ctrl+S",
+                'command': self.save_data,
+                'enabled': self.has_data,
+            },
+            {'separator': True},
+            {
+                'label': "Exportar a Excel",
+                'icon': "📊",
+                'shortcut': "Ctrl+E",
+                'command': self.export_to_excel,
+                'enabled': self.has_data,
+            },
+            {
+                'label': "Exportar a CSV",
+                'icon': "📄",
+                'shortcut': "Ctrl+Shift+C",
+                'command': self.export_to_csv,
+                'enabled': self.has_data,
+            },
+            {'separator': True},
+            {
+                'label': "Salir",
+                'icon': "🚪",
+                'shortcut': "Ctrl+Q",
+                'command': self.quit,
+                'enabled': True,
+            },
+        ])
 
-        # Menú Datos con opciones de descarga híbrida
-        data_menu = tk.Menu(menubar, tearoff=0)
-        data_menu.add_command(
-            label="Descargar del SCIENTI",
-            command=lambda: self.download_from_url(DEFAULT_SCIENTI_URL),
-        )
-        data_menu.add_command(
-            label="Descargar de otra URL...",
-            command=self.download_from_custom_url,
-        )
-        data_menu.add_separator()
-        data_menu.add_command(label="Cargar desde CSV", command=self.load_csv)
-        menubar.add_cascade(label="Datos", menu=data_menu)
+        # 2. Menú Datos
+        self.menu_bar.add_menu("Datos", [
+            {
+                'label': "Importar grupo desde URL",
+                'icon': "🌐",
+                'shortcut': "Ctrl+U",
+                'command': self.download_from_custom_url,
+                'enabled': True,
+            },
+            {
+                'label': "Actualizar todo",
+                'icon': "🔄",
+                'shortcut': "F5",
+                'command': self.refresh_all,
+                'enabled': True,
+            },
+            {'separator': True},
+            {
+                'label': "Limpiar datos",
+                'icon': "🗑️",
+                'shortcut': "Ctrl+Shift+Del",
+                'command': self.clear_data,
+                'enabled': self.has_data,
+            },
+        ])
 
-        # Menú Ayuda
-        help_menu = tk.Menu(menubar, tearoff=0)
-        help_menu.add_command(label="Acerca de", command=self.about)
-        menubar.add_cascade(label="Ayuda", menu=help_menu)
-
-        self.configure(menu=menubar)
-        self.menubar = menubar
-        self.data_menu = data_menu
-        self.file_menu = file_menu
-        self.help_menu = help_menu
+        # 3. Menú Ayuda
+        self.menu_bar.add_menu("Ayuda", [
+            {
+                'label': "Guía rápida",
+                'icon': "📖",
+                'shortcut': "F1",
+                'command': self.show_quick_guide,
+                'enabled': True,
+            },
+            {
+                'label': "Acerca de",
+                'icon': "ℹ️",
+                'shortcut': "Ctrl+H",
+                'command': self.about,
+                'enabled': True,
+            },
+        ])
 
     def download_from_custom_url(self):
-        """Solicita una URL personalizada mediante diálogo y ejecuta la descarga."""
-        url = simpledialog.askstring(
-            "Descargar de otra URL",
-            "Ingrese la URL del grupo en SCIENTI / GrupLAC:",
-            initialvalue="",
+        """Abre el modal moderno interactivo para importar desde una URL personalizada."""
+        UrlImportModal(
             parent=self,
+            on_success=self.process_downloaded_data,
+            initial_url="",
         )
-        if url:
-            self.download_from_url(url.strip())
+
+    def download_scienti(self):
+        """Abre el modal interactivo preconfigurado con la URL oficial de SCIENTI / GrupLAC."""
+        UrlImportModal(
+            parent=self,
+            on_success=self.process_downloaded_data,
+            initial_url=DEFAULT_SCIENTI_URL,
+        )
 
     def download_from_url(self, url: str):
-        """Descarga e integra la información de un grupo desde la URL especificada."""
+        """Descarga e integra la información de un grupo desde la URL especificada de forma directa."""
         if not url or not (url.startswith("http://") or url.startswith("https://")):
             messagebox.showerror("Error", "URL inválida")
             return
@@ -196,6 +256,10 @@ class App(ctk.CTk):
                     self.load_from_csv(path)
             return
 
+        self.process_downloaded_data(datos)
+
+    def process_downloaded_data(self, datos: dict):
+        """Procesa, normaliza e integra los datos descargados en la multilista y persiste."""
         try:
             # Inserción de entidades mediante la capa CRUD
             grupo_obj = None
@@ -332,10 +396,6 @@ class App(ctk.CTk):
             self.update_status("Descarga completada.")
         except Exception as e:
             messagebox.showerror("Error", f"Error al procesar los datos descargados: {e}")
-
-    def download_scienti(self):
-        """Descarga directa del SCIENTI con la URL por defecto."""
-        self.download_from_url(DEFAULT_SCIENTI_URL)
 
     def load_from_csv(self, path: str = None):
         """Carga datos de grupos, investigadores y productos desde un archivo CSV."""
@@ -507,6 +567,134 @@ class App(ctk.CTk):
             "Taller de Estructura de Datos - Segundo Corte\n"
             "Diseñado con CustomTkinter y arquitectura de Multilistas.",
         )
+
+    def has_data(self) -> bool:
+        """Indica si existen registros cargados en memoria."""
+        try:
+            return bool(
+                (self.grupo_crud and self.grupo_crud.list_all()) or
+                (self.inv_crud and self.inv_crud.list_all()) or
+                (self.prod_crud and self.prod_crud.list_all())
+            )
+        except Exception:
+            return False
+
+    def export_to_excel(self):
+        """Exporta los datos de grupos, investigadores y productos a un archivo Excel (.xlsx)."""
+        if not self.has_data():
+            messagebox.showwarning("Exportar a Excel", "No hay datos para exportar.")
+            return
+
+        filepath = filedialog.asksaveasfilename(
+            defaultextension=".xlsx",
+            filetypes=[("Libro de Excel", "*.xlsx"), ("Todos los archivos", "*.*")],
+            title="Exportar datos a Excel",
+            initialfile="datos_investigacion.xlsx",
+        )
+        if not filepath:
+            return
+
+        try:
+            grupos_data = [g.to_dict() if hasattr(g, 'to_dict') else g.__dict__ for g in self.grupo_crud.list_all()]
+            invs_data = [i.to_dict() if hasattr(i, 'to_dict') else i.__dict__ for i in self.inv_crud.list_all()]
+            prods_data = [p.to_dict() if hasattr(p, 'to_dict') else p.__dict__ for p in self.prod_crud.list_all()]
+
+            import pandas as pd
+            with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
+                pd.DataFrame(grupos_data).to_excel(writer, sheet_name='Grupos', index=False)
+                pd.DataFrame(invs_data).to_excel(writer, sheet_name='Investigadores', index=False)
+                pd.DataFrame(prods_data).to_excel(writer, sheet_name='Productos', index=False)
+
+            messagebox.showinfo("Exportación exitosa", f"Datos exportados correctamente en:\n{filepath}")
+            self.update_status(f"Exportado a Excel: {Path(filepath).name}")
+        except Exception as e:
+            messagebox.showerror("Error de exportación", f"No se pudo exportar a Excel:\n{e}")
+
+    def export_to_csv(self):
+        """Exporta los datos de grupos, investigadores y productos a archivos CSV en una carpeta."""
+        if not self.has_data():
+            messagebox.showwarning("Exportar a CSV", "No hay datos para exportar.")
+            return
+
+        directory = filedialog.askdirectory(title="Seleccionar carpeta para guardar archivos CSV")
+        if not directory:
+            return
+
+        try:
+            import csv
+            grupos_data = [g.to_dict() if hasattr(g, 'to_dict') else g.__dict__ for g in self.grupo_crud.list_all()]
+            invs_data = [i.to_dict() if hasattr(i, 'to_dict') else i.__dict__ for i in self.inv_crud.list_all()]
+            prods_data = [p.to_dict() if hasattr(p, 'to_dict') else p.__dict__ for p in self.prod_crud.list_all()]
+
+            def _write(name, rows):
+                if not rows:
+                    return
+                p = Path(directory) / f"{name}.csv"
+                keys = list(rows[0].keys())
+                with open(p, 'w', newline='', encoding='utf-8') as f:
+                    writer = csv.DictWriter(f, fieldnames=keys)
+                    writer.writeheader()
+                    writer.writerows(rows)
+
+            _write("grupos", grupos_data)
+            _write("investigadores", invs_data)
+            _write("productos", prods_data)
+
+            messagebox.showinfo(
+                "Exportación exitosa",
+                f"Archivos CSV exportados correctamente en:\n{directory}",
+            )
+            self.update_status("Exportación CSV completada.")
+        except Exception as e:
+            messagebox.showerror("Error de exportación", f"No se pudo exportar a CSV:\n{e}")
+
+    def refresh_all(self):
+        """Recarga los datos de persistencia y actualiza todas las pestañas de la interfaz."""
+        self.load_data()
+        self.update_status("Vistas actualizadas correctamente.")
+
+    def clear_data(self):
+        """Limpia todos los datos cargados en memoria y persiste el estado vacío."""
+        if not self.has_data():
+            messagebox.showinfo("Limpiar datos", "No hay datos para limpiar.")
+            return
+
+        confirm = messagebox.askyesno(
+            "Confirmar limpieza",
+            "¿Está seguro de que desea limpiar todos los datos del sistema?\nEsta acción no se puede deshacer.",
+            icon='warning',
+        )
+        if not confirm:
+            return
+
+        self.multilista = Multilist()
+        self.grupo_crud = GrupoCRUD(self.multilista)
+        self.inv_crud = InvestigadorCRUD(self.multilista)
+        self.prod_crud = ProductoCRUD(self.multilista)
+        self.save_data(silent=True)
+        self.load_tabs_data()
+        self.update_status("Todos los datos han sido limpiados.")
+        messagebox.showinfo("Limpieza completada", "Se han limpiado todos los registros del sistema.")
+
+    def show_quick_guide(self):
+        """Muestra una guía rápida de uso y atajos de teclado del sistema."""
+        guia = (
+            "PEA-i — Guía Rápida de Uso\n\n"
+            "• Menú Archivo:\n"
+            "  - Cargar datos (Ctrl+O): Recarga la información desde el archivo JSON local.\n"
+            "  - Guardar datos (Ctrl+S): Guarda el estado actual en disco.\n"
+            "  - Exportar a Excel (Ctrl+E): Genera un libro .xlsx con Grupos, Investigadores y Productos.\n"
+            "  - Exportar a CSV (Ctrl+Shift+C): Genera archivos .csv independientes.\n"
+            "  - Salir (Ctrl+Q): Cierra la aplicación.\n\n"
+            "• Menú Datos:\n"
+            "  - Importar grupo desde URL (Ctrl+U): Descarga e indexa grupos desde MinCiencias / SCIENTI.\n"
+            "  - Actualizar todo (F5): Refresca las listas, tablas y estadísticas.\n"
+            "  - Limpiar datos (Ctrl+Shift+Del): Restablece todas las estructuras en memoria.\n\n"
+            "• Menú Ayuda:\n"
+            "  - Guía rápida (F1): Muestra esta guía informativa.\n"
+            "  - Acerca de (Ctrl+H): Información de versión y créditos."
+        )
+        messagebox.showinfo("Guía Rápida - PEA-i", guia)
 
 
 MainWindow = App

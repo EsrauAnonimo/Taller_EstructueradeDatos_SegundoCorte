@@ -9,6 +9,15 @@
             "cwd": "${workspaceFolder}/python",
             "console": "integratedTerminal",
             "justMyCode": false
+        },
+        {
+            "name": "PEA-i Consola",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false
         }
     ]
 }

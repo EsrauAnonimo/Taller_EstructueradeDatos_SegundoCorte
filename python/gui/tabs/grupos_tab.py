@@ -89,6 +89,15 @@ class GruposTab(ctk.CTkFrame):
         )
         self.btn_create.pack(side='right', padx=(SPACING['sm'], 0))
 
+        # Importar SCIENTI (Secundario)
+        self.btn_import = button(
+            self.toolbar,
+            text="Importar SCIENTI",
+            variant='secondary',
+            command=self._on_import_scienti,
+        )
+        self.btn_import.pack(side='right', padx=(SPACING['sm'], 0))
+
         # Terciario (Actualizar)
         self.btn_refresh = button(
             self.toolbar,
@@ -296,6 +305,12 @@ class GruposTab(ctk.CTkFrame):
         self.btn_delete.configure(state=state)
         self.btn_activate.configure(state=state)
         self.btn_deactivate.configure(state=state)
+
+    def _on_import_scienti(self):
+        """Abre el diálogo modal de importación desde SCIENTI / GrupLAC."""
+        app = self.get_app()
+        if app and hasattr(app, 'download_scienti'):
+            app.download_scienti()
 
     def create(self):
         """Abre el formulario modal para registrar un nuevo grupo."""
