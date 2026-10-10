@@ -59,16 +59,16 @@ class EstadisticasTab(ctk.CTkFrame):
         )
         self.subtitle_label.pack(fill='x', anchor='w', pady=(SPACING['xs'], 0))
 
-        # Botón actualizar a la derecha
+        # Botón actualizar terciario unificado
         self.btn_refresh = button(
             self.header_frame,
             text="Actualizar",
-            variant='ghost',
+            variant='tertiary',
             command=self.refresh,
         )
         self.btn_refresh.pack(side='right')
 
-        # --- 2. Tarjetas de métricas (3 columnas uniformes) ---
+        # --- 2. Tarjetas de métricas (3 columnas uniformes compactas sin emojis) ---
         self.stats_container = ctk.CTkFrame(self, fg_color='transparent')
         self.stats_container.grid(
             row=1,
@@ -81,32 +81,35 @@ class EstadisticasTab(ctk.CTkFrame):
 
         self.card_grupos = StatCard(
             self.stats_container,
-            title="Grupos activos",
+            title="Grupos registrados",
             value="0",
-            note="Grupos habilitados",
+            icon="",
+            variation="0 activos",
             accent_color=CHART_COLORS[0],
         )
         self.card_grupos.grid(row=0, column=0, sticky='nsew', padx=(0, SPACING['sm']))
 
         self.card_investigadores = StatCard(
             self.stats_container,
-            title="Investigadores activos",
+            title="Investigadores",
             value="0",
-            note="Docentes e investigadores",
+            icon="",
+            variation="0 activos",
             accent_color=CHART_COLORS[1],
         )
         self.card_investigadores.grid(row=0, column=1, sticky='nsew', padx=(SPACING['sm'], SPACING['sm']))
 
         self.card_productos = StatCard(
             self.stats_container,
-            title="Productos activos",
+            title="Producción científica",
             value="0",
-            note="Producción científica",
+            icon="",
+            variation="0 validados",
             accent_color=CHART_COLORS[2],
         )
         self.card_productos.grid(row=0, column=2, sticky='nsew', padx=(SPACING['sm'], 0))
 
-        # --- 3. Gráficos (3 columnas uniformes, cada uno dentro de su tarjeta) ---
+        # --- 3. Gráficos (3 columnas uniformes, cada uno dentro de su tarjeta con estado vacío) ---
         self.charts_container = ctk.CTkFrame(self, fg_color='transparent')
         self.charts_container.grid(
             row=2,
@@ -156,43 +159,81 @@ class EstadisticasTab(ctk.CTkFrame):
         if not app:
             return
 
-        # 1. Obtención de datos activos
-        grupos = []
+        # 1. Obtención de datos de grupos
+        all_grupos = []
         try:
-            grupos = list(app.grupo_crud.list_all())
+            curr = app.multilista.head_group
+            while curr is not None:
+                all_grupos.append(curr.data)
+                curr = curr.next
         except Exception:
-            pass
-
-        investigadores = []
-        try:
-            investigadores = list(app.inv_crud.list_all())
-        except Exception:
-            pass
-
-        productos = []
-        try:
-            productos = list(app.prod_crud.list_all())
-        except Exception:
-            pass
-
-        # 2. Actualización de StatCards
-        total_g = len(grupos)
-        total_i = len(investigadores)
-        total_p = len(productos)
-
-        self.card_grupos.set_value(str(total_g), f"{total_g} {'grupo registrado' if total_g == 1 else 'grupos registrados'}")
-        self.card_investigadores.set_value(str(total_i), f"{total_i} {'investigador activo' if total_i == 1 else 'investigadores activos'}")
-        self.card_productos.set_value(str(total_p), f"{total_p} {'producto validado' if total_p == 1 else 'productos validados'}")
-
-        # 3. Gráfico 1: Productos por año
-        years_counter = Counter()
-        for p in productos:
             try:
-                y = int(getattr(p, 'anio', 0) or getattr(p, 'year', 0))
-                if y > 1900:
-                    years_counter[y] += 1
+                all_grupos = list(app.grupo_crud.list_all())
             except Exception:
-                pass
+                all_grupos = []
+
+        # 2. Obtención de investigadores
+        all_investigadores = []
+        try:
+            curr_g = app.multilista.head_group
+            while curr_g is not None:
+                curr_i = curr_g.sublist
+                while curr_i is not None:
+                    all_investigadores.append(curr_i.data)
+                    curr_i = curr_i.next
+                curr_g = curr_g.next
+        except Exception:
+            try:
+                all_investigadores = list(app.inv_crud.list_all())
+            except Exception:
+                all_investigadores = []
+
+        # 3. Obtención de productos
+        all_productos = []
+        try:
+            curr_g = app.multilista.head_group
+            while curr_g is not None:
+                curr_i = curr_g.sublist
+                while curr_i is not None:
+                    curr_p = curr_i.sublist
+                    while curr_p is not None:
+                        all_productos.append(curr_p.data)
+                        curr_p = curr_p.next
+                    curr_i = curr_i.next
+                curr_g = curr_g.next
+        except Exception:
+            try:
+                all_productos = list(app.prod_crud.list_all())
+            except Exception:
+                all_productos = []
+
+        # 4. Cálculos para StatCards
+        total_g = len(all_grupos)
+        act_g = sum(1 for g in all_grupos if getattr(g, 'activo', getattr(g, 'active', True)))
+        var_g = f"{act_g} activos" if total_g > 0 else "Sin registros"
+
+        total_i = len(all_investigadores)
+        act_i = sum(1 for i in all_investigadores if getattr(i, 'activo', getattr(i, 'active', True)))
+        var_i = f"{act_i} activos" if total_i > 0 else "Sin registros"
+
+        total_p = len(all_productos)
+        act_p = sum(1 for p in all_productos if getattr(p, 'validado', getattr(p, 'active', True)))
+        var_p = f"{act_p} validados" if total_p > 0 else "Sin registros"
+
+        self.card_grupos.set_value(str(total_g), variation=var_g)
+        self.card_investigadores.set_value(str(total_i), variation=var_i)
+        self.card_productos.set_value(str(total_p), variation=var_p)
+
+        # 5. Gráfico 1: Productos por año (solo activos)
+        years_counter = Counter()
+        for p in all_productos:
+            if getattr(p, 'validado', getattr(p, 'active', True)):
+                try:
+                    y = int(getattr(p, 'anio', 0) or getattr(p, 'year', 0))
+                    if y > 1900:
+                        years_counter[y] += 1
+                except Exception:
+                    pass
 
         if years_counter:
             sorted_years = sorted(years_counter.keys())
@@ -208,12 +249,13 @@ class EstadisticasTab(ctk.CTkFrame):
             color=CHART_COLORS[0],
         )
 
-        # 4. Gráfico 2: Productos por tipo
+        # 6. Gráfico 2: Productos por tipo
         types_counter = Counter()
-        for p in productos:
-            t = getattr(p, 'tipo', '') or getattr(p, 'type', '')
-            if t:
-                types_counter[str(t).strip()] += 1
+        for p in all_productos:
+            if getattr(p, 'validado', getattr(p, 'active', True)):
+                t = getattr(p, 'tipo', '') or getattr(p, 'type', '')
+                if t:
+                    types_counter[str(t).strip()] += 1
 
         if types_counter:
             chart2_labels = list(types_counter.keys())
@@ -228,24 +270,25 @@ class EstadisticasTab(ctk.CTkFrame):
             color=CHART_COLORS[1],
         )
 
-        # 5. Gráfico 3: Investigadores por grupo
+        # 7. Gráfico 3: Investigadores por grupo
         group_names: Dict[int, str] = {}
-        for g in grupos:
+        for g in all_grupos:
             gid = getattr(g, 'id', None)
             gcode = getattr(g, 'codigo_gruplac', '') or getattr(g, 'code', '') or getattr(g, 'nombre', f"G{gid}")
             if gid is not None:
                 group_names[gid] = str(gcode)
 
         inv_group_counter = Counter()
-        for i in investigadores:
-            gid = getattr(i, 'grupo_id', getattr(i, 'group', None))
-            if gid is not None:
-                try:
-                    gid_int = int(gid)
-                    label = group_names.get(gid_int, f"Grupo {gid_int}")
-                except ValueError:
-                    label = str(gid)
-                inv_group_counter[label] += 1
+        for i in all_investigadores:
+            if getattr(i, 'activo', getattr(i, 'active', True)):
+                gid = getattr(i, 'grupo_id', getattr(i, 'group', None))
+                if gid is not None:
+                    try:
+                        gid_int = int(gid)
+                        label = group_names.get(gid_int, f"Grupo {gid_int}")
+                    except ValueError:
+                        label = str(gid)
+                    inv_group_counter[label] += 1
 
         if inv_group_counter:
             chart3_labels = list(inv_group_counter.keys())

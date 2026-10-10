@@ -8,11 +8,11 @@ import customtkinter as ctk
 
 from gui.styles import (
     COLORS,
-    RADIUS,
     SPACING,
     font,
     button,
     entry,
+    option_menu,
 )
 from gui.widgets.data_table import DataTable
 from gui.forms.producto_form import ProductoForm
@@ -78,44 +78,35 @@ class ProductosTab(ctk.CTkFrame):
 
         self.search_entry = entry(
             self.left_tools,
-            placeholder_text="Buscar producto...",
+            placeholder_text="Buscar producto o tipo...",
             width=220,
         )
         self.search_entry.pack(side='left', padx=(0, SPACING['sm']))
         self.search_entry.bind('<KeyRelease>', lambda e: self._apply_filters())
 
-        # Selector de filtro por año
+        # Selector de filtro por año con chevron y dimensiones consistentes
         self.filter_var = ctk.StringVar(value="Todos")
-        self.filter_menu = ctk.CTkOptionMenu(
+        self.filter_menu = option_menu(
             self.left_tools,
             values=["Todos", "Últimos 2 años", "Últimos 5 años", "Personalizado"],
             variable=self.filter_var,
             command=self._on_filter_option_changed,
-            font=font('body'),
-            dropdown_font=font('body'),
-            corner_radius=RADIUS['control'],
-            fg_color=COLORS['surface'],
-            button_color=COLORS['border'],
-            button_hover_color=COLORS['muted'],
-            text_color=COLORS['ink'],
-            dropdown_fg_color=COLORS['surface'],
-            dropdown_text_color=COLORS['ink'],
-            width=140,
-            height=36,
+            width=150,
         )
         self.filter_menu.pack(side='left', padx=(0, SPACING['sm']))
 
-        # Entradas numéricas para rango personalizado
-        self.from_entry = entry(self.left_tools, placeholder_text="Desde", width=65)
-        self.to_entry = entry(self.left_tools, placeholder_text="Hasta", width=65)
+        # Entradas numéricas para rango personalizado con ancho adecuado y placeholder claro
+        self.from_entry = entry(self.left_tools, placeholder_text="Año desde", width=95)
+        self.to_entry = entry(self.left_tools, placeholder_text="Año hasta", width=95)
         self.btn_apply_range = button(
             self.left_tools,
-            text="Filtrar",
+            text="Aplicar",
             variant='secondary',
             command=self._apply_filters,
         )
 
-        # Acciones principales a la derecha
+        # Acciones principales a la derecha ordenadas por jerarquía
+        # Primario
         self.btn_create = button(
             self.toolbar,
             text="Crear producto",
@@ -124,14 +115,16 @@ class ProductosTab(ctk.CTkFrame):
         )
         self.btn_create.pack(side='right', padx=(SPACING['sm'], 0))
 
+        # Terciario (Actualizar con texto limpio)
         self.btn_refresh = button(
             self.toolbar,
             text="Actualizar",
-            variant='ghost',
+            variant='tertiary',
             command=self.refresh,
         )
         self.btn_refresh.pack(side='right', padx=(SPACING['sm'], 0))
 
+        # Destructivo (Rojo suave)
         self.btn_delete = button(
             self.toolbar,
             text="Eliminar",
@@ -141,6 +134,7 @@ class ProductosTab(ctk.CTkFrame):
         )
         self.btn_delete.pack(side='right', padx=(SPACING['sm'], 0))
 
+        # Secundarios con borde
         self.btn_activate = button(
             self.toolbar,
             text="Activar",
@@ -168,21 +162,25 @@ class ProductosTab(ctk.CTkFrame):
         )
         self.btn_edit.pack(side='right', padx=(SPACING['sm'], 0))
 
-        # --- 3. Tabla dentro de tarjeta ---
+        # --- 3. Tabla dentro de tarjeta con estado vacío sugerido ---
         columns = [
             ('id', 'ID', 60, 'center'),
             ('title', 'Título de la producción', 320, 'w'),
-            ('type', 'Tipo', 120, 'center'),
+            ('type', 'Tipo de producto', 130, 'center'),
             ('year', 'Año', 80, 'center'),
             ('group', 'Grupo ID', 80, 'center'),
-            ('active', 'Estado', 100, 'center'),
+            ('active', 'Estado', 110, 'center'),
         ]
         self.table = DataTable(
             self,
             columns=columns,
             on_select=self._on_row_select,
             on_double_click=self._on_row_double_click,
-            empty_text="No hay productos para mostrar",
+            empty_icon="",
+            empty_title="No se encontraron productos académicos",
+            empty_message="Aplica otros filtros de búsqueda o importa producción científica desde MinCiencias.",
+            empty_action_text="Restablecer filtros",
+            empty_action_command=self._reset_filters,
         )
         self.table.grid(
             row=2,
@@ -212,6 +210,13 @@ class ProductosTab(ctk.CTkFrame):
         self.count_label.pack(side='left')
 
         self.load_data()
+
+    def _reset_filters(self):
+        """Restablece los filtros de búsqueda y selector de año a su valor por defecto."""
+        self.search_entry.delete(0, 'end')
+        self.filter_var.set("Todos")
+        self._on_filter_option_changed("Todos")
+        self._apply_filters()
 
     def get_app(self):
         """Resuelve dinámicamente la instancia principal de App en la jerarquía."""
@@ -256,7 +261,7 @@ class ProductosTab(ctk.CTkFrame):
         self._update_selection_buttons(None)
 
     def _on_filter_option_changed(self, choice: str):
-        """Gestiona la visibilidad de los campos de rango personalizado."""
+        """Gestiona la visibilidad de los campos de rango personalizado de año."""
         if choice == "Personalizado":
             self.from_entry.pack(side='left', padx=(0, SPACING['xs']))
             self.to_entry.pack(side='left', padx=(0, SPACING['xs']))
@@ -316,14 +321,14 @@ class ProductosTab(ctk.CTkFrame):
         self._render_rows(filtered)
 
     def _render_rows(self, productos: List):
-        """Inserta los registros filtrados en el DataTable."""
+        """Inserta los registros filtrados en el DataTable con badges de color."""
         self.table.clear()
         for p in productos:
             pid = getattr(p, 'id', None)
             title = getattr(p, 'titulo', '') or getattr(p, 'title', '')
             ptype = getattr(p, 'tipo', '') or getattr(p, 'type', '')
-            year = getattr(p, 'anio', 0) or getattr(p, 'year', 0)
-            group_id = getattr(p, 'grupo_id', getattr(p, 'group', ''))
+            year = getattr(p, 'anio', '') or getattr(p, 'year', '')
+            gid = getattr(p, 'grupo_id', getattr(p, 'group', ''))
             active = getattr(p, 'validado', getattr(p, 'active', True))
             status_text = "Activo" if active else "Inactivo"
 
@@ -331,8 +336,8 @@ class ProductosTab(ctk.CTkFrame):
                 str(pid) if pid is not None else '',
                 str(title),
                 str(ptype),
-                str(year) if year else '',
-                str(group_id) if group_id is not None else '',
+                str(year),
+                str(gid) if gid is not None else '',
                 status_text,
             )
             self.table.insert_row(values, iid=str(pid), is_active=bool(active))
@@ -341,160 +346,154 @@ class ProductosTab(ctk.CTkFrame):
         suffix = "producto" if total == 1 else "productos"
         self.count_label.configure(text=f"{total} {suffix}")
 
-    def _on_row_select(self, item_id: Optional[str], values):
-        """Callback al seleccionar o deseleccionar una fila."""
+    def _on_row_select(self, item_id: Optional[str], values: Optional[tuple]):
+        """Actualiza el estado de los botones cuando se selecciona o deselecciona una fila."""
+        self._update_selection_buttons(item_id)
+
+    def _on_row_double_click(self, item_id: str, values: tuple):
+        """Abre directamente la edición al hacer doble clic en una fila."""
+        self._update_selection_buttons(item_id)
+        self.edit()
+
+    def _update_selection_buttons(self, item_id: Optional[str]):
+        """Habilita o deshabilita los botones según la selección actual."""
         if item_id:
             try:
                 self._selected_id = int(item_id)
             except ValueError:
-                self._selected_id = item_id
+                self._selected_id = None
+            state = 'normal'
         else:
             self._selected_id = None
-        self._update_selection_buttons(self._selected_id)
+            state = 'disabled'
 
-    def _on_row_double_click(self, item_id: str, values):
-        """Abre la ventana de edición al hacer doble clic."""
-        if item_id:
-            try:
-                self._selected_id = int(item_id)
-            except ValueError:
-                self._selected_id = item_id
-            self.edit()
-
-    def _update_selection_buttons(self, selected_id):
-        """Habilita o deshabilita botones según la selección activa."""
-        state = 'normal' if selected_id is not None else 'disabled'
         self.btn_edit.configure(state=state)
-        self.btn_deactivate.configure(state=state)
-        self.btn_activate.configure(state=state)
         self.btn_delete.configure(state=state)
+        self.btn_activate.configure(state=state)
+        self.btn_deactivate.configure(state=state)
 
     def create(self):
         """Abre el formulario modal para registrar un nuevo producto."""
-        form = ProductoForm(self)
-        self.wait_window(form)
-        if form.result:
-            app = self.get_app()
-            if app:
-                data = form.result
-                all_raw = self._get_all_raw_productos()
-                max_id = max([getattr(p, 'id', 0) for p in all_raw if isinstance(getattr(p, 'id', None), int)] + [0])
-                new_id = max_id + 1
+        app = self.get_app()
+        form = ProductoForm(self, app=app, on_save=self._on_save_create)
+        form.grab_set()
 
-                try:
-                    anio = int(data.get('year') or data.get('anio') or 0)
-                except ValueError:
-                    anio = 0
-
-                grupo_val = data.get('group') or data.get('grupo_id')
-                try:
-                    grupo_id = int(grupo_val) if grupo_val is not None and str(grupo_val).strip() else None
-                except ValueError:
-                    grupo_id = None
-
-                producto = Producto(
-                    id=new_id,
-                    titulo=data.get('title') or data.get('titulo', ''),
-                    tipo=data.get('type') or data.get('tipo', ''),
-                    categoria='',
-                    validado=data.get('active', True),
-                    anio=anio,
-                    investigador_id=None,
-                    grupo_id=grupo_id,
-                )
-                success = app.prod_crud.create(producto)
-                if success:
-                    app.save_data()
-                    self.load_data()
-                else:
-                    messagebox.showerror("Error", "No se pudo registrar el producto.")
+    def _on_save_create(self, data: dict):
+        """Persiste el nuevo producto mediante el CRUD."""
+        app = self.get_app()
+        if not app:
+            return
+        try:
+            nuevo = Producto(
+                titulo=data.get('titulo') or data.get('title', ''),
+                tipo=data.get('tipo') or data.get('type', ''),
+                categoria=data.get('categoria', ''),
+                validado=data.get('validado', data.get('active', True)),
+                anio=int(data.get('anio') or data.get('year') or 0),
+                investigador_id=data.get('investigador_id'),
+                grupo_id=data.get('grupo_id') or data.get('group'),
+            )
+            app.prod_crud.create(nuevo)
+            app.save_data()
+            self.load_data()
+            if hasattr(app, 'load_tabs_data'):
+                app.load_tabs_data()
+            messagebox.showinfo("Éxito", "Producto registrado correctamente.")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo registrar el producto: {e}")
 
     def edit(self):
-        """Abre el formulario modal para editar el producto seleccionado."""
+        """Abre el formulario para editar el producto seleccionado."""
         if self._selected_id is None:
             return
         app = self.get_app()
         if not app:
             return
 
-        prod = app.prod_crud.get_by_id(self._selected_id)
+        prod = app.prod_crud.read(self._selected_id)
         if not prod:
-            for p in self._all_productos:
-                if getattr(p, 'id', None) == self._selected_id:
-                    prod = p
+            for item in self._all_productos:
+                if getattr(item, 'id', None) == self._selected_id:
+                    prod = item
                     break
+
         if not prod:
-            messagebox.showwarning("Aviso", "No se encontró el producto seleccionado.")
+            messagebox.showerror("Error", "No se encontró el producto seleccionado.")
             return
 
-        form_data = {
-            'title': getattr(prod, 'titulo', '') or getattr(prod, 'title', ''),
-            'type': getattr(prod, 'tipo', '') or getattr(prod, 'type', ''),
-            'year': str(getattr(prod, 'anio', 0) or getattr(prod, 'year', '')),
-            'group': str(getattr(prod, 'grupo_id', '') or getattr(prod, 'group', '')),
-            'active': getattr(prod, 'validado', getattr(prod, 'active', True)),
-        }
-        form = ProductoForm(self, data=form_data)
-        self.wait_window(form)
-        if form.result:
-            data = form.result
-            try:
-                anio = int(data.get('year') or data.get('anio') or 0)
-            except ValueError:
-                anio = 0
+        form = ProductoForm(self, app=app, producto=prod, on_save=self._on_save_edit)
+        form.grab_set()
 
-            grupo_val = data.get('group') or data.get('grupo_id')
-            try:
-                grupo_id = int(grupo_val) if grupo_val is not None and str(grupo_val).strip() else None
-            except ValueError:
-                grupo_id = None
-
-            update_fields = {
-                'titulo': data.get('title') or data.get('titulo', ''),
-                'tipo': data.get('type') or data.get('tipo', ''),
-                'anio': anio,
-                'grupo_id': grupo_id,
-                'validado': data.get('active', True),
-            }
-            app.prod_crud.update(self._selected_id, **update_fields)
-            app.save_data()
-            self.load_data()
-
-    def deactivate(self):
-        """Desactiva el producto seleccionado."""
-        if self._selected_id is None:
-            return
+    def _on_save_edit(self, data: dict):
+        """Aplica y guarda los cambios del producto en edición."""
         app = self.get_app()
-        if app:
-            app.prod_crud.deactivate(self._selected_id)
-            app.save_data()
-            self.load_data()
-
-    def activate(self):
-        """Activa el producto seleccionado."""
-        if self._selected_id is None:
+        if not app or self._selected_id is None:
             return
-        app = self.get_app()
-        if app:
-            app.prod_crud.activate(self._selected_id)
+        try:
+            app.prod_crud.update(self._selected_id, **data)
             app.save_data()
             self.load_data()
+            if hasattr(app, 'load_tabs_data'):
+                app.load_tabs_data()
+            messagebox.showinfo("Éxito", "Producto actualizado correctamente.")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo actualizar el producto: {e}")
 
     def delete(self):
         """Elimina físicamente el producto seleccionado tras confirmación."""
         if self._selected_id is None:
             return
-        confirm = messagebox.askyesno(
+        app = self.get_app()
+        if not app:
+            return
+
+        confirma = messagebox.askyesno(
             "Confirmar eliminación",
-            "¿Está seguro de que desea eliminar permanentemente este producto?",
+            f"¿Está seguro de eliminar el producto con ID {self._selected_id}?\n\nEsta acción no se puede deshacer.",
         )
-        if confirm:
-            app = self.get_app()
-            if app:
-                app.prod_crud.delete(self._selected_id)
+        if not confirma:
+            return
+
+        try:
+            res = app.prod_crud.delete(self._selected_id)
+            if res:
                 app.save_data()
                 self.load_data()
+                if hasattr(app, 'load_tabs_data'):
+                    app.load_tabs_data()
+                messagebox.showinfo("Éxito", "Producto eliminado correctamente.")
+            else:
+                messagebox.showerror("Error", "No se pudo eliminar el producto.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al eliminar: {e}")
+
+    def activate(self):
+        """Marca como activo/validado el producto seleccionado."""
+        self._set_active_status(True)
+
+    def deactivate(self):
+        """Marca como inactivo el producto seleccionado."""
+        self._set_active_status(False)
+
+    def _set_active_status(self, is_active: bool):
+        """Actualiza el estado de activación en la capa de datos."""
+        if self._selected_id is None:
+            return
+        app = self.get_app()
+        if not app:
+            return
+        try:
+            if is_active:
+                app.prod_crud.activate(self._selected_id)
+            else:
+                app.prod_crud.deactivate(self._selected_id)
+            app.save_data()
+            self.load_data()
+            if hasattr(app, 'load_tabs_data'):
+                app.load_tabs_data()
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al cambiar estado: {e}")
 
     def refresh(self):
-        """Actualiza los datos de la tabla."""
+        """Actualiza manualmente la información del listado."""
         self.load_data()

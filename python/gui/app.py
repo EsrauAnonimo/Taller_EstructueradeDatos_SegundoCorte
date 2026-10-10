@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Ventana principal con CustomTkinter."""
+"""Ventana principal de la aplicación PEA-i."""
 
 import sys
 from pathlib import Path
@@ -9,6 +9,9 @@ from tkinter import messagebox, filedialog, simpledialog
 import customtkinter as ctk
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+# URL oficial de MinCiencias por defecto para descarga directa en un clic
+DEFAULT_SCIENTI_URL = "https://scienti.minciencias.gov.co/gruplac/jsp/visualiza/visualizagr.jsp?nro=00000000002099"
 
 from persistencia.persistencia_json import PersistenciaJSON
 from modelos.multilista import Multilist
@@ -24,6 +27,7 @@ from gui.tabs.productos_tab import ProductosTab
 from gui.tabs.estadisticas_tab import EstadisticasTab
 from gui.styles import (
     COLORS,
+    RADIUS,
     SPACING,
     font,
     setup_app,
@@ -38,7 +42,7 @@ class App(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        # Configuración del sistema de diseño (modo claro, estilos ttk, matplotlib)
+        # Configuración del sistema de diseño
         setup_app(self)
 
         self.title("PEA-i - Programa Estadístico de Análisis de Investigación")
@@ -54,13 +58,16 @@ class App(ctk.CTk):
 
         self.init_persistence()
 
-        # Contenedor de pestañas con estilo pill moderno
+        # Menú superior nativo del sistema (tkinter.Menu)
+        self.create_menu()
+
+        # Contenedor de pestañas
         self.tabview = ctk.CTkTabview(self)
         self.tabview.pack(
             fill='both',
             expand=True,
             padx=SPACING['md'],
-            pady=(SPACING['sm'], 0),
+            pady=(SPACING['xs'], 0),
         )
         style_tabview(self.tabview)
 
@@ -70,7 +77,7 @@ class App(ctk.CTk):
         self.productos_tab = ProductosTab(self.tabview.add("Productos"), app=self)
         self.estadisticas_tab = EstadisticasTab(self.tabview.add("Estadísticas"), app=self)
 
-        # Barra de estado discreta (borde superior de 1 px y texto small/muted)
+        # Barra de estado discreta inferior
         self.status_border = ctk.CTkFrame(
             self,
             height=1,
@@ -89,7 +96,7 @@ class App(ctk.CTk):
 
         self.status_label = ctk.CTkLabel(
             self.status_bar,
-            text="Persistencia: JSON",
+            text="Usando persistencia: JSON",
             font=font('small'),
             text_color=COLORS['muted'],
             anchor='w',
@@ -97,7 +104,6 @@ class App(ctk.CTk):
         self.status_label.pack(side='left', padx=SPACING['md'], pady=(2, 2))
         self.update_status()
 
-        self.create_menu()
         self.load_data()
 
     def init_persistence(self):
@@ -105,18 +111,18 @@ class App(ctk.CTk):
         datos_path = Path(__file__).resolve().parent.parent / 'datos' / 'datos.json'
         self.persistencia = PersistenciaJSON(filepath=str(datos_path))
 
-    def update_status(self):
-        """Actualiza el texto descriptivo de la barra de estado inferior."""
-        text = "Persistencia: JSON"
+    def update_status(self, text: str = "Usando persistencia: JSON"):
+        """Actualiza el texto de la barra de estado inferior."""
         try:
             self.status_label.configure(text=text)
         except Exception:
             pass
 
     def create_menu(self):
-        """Menú nativo superior del sistema."""
+        """Configura la barra de menú superior con tkinter.Menu."""
         menubar = tk.Menu(self)
 
+        # Menú Archivo
         file_menu = tk.Menu(menubar, tearoff=0)
         file_menu.add_command(label="Cargar datos", command=self.load_data)
         file_menu.add_command(label="Guardar datos", command=self.save_data)
@@ -124,16 +130,246 @@ class App(ctk.CTk):
         file_menu.add_command(label="Salir", command=self.quit)
         menubar.add_cascade(label="Archivo", menu=file_menu)
 
+        # Menú Datos con opciones de descarga híbrida
         data_menu = tk.Menu(menubar, tearoff=0)
-        data_menu.add_command(label="Descargar del SCIENTI", command=self.download_scienti)
+        data_menu.add_command(
+            label="Descargar del SCIENTI",
+            command=lambda: self.download_from_url(DEFAULT_SCIENTI_URL),
+        )
+        data_menu.add_command(
+            label="Descargar de otra URL...",
+            command=self.download_from_custom_url,
+        )
+        data_menu.add_separator()
         data_menu.add_command(label="Cargar desde CSV", command=self.load_csv)
         menubar.add_cascade(label="Datos", menu=data_menu)
 
+        # Menú Ayuda
         help_menu = tk.Menu(menubar, tearoff=0)
         help_menu.add_command(label="Acerca de", command=self.about)
         menubar.add_cascade(label="Ayuda", menu=help_menu)
 
         self.configure(menu=menubar)
+        self.menubar = menubar
+        self.data_menu = data_menu
+        self.file_menu = file_menu
+        self.help_menu = help_menu
+
+    def download_from_custom_url(self):
+        """Solicita una URL personalizada mediante diálogo y ejecuta la descarga."""
+        url = simpledialog.askstring(
+            "Descargar de otra URL",
+            "Ingrese la URL del grupo en SCIENTI / GrupLAC:",
+            initialvalue="",
+            parent=self,
+        )
+        if url:
+            self.download_from_url(url.strip())
+
+    def download_from_url(self, url: str):
+        """Descarga e integra la información de un grupo desde la URL especificada."""
+        if not url or not (url.startswith("http://") or url.startswith("https://")):
+            messagebox.showerror("Error", "URL inválida")
+            return
+
+        if url == DEFAULT_SCIENTI_URL:
+            self.update_status("Descargando desde SCIENTI...")
+        else:
+            self.update_status(f"Descargando desde {url}...")
+        self.update()
+
+        try:
+            datos = scienti.download_group(url)
+        except Exception as e:
+            datos = {"error": f"Error de conexión: {e}"}
+
+        if not datos or (isinstance(datos, dict) and "error" in datos):
+            error_msg = datos.get("error", "Error al descargar.") if isinstance(datos, dict) else "Error al descargar."
+            self.update_status("Error al descargar. Ofreciendo CSV...")
+            messagebox.showerror("Error", error_msg)
+            if messagebox.askyesno("Cargar CSV", "¿Desea cargar los datos desde un archivo CSV?"):
+                path = filedialog.askopenfilename(
+                    filetypes=[("Archivos CSV", "*.csv"), ("Todos los archivos", "*.*")],
+                    title="Seleccionar archivo CSV",
+                )
+                if path:
+                    self.load_from_csv(path)
+            return
+
+        try:
+            # Inserción de entidades mediante la capa CRUD
+            grupo_obj = None
+            if isinstance(datos, dict) and "grupos" in datos:
+                new_multilist = PersistenciaJSON.to_multilist(datos)
+                if new_multilist and not new_multilist.is_empty():
+                    self.multilista = new_multilist
+                    self.grupo_crud = GrupoCRUD(self.multilista)
+                    self.inv_crud = InvestigadorCRUD(self.multilista)
+                    self.prod_crud = ProductoCRUD(self.multilista)
+            elif isinstance(datos, dict):
+                # 1. Insertar Grupo
+                grupo_raw = datos.get("grupo")
+                if isinstance(grupo_raw, dict):
+                    gid = grupo_raw.get("id") or grupo_raw.get("codigo_gruplac") or f"GRP-{len(self.grupo_crud.list_all()) + 1}"
+                    codigo_g = grupo_raw.get("codigo_gruplac") or str(gid)
+                    existing = self.grupo_crud.get_by_id(gid)
+                    if not existing and codigo_g:
+                        existing = self.grupo_crud.get_by_code(codigo_g)
+                    if not existing:
+                        grupo_obj = Grupo(
+                            id=gid,
+                            codigo_gruplac=codigo_g,
+                            nombre=grupo_raw.get("nombre") or grupo_raw.get("name") or "Grupo SCIENTI",
+                            categoria=grupo_raw.get("categoria", ""),
+                            lider=grupo_raw.get("lider", ""),
+                            activo=True,
+                            fecha_creacion=grupo_raw.get("fecha_creacion", ""),
+                        )
+                        self.grupo_crud.create(grupo_obj)
+                    else:
+                        grupo_obj = existing
+                        gid = getattr(existing, 'id', gid)
+                elif isinstance(grupo_raw, Grupo):
+                    grupo_obj = grupo_raw
+                    gid = grupo_obj.id
+                    if not self.grupo_crud.get_by_id(gid):
+                        self.grupo_crud.create(grupo_obj)
+                else:
+                    gid = 1
+
+                # 2. Insertar Investigadores
+                inv_list = datos.get("investigadores", [])
+                primary_cedula = None
+                for inv_raw in inv_list:
+                    if isinstance(inv_raw, dict):
+                        ced = str(inv_raw.get("cedula") or inv_raw.get("id") or "")
+                        if not ced:
+                            ced = f"INV-{len(self.inv_crud.list_all()) + 1}"
+                        inv_obj = Investigador(
+                            id=inv_raw.get("id"),
+                            cedula=ced,
+                            nombres=inv_raw.get("nombres") or inv_raw.get("nombre", ""),
+                            apellidos=inv_raw.get("apellidos", ""),
+                            email=inv_raw.get("email", ""),
+                            activo=inv_raw.get("activo", True),
+                            grupo_id=gid,
+                        )
+                    elif isinstance(inv_raw, Investigador):
+                        inv_obj = inv_raw
+                        if not inv_obj.grupo_id:
+                            inv_obj.grupo_id = gid
+                    else:
+                        continue
+
+                    if not primary_cedula:
+                        primary_cedula = getattr(inv_obj, 'cedula', None)
+                    if not self.inv_crud.get_by_cedula(inv_obj.cedula):
+                        self.inv_crud.create(inv_obj)
+
+                # Si no había investigadores pero hay productos, asegurar un investigador receptor
+                prod_list = datos.get("productos", [])
+                if not primary_cedula and prod_list:
+                    existing_invs = self.inv_crud.list_by_group(gid)
+                    if existing_invs:
+                        primary_cedula = getattr(existing_invs[0], 'cedula', None)
+                    else:
+                        fallback_inv = Investigador(
+                            cedula=f"INV-{gid}",
+                            nombres=getattr(grupo_obj, 'lider', 'Investigador Principal') or 'Investigador Principal',
+                            grupo_id=gid,
+                            activo=True,
+                        )
+                        self.inv_crud.create(fallback_inv)
+                        primary_cedula = fallback_inv.cedula
+
+                # 3. Insertar Productos
+                for p_raw in prod_list:
+                    if isinstance(p_raw, dict):
+                        p_ced = p_raw.get("investigador_cedula") or p_raw.get("investigador_id") or p_raw.get("cedula") or primary_cedula
+                        p_obj = Producto(
+                            id=p_raw.get("id"),
+                            titulo=p_raw.get("titulo") or p_raw.get("title", ""),
+                            tipo=p_raw.get("tipo") or p_raw.get("type", ""),
+                            categoria=p_raw.get("categoria", ""),
+                            validado=p_raw.get("validado", p_raw.get("active", True)),
+                            anio=int(p_raw.get("anio") or p_raw.get("year") or 0),
+                            investigador_id=p_ced,
+                            grupo_id=gid,
+                            raw=p_raw.get("raw"),
+                        )
+                    elif isinstance(p_raw, Producto):
+                        p_obj = p_raw
+                        if not getattr(p_obj, 'investigador_id', None):
+                            p_obj.investigador_id = primary_cedula
+                        if not getattr(p_obj, 'grupo_id', None):
+                            p_obj.grupo_id = gid
+                    else:
+                        continue
+                    self.prod_crud.create(p_obj)
+
+            self.save_data(silent=True)
+            self.load_tabs_data()
+
+            # Obtención de nombres y conteos para la notificación
+            nombre_grupo = ""
+            if grupo_obj:
+                nombre_grupo = getattr(grupo_obj, 'nombre', '')
+            if not nombre_grupo:
+                todos_grupos = self.grupo_crud.list_all()
+                if todos_grupos:
+                    g0 = todos_grupos[0]
+                    nombre_grupo = getattr(g0, 'nombre', '') or getattr(g0, 'name', '') or str(getattr(g0, 'id', ''))
+                elif isinstance(datos, dict) and "grupo" in datos and isinstance(datos["grupo"], dict):
+                    nombre_grupo = datos["grupo"].get("nombre", datos["grupo"].get("name", ""))
+
+            num_inv = len(self.inv_crud.list_all())
+            num_prod = len(self.prod_crud.list_all())
+
+            messagebox.showinfo(
+                "Éxito",
+                f"Grupo descargado: {nombre_grupo}. Investigadores: {num_inv}. Productos: {num_prod}.",
+            )
+            self.update_status("Descarga completada.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al procesar los datos descargados: {e}")
+
+    def download_scienti(self):
+        """Descarga directa del SCIENTI con la URL por defecto."""
+        self.download_from_url(DEFAULT_SCIENTI_URL)
+
+    def load_from_csv(self, path: str = None):
+        """Carga datos de grupos, investigadores y productos desde un archivo CSV."""
+        try:
+            if not path:
+                path = filedialog.askopenfilename(
+                    filetypes=[("Archivos CSV", "*.csv"), ("Todos los archivos", "*.*")],
+                    title="Seleccionar archivo CSV",
+                )
+            if not path:
+                return
+
+            datos = scienti.download_from_csv(path)
+            if not datos or (isinstance(datos, dict) and "error" in datos):
+                messagebox.showerror("Error", "No se pudo procesar el archivo CSV")
+                return
+
+            new_multilist = PersistenciaJSON.to_multilist(datos)
+            if new_multilist and not new_multilist.is_empty():
+                self.multilista = new_multilist
+                self.grupo_crud = GrupoCRUD(self.multilista)
+                self.inv_crud = InvestigadorCRUD(self.multilista)
+                self.prod_crud = ProductoCRUD(self.multilista)
+
+            self.save_data(silent=True)
+            self.load_tabs_data()
+            messagebox.showinfo("Éxito", "Datos cargados correctamente desde CSV.")
+            self.update_status("Descarga completada.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al cargar el archivo CSV: {e}")
+
+    def load_csv(self, path: str = None):
+        """Alias para load_from_csv."""
+        self.load_from_csv(path)
 
     def load_tabs_data(self):
         """Refresca la información visible en cada una de las pestañas."""
@@ -159,11 +395,9 @@ class App(ctk.CTk):
         try:
             datos = self.persistencia.load()
             if isinstance(datos, dict):
-                # Caso 1: Formato estructurado nativo de PersistenciaJSON / Multilist
                 if 'grupos' in datos and datos['grupos'] and isinstance(datos['grupos'][0], dict) and 'grupo' in datos['grupos'][0]:
                     self.multilista = PersistenciaJSON.to_multilist(datos)
                 else:
-                    # Caso 2: Formato de carga plana
                     self.multilista = Multilist()
                     self.grupo_crud = GrupoCRUD(self.multilista)
                     self.inv_crud = InvestigadorCRUD(self.multilista)
@@ -245,13 +479,13 @@ class App(ctk.CTk):
 
         self.load_tabs_data()
 
-    def save_data(self):
+    def save_data(self, silent: bool = False):
         """Guarda la estructura actual en la capa de persistencia activa."""
         try:
             self.persistencia.save(self.multilista)
-            messagebox.showinfo("Guardar", "Datos guardados correctamente")
+            if not silent:
+                messagebox.showinfo("Guardar", "Datos guardados correctamente")
         except Exception:
-            # Fallback en caso de que persistencia espere un diccionario plano
             try:
                 datos = {
                     'grupos': [g.to_dict() if hasattr(g, 'to_dict') else g.__dict__ for g in self.grupo_crud.list_all()],
@@ -259,57 +493,11 @@ class App(ctk.CTk):
                     'productos': [p.to_dict() if hasattr(p, 'to_dict') else p.__dict__ for p in self.prod_crud.list_all()],
                 }
                 self.persistencia.save(datos)
-                messagebox.showinfo("Guardar", "Datos guardados correctamente")
+                if not silent:
+                    messagebox.showinfo("Guardar", "Datos guardados correctamente")
             except Exception as ex:
-                messagebox.showerror("Error", f"No se pudo guardar la información: {ex}")
-
-    def download_scienti(self):
-        """Descarga información de un grupo desde la plataforma SCIENTI."""
-        try:
-            url = simpledialog.askstring("SCIENTI", "Ingrese la URL del grupo:", initialvalue="")
-            if not url:
-                return
-            datos = scienti.download_group(url)
-            if not datos or "error" in datos:
-                raise Exception("Sin datos o error de conexión")
-
-            new_multilist = PersistenciaJSON.to_multilist(datos)
-            if new_multilist and not new_multilist.is_empty():
-                self.multilista = new_multilist
-                self.grupo_crud = GrupoCRUD(self.multilista)
-                self.inv_crud = InvestigadorCRUD(self.multilista)
-                self.prod_crud = ProductoCRUD(self.multilista)
-
-            self.save_data()
-            self.load_tabs_data()
-            messagebox.showinfo("Éxito", "Datos descargados y guardados")
-        except Exception:
-            if messagebox.askyesno("Error", "No se pudo descargar de SCIENTI. ¿Desea cargar desde archivo CSV?"):
-                self.load_csv()
-
-    def load_csv(self):
-        """Carga datos de grupos, investigadores y productos desde un archivo CSV."""
-        try:
-            path = filedialog.askopenfilename(filetypes=[("CSV", "*.csv"), ("Todos", "*.*")])
-            if not path:
-                return
-            datos = scienti.download_from_csv(path)
-            if not datos or "error" in datos:
-                messagebox.showerror("Error", "No se pudo procesar el archivo CSV")
-                return
-
-            new_multilist = PersistenciaJSON.to_multilist(datos)
-            if new_multilist and not new_multilist.is_empty():
-                self.multilista = new_multilist
-                self.grupo_crud = GrupoCRUD(self.multilista)
-                self.inv_crud = InvestigadorCRUD(self.multilista)
-                self.prod_crud = ProductoCRUD(self.multilista)
-
-            self.save_data()
-            self.load_tabs_data()
-            messagebox.showinfo("Éxito", "Datos cargados correctamente desde CSV")
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al cargar el archivo CSV: {e}")
+                if not silent:
+                    messagebox.showerror("Error", f"No se pudo guardar la información: {ex}")
 
     def about(self):
         """Muestra ventana modal con información sobre la aplicación."""
@@ -319,6 +507,9 @@ class App(ctk.CTk):
             "Taller de Estructura de Datos - Segundo Corte\n"
             "Diseñado con CustomTkinter y arquitectura de Multilistas.",
         )
+
+
+MainWindow = App
 
 
 def main():

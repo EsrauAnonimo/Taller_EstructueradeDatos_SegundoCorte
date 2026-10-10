@@ -60,7 +60,7 @@ class GruposTab(ctk.CTkFrame):
         )
         self.subtitle_label.pack(fill='x', anchor='w', pady=(SPACING['xs'], 0))
 
-        # --- 2. Barra de herramientas ---
+        # --- 2. Barra de herramientas con jerarquía unificada ---
         self.toolbar = ctk.CTkFrame(self, fg_color='transparent')
         self.toolbar.grid(
             row=1,
@@ -79,7 +79,8 @@ class GruposTab(ctk.CTkFrame):
         self.search_entry.pack(side='left', padx=(0, SPACING['md']))
         self.search_entry.bind('<KeyRelease>', lambda e: self._on_search_change())
 
-        # Acciones a la derecha ordenadas por jerarquía
+        # Acciones a la derecha ordenadas por jerarquía estricta
+        # Primario
         self.btn_create = button(
             self.toolbar,
             text="Crear grupo",
@@ -88,14 +89,16 @@ class GruposTab(ctk.CTkFrame):
         )
         self.btn_create.pack(side='right', padx=(SPACING['sm'], 0))
 
+        # Terciario (Actualizar)
         self.btn_refresh = button(
             self.toolbar,
             text="Actualizar",
-            variant='ghost',
+            variant='tertiary',
             command=self.refresh,
         )
         self.btn_refresh.pack(side='right', padx=(SPACING['sm'], 0))
 
+        # Destructivo (Rojo suave)
         self.btn_delete = button(
             self.toolbar,
             text="Eliminar",
@@ -105,6 +108,7 @@ class GruposTab(ctk.CTkFrame):
         )
         self.btn_delete.pack(side='right', padx=(SPACING['sm'], 0))
 
+        # Secundarios con borde
         self.btn_activate = button(
             self.toolbar,
             text="Activar",
@@ -132,21 +136,25 @@ class GruposTab(ctk.CTkFrame):
         )
         self.btn_edit.pack(side='right', padx=(SPACING['sm'], 0))
 
-        # --- 3. Tabla dentro de tarjeta ---
+        # --- 3. Tabla dentro de tarjeta con estado vacío sugerido ---
         columns = [
             ('id', 'ID', 70, 'center'),
             ('code', 'Código Gruplac', 150, 'w'),
-            ('name', 'Nombre', 280, 'w'),
+            ('name', 'Nombre del grupo', 280, 'w'),
             ('category', 'Categoría', 100, 'center'),
             ('leader', 'Líder', 180, 'w'),
-            ('active', 'Estado', 100, 'center'),
+            ('active', 'Estado', 110, 'center'),
         ]
         self.table = DataTable(
             self,
             columns=columns,
             on_select=self._on_row_select,
             on_double_click=self._on_row_double_click,
-            empty_text="No hay grupos para mostrar",
+            empty_icon="",
+            empty_title="Aún no hay grupos registrados",
+            empty_message="Importa un grupo desde MinCiencias (GrupLAC) o crea un nuevo grupo manualmente.",
+            empty_action_text="Importar desde MinCiencias",
+            empty_action_command=self._trigger_import,
         )
         self.table.grid(
             row=2,
@@ -176,6 +184,12 @@ class GruposTab(ctk.CTkFrame):
         self.count_label.pack(side='left')
 
         self.load_data()
+
+    def _trigger_import(self):
+        """Abre el diálogo de importación de MinCiencias desde el estado vacío."""
+        app = self.get_app()
+        if app and hasattr(app, 'download_scienti'):
+            app.download_scienti()
 
     def get_app(self):
         """Resuelve dinámicamente la instancia principal de App en la jerarquía."""
@@ -214,7 +228,7 @@ class GruposTab(ctk.CTkFrame):
         self._update_selection_buttons(None)
 
     def _render_rows(self, grupos: List):
-        """Renderiza las filas de grupos en el DataTable."""
+        """Renderiza las filas de grupos en el DataTable con badges de color."""
         self.table.clear()
         for g in grupos:
             gid = getattr(g, 'id', None)
@@ -240,7 +254,7 @@ class GruposTab(ctk.CTkFrame):
         self.count_label.configure(text=f"{total} {suffix}")
 
     def _on_search_change(self):
-        """Filtra los grupos en base al texto ingresado en la búsqueda."""
+        """Filtra la lista de grupos en tiempo real según el texto ingresado."""
         query = self.search_entry.get().strip().lower()
         if not query:
             self._render_rows(self._all_grupos)
@@ -257,129 +271,146 @@ class GruposTab(ctk.CTkFrame):
 
         self._render_rows(filtered)
 
-    def _on_row_select(self, item_id: Optional[str], values):
-        """Callback al seleccionar o deseleccionar una fila."""
+    def _on_row_select(self, item_id: Optional[str], values: Optional[tuple]):
+        """Actualiza el estado de los botones cuando se selecciona o deselecciona una fila."""
+        self._update_selection_buttons(item_id)
+
+    def _on_row_double_click(self, item_id: str, values: tuple):
+        """Abre directamente la edición al hacer doble clic en una fila."""
+        self._update_selection_buttons(item_id)
+        self.edit()
+
+    def _update_selection_buttons(self, item_id: Optional[str]):
+        """Habilita o deshabilita los botones dependientes de una selección."""
         if item_id:
             try:
                 self._selected_id = int(item_id)
             except ValueError:
-                self._selected_id = item_id
+                self._selected_id = None
+            state = 'normal'
         else:
             self._selected_id = None
-        self._update_selection_buttons(self._selected_id)
+            state = 'disabled'
 
-    def _on_row_double_click(self, item_id: str, values):
-        """Abre el formulario de edición al hacer doble clic."""
-        if item_id:
-            try:
-                self._selected_id = int(item_id)
-            except ValueError:
-                self._selected_id = item_id
-            self.edit()
-
-    def _update_selection_buttons(self, selected_id):
-        """Habilita o deshabilita botones dependientes de la selección."""
-        state = 'normal' if selected_id is not None else 'disabled'
         self.btn_edit.configure(state=state)
-        self.btn_deactivate.configure(state=state)
-        self.btn_activate.configure(state=state)
         self.btn_delete.configure(state=state)
+        self.btn_activate.configure(state=state)
+        self.btn_deactivate.configure(state=state)
 
     def create(self):
-        """Abre el formulario modal para crear un nuevo grupo."""
-        form = GrupoForm(self)
-        self.wait_window(form)
-        if form.result:
-            app = self.get_app()
-            if app:
-                data = form.result
-                all_raw = self._get_all_raw_groups()
-                max_id = max([getattr(g, 'id', 0) for g in all_raw if isinstance(getattr(g, 'id', None), int)] + [0])
-                new_id = max_id + 1
+        """Abre el formulario modal para registrar un nuevo grupo."""
+        app = self.get_app()
+        form = GrupoForm(self, on_save=self._on_save_create)
+        form.grab_set()
 
-                grupo = Grupo(
-                    id=new_id,
-                    codigo_gruplac=data.get('code') or data.get('codigo_gruplac', ''),
-                    nombre=data.get('name') or data.get('nombre', ''),
-                    categoria=data.get('category') or data.get('categoria', ''),
-                    lider=data.get('leader') or data.get('lider', ''),
-                    activo=data.get('active', True),
-                )
-                success = app.grupo_crud.create(grupo)
-                if success:
-                    app.save_data()
-                    self.load_data()
-                else:
-                    messagebox.showerror("Error", "No se pudo crear el grupo (código duplicado).")
+    def _on_save_create(self, data: dict):
+        """Persiste el nuevo grupo mediante el CRUD."""
+        app = self.get_app()
+        if not app:
+            return
+        try:
+            nuevo = Grupo(
+                codigo_gruplac=data.get('codigo_gruplac') or data.get('code', ''),
+                nombre=data.get('nombre') or data.get('name', ''),
+                categoria=data.get('categoria') or data.get('category', ''),
+                lider=data.get('lider') or data.get('leader', ''),
+                activo=data.get('activo', True),
+                fecha_creacion=data.get('fecha_creacion', ''),
+            )
+            app.grupo_crud.create(nuevo)
+            app.save_data()
+            self.load_data()
+            if hasattr(app, 'load_tabs_data'):
+                app.load_tabs_data()
+            messagebox.showinfo("Éxito", "Grupo creado correctamente.")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo crear el grupo: {e}")
 
     def edit(self):
-        """Abre el formulario modal para editar el grupo seleccionado."""
+        """Abre el formulario para editar el grupo seleccionado."""
         if self._selected_id is None:
             return
         app = self.get_app()
         if not app:
             return
-        grupo = app.grupo_crud.get_by_id(self._selected_id)
+        grupo = app.grupo_crud.read(self._selected_id)
         if not grupo:
-            # Buscar por si está inactivo
-            for g in self._all_grupos:
-                if getattr(g, 'id', None) == self._selected_id:
-                    grupo = g
-                    break
-        if not grupo:
-            messagebox.showwarning("Aviso", "No se encontró el grupo seleccionado.")
+            messagebox.showerror("Error", "No se encontró el grupo seleccionado.")
             return
 
-        form = GrupoForm(self, data=grupo.to_dict() if hasattr(grupo, 'to_dict') else grupo.__dict__)
-        self.wait_window(form)
-        if form.result:
-            data = form.result
-            update_fields = {
-                'codigo_gruplac': data.get('code') or data.get('codigo_gruplac', ''),
-                'nombre': data.get('name') or data.get('nombre', ''),
-                'categoria': data.get('category') or data.get('categoria', ''),
-                'lider': data.get('leader') or data.get('lider', ''),
-                'activo': data.get('active', True),
-            }
-            app.grupo_crud.update(self._selected_id, **update_fields)
-            app.save_data()
-            self.load_data()
+        form = GrupoForm(self, grupo=grupo, on_save=self._on_save_edit)
+        form.grab_set()
 
-    def deactivate(self):
-        """Desactiva el grupo seleccionado."""
-        if self._selected_id is None:
-            return
+    def _on_save_edit(self, data: dict):
+        """Aplica y guarda los cambios del grupo en edición."""
         app = self.get_app()
-        if app:
-            app.grupo_crud.deactivate(self._selected_id)
-            app.save_data()
-            self.load_data()
-
-    def activate(self):
-        """Activa el grupo seleccionado."""
-        if self._selected_id is None:
+        if not app or self._selected_id is None:
             return
-        app = self.get_app()
-        if app:
-            app.grupo_crud.activate(self._selected_id)
+        try:
+            app.grupo_crud.update(self._selected_id, **data)
             app.save_data()
             self.load_data()
+            if hasattr(app, 'load_tabs_data'):
+                app.load_tabs_data()
+            messagebox.showinfo("Éxito", "Grupo actualizado correctamente.")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo actualizar el grupo: {e}")
 
     def delete(self):
         """Elimina físicamente el grupo seleccionado tras confirmación."""
         if self._selected_id is None:
             return
-        confirm = messagebox.askyesno(
+        app = self.get_app()
+        if not app:
+            return
+
+        confirma = messagebox.askyesno(
             "Confirmar eliminación",
-            "¿Está seguro de que desea eliminar permanentemente este grupo?",
+            f"¿Está seguro de eliminar el grupo con ID {self._selected_id}?\n\nEsta acción no se puede deshacer.",
         )
-        if confirm:
-            app = self.get_app()
-            if app:
-                app.grupo_crud.delete(self._selected_id)
+        if not confirma:
+            return
+
+        try:
+            res = app.grupo_crud.delete(self._selected_id)
+            if res:
                 app.save_data()
                 self.load_data()
+                if hasattr(app, 'load_tabs_data'):
+                    app.load_tabs_data()
+                messagebox.showinfo("Éxito", "Grupo eliminado correctamente.")
+            else:
+                messagebox.showerror("Error", "No se pudo eliminar el grupo.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al eliminar: {e}")
+
+    def activate(self):
+        """Marca como activo el grupo seleccionado."""
+        self._set_active_status(True)
+
+    def deactivate(self):
+        """Marca como inactivo el grupo seleccionado."""
+        self._set_active_status(False)
+
+    def _set_active_status(self, is_active: bool):
+        """Actualiza el estado de activación en la capa de datos."""
+        if self._selected_id is None:
+            return
+        app = self.get_app()
+        if not app:
+            return
+        try:
+            if is_active:
+                app.grupo_crud.activate(self._selected_id)
+            else:
+                app.grupo_crud.deactivate(self._selected_id)
+            app.save_data()
+            self.load_data()
+            if hasattr(app, 'load_tabs_data'):
+                app.load_tabs_data()
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al cambiar estado: {e}")
 
     def refresh(self):
-        """Actualiza los datos de la tabla."""
+        """Actualiza manualmente la información del listado."""
         self.load_data()

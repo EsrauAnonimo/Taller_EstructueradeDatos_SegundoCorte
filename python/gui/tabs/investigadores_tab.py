@@ -60,7 +60,7 @@ class InvestigadoresTab(ctk.CTkFrame):
         )
         self.subtitle_label.pack(fill='x', anchor='w', pady=(SPACING['xs'], 0))
 
-        # --- 2. Barra de herramientas ---
+        # --- 2. Barra de herramientas con jerarquía unificada ---
         self.toolbar = ctk.CTkFrame(self, fg_color='transparent')
         self.toolbar.grid(
             row=1,
@@ -79,7 +79,8 @@ class InvestigadoresTab(ctk.CTkFrame):
         self.search_entry.pack(side='left', padx=(0, SPACING['md']))
         self.search_entry.bind('<KeyRelease>', lambda e: self._on_search_change())
 
-        # Acciones a la derecha ordenadas por jerarquía
+        # Acciones a la derecha ordenadas por jerarquía estricta
+        # Primario
         self.btn_create = button(
             self.toolbar,
             text="Crear investigador",
@@ -88,14 +89,16 @@ class InvestigadoresTab(ctk.CTkFrame):
         )
         self.btn_create.pack(side='right', padx=(SPACING['sm'], 0))
 
+        # Terciario (Actualizar)
         self.btn_refresh = button(
             self.toolbar,
             text="Actualizar",
-            variant='ghost',
+            variant='tertiary',
             command=self.refresh,
         )
         self.btn_refresh.pack(side='right', padx=(SPACING['sm'], 0))
 
+        # Destructivo (Rojo suave)
         self.btn_delete = button(
             self.toolbar,
             text="Eliminar",
@@ -105,6 +108,7 @@ class InvestigadoresTab(ctk.CTkFrame):
         )
         self.btn_delete.pack(side='right', padx=(SPACING['sm'], 0))
 
+        # Secundarios con borde
         self.btn_activate = button(
             self.toolbar,
             text="Activar",
@@ -132,21 +136,25 @@ class InvestigadoresTab(ctk.CTkFrame):
         )
         self.btn_edit.pack(side='right', padx=(SPACING['sm'], 0))
 
-        # --- 3. Tabla dentro de tarjeta ---
+        # --- 3. Tabla dentro de tarjeta con estado vacío sugerido ---
         columns = [
             ('id', 'ID', 60, 'center'),
             ('cedula', 'Cédula', 120, 'w'),
             ('name', 'Nombre completo', 260, 'w'),
             ('email', 'Correo electrónico', 220, 'w'),
-            ('group', 'Grupo ID', 100, 'center'),
-            ('active', 'Estado', 100, 'center'),
+            ('group', 'Grupo ID', 90, 'center'),
+            ('active', 'Estado', 110, 'center'),
         ]
         self.table = DataTable(
             self,
             columns=columns,
             on_select=self._on_row_select,
             on_double_click=self._on_row_double_click,
-            empty_text="No hay investigadores para mostrar",
+            empty_icon="",
+            empty_title="Aún no hay investigadores registrados",
+            empty_message="Aún no hay investigadores. Importa un grupo desde MinCiencias o registra investigadores manualmente.",
+            empty_action_text="Importar grupo desde MinCiencias",
+            empty_action_command=self._trigger_import,
         )
         self.table.grid(
             row=2,
@@ -177,6 +185,12 @@ class InvestigadoresTab(ctk.CTkFrame):
 
         self.load_data()
 
+    def _trigger_import(self):
+        """Abre el diálogo de importación de MinCiencias desde el estado vacío."""
+        app = self.get_app()
+        if app and hasattr(app, 'download_scienti'):
+            app.download_scienti()
+
     def get_app(self):
         """Resuelve dinámicamente la instancia principal de App en la jerarquía."""
         if self._app_ref is not None:
@@ -190,7 +204,7 @@ class InvestigadoresTab(ctk.CTkFrame):
         return None
 
     def _get_all_raw_investigadores(self) -> List:
-        """Obtiene todos los investigadores (activos e inactivos) de la estructura."""
+        """Obtiene todos los investigadores (activos e inactivos) de la multilista."""
         app = self.get_app()
         if app is None or not hasattr(app, 'multilista'):
             return []
@@ -211,201 +225,209 @@ class InvestigadoresTab(ctk.CTkFrame):
         return invs
 
     def load_data(self):
-        """Recarga los datos de investigadores desde el CRUD."""
+        """Recarga los datos de los investigadores desde la capa de persistencia."""
         self._all_investigadores = self._get_all_raw_investigadores()
         self._render_rows(self._all_investigadores)
         self._update_selection_buttons(None)
 
     def _render_rows(self, investigadores: List):
-        """Renderiza las filas de investigadores en el DataTable."""
+        """Renderiza las filas de investigadores en el DataTable con badges."""
         self.table.clear()
-        for inv in investigadores:
-            iid = getattr(inv, 'id', None)
-            cedula = str(getattr(inv, 'cedula', '') or getattr(inv, 'id', ''))
-            nombres = getattr(inv, 'nombres', '')
-            apellidos = getattr(inv, 'apellidos', '')
-            full_name = f"{nombres} {apellidos}".strip() or getattr(inv, 'name', '')
-            email = getattr(inv, 'email', '')
-            grupo_id = getattr(inv, 'grupo_id', getattr(inv, 'group', ''))
-            active = getattr(inv, 'activo', getattr(inv, 'active', True))
+        for i in investigadores:
+            iid = getattr(i, 'id', None)
+            ced = getattr(i, 'cedula', '')
+            nom = getattr(i, 'nombres', '') or getattr(i, 'name', '')
+            ape = getattr(i, 'apellidos', '')
+            full_name = f"{nom} {ape}".strip() if ape else nom
+            mail = getattr(i, 'email', '')
+            gid = getattr(i, 'grupo_id', getattr(i, 'group', ''))
+            active = getattr(i, 'activo', getattr(i, 'active', True))
             status_text = "Activo" if active else "Inactivo"
 
             values = (
                 str(iid) if iid is not None else '',
-                cedula,
-                full_name,
-                email,
-                str(grupo_id) if grupo_id is not None else '',
+                str(ced),
+                str(full_name),
+                str(mail),
+                str(gid) if gid is not None else '',
                 status_text,
             )
-            self.table.insert_row(values, iid=cedula, is_active=bool(active))
+            # Clave única por cédula o id
+            row_key = str(ced) if ced else str(iid)
+            self.table.insert_row(values, iid=row_key, is_active=bool(active))
 
         total = len(investigadores)
         suffix = "investigador" if total == 1 else "investigadores"
         self.count_label.configure(text=f"{total} {suffix}")
 
     def _on_search_change(self):
-        """Filtra investigadores en tiempo real al escribir en la barra de búsqueda."""
+        """Filtra los investigadores en tiempo real según el texto ingresado."""
         query = self.search_entry.get().strip().lower()
         if not query:
             self._render_rows(self._all_investigadores)
             return
 
         filtered = []
-        for inv in self._all_investigadores:
-            cedula = str(getattr(inv, 'cedula', '') or getattr(inv, 'id', '')).lower()
-            nombres = str(getattr(inv, 'nombres', '')).lower()
-            apellidos = str(getattr(inv, 'apellidos', '')).lower()
-            name = str(getattr(inv, 'name', '')).lower()
-            email = str(getattr(inv, 'email', '')).lower()
-            if query in cedula or query in nombres or query in apellidos or query in name or query in email:
-                filtered.append(inv)
+        for i in self._all_investigadores:
+            ced = str(getattr(i, 'cedula', '')).lower()
+            nom = str(getattr(i, 'nombres', '') or getattr(i, 'name', '')).lower()
+            ape = str(getattr(i, 'apellidos', '')).lower()
+            mail = str(getattr(i, 'email', '')).lower()
+            if query in ced or query in nom or query in ape or query in mail:
+                filtered.append(i)
 
         self._render_rows(filtered)
 
-    def _on_row_select(self, item_id: Optional[str], values):
-        """Callback al seleccionar o deseleccionar una fila."""
-        self._selected_cedula = item_id
-        self._update_selection_buttons(self._selected_cedula)
+    def _on_row_select(self, item_id: Optional[str], values: Optional[tuple]):
+        """Actualiza el estado de los botones cuando se selecciona o deselecciona una fila."""
+        self._update_selection_buttons(item_id)
 
-    def _on_row_double_click(self, item_id: str, values):
-        """Abre la ventana de edición al hacer doble clic."""
+    def _on_row_double_click(self, item_id: str, values: tuple):
+        """Abre directamente la edición al hacer doble clic en una fila."""
+        self._update_selection_buttons(item_id)
+        self.edit()
+
+    def _update_selection_buttons(self, item_id: Optional[str]):
+        """Habilita o deshabilita los botones según haya una selección activa."""
         if item_id:
-            self._selected_cedula = item_id
-            self.edit()
+            self._selected_cedula = str(item_id)
+            state = 'normal'
+        else:
+            self._selected_cedula = None
+            state = 'disabled'
 
-    def _update_selection_buttons(self, selected_id):
-        """Habilita o deshabilita botones según la selección activa."""
-        state = 'normal' if selected_id is not None else 'disabled'
         self.btn_edit.configure(state=state)
-        self.btn_deactivate.configure(state=state)
-        self.btn_activate.configure(state=state)
         self.btn_delete.configure(state=state)
+        self.btn_activate.configure(state=state)
+        self.btn_deactivate.configure(state=state)
 
     def create(self):
-        """Abre el formulario modal para crear un investigador."""
-        form = InvestigadorForm(self)
-        self.wait_window(form)
-        if form.result:
-            app = self.get_app()
-            if app:
-                data = form.result
-                all_raw = self._get_all_raw_investigadores()
-                max_id = max([getattr(i, 'id', 0) for i in all_raw if isinstance(getattr(i, 'id', None), int)] + [0])
-                new_id = max_id + 1
+        """Abre el formulario modal para registrar un nuevo investigador."""
+        app = self.get_app()
+        form = InvestigadorForm(self, app=app, on_save=self._on_save_create)
+        form.grab_set()
 
-                cedula = data.get('id') or data.get('cedula', '')
-                name_parts = (data.get('name') or '').strip().split(' ', 1)
-                nombres = name_parts[0] if name_parts else ''
-                apellidos = name_parts[1] if len(name_parts) > 1 else ''
-
-                grupo_val = data.get('group') or data.get('grupo_id')
-                try:
-                    grupo_id = int(grupo_val) if grupo_val is not None and str(grupo_val).strip() else None
-                except ValueError:
-                    grupo_id = None
-
-                inv = Investigador(
-                    id=new_id,
-                    cedula=cedula,
-                    nombres=nombres,
-                    apellidos=apellidos,
-                    email=data.get('email', ''),
-                    activo=data.get('active', True),
-                    grupo_id=grupo_id,
-                )
-                success = app.inv_crud.create(inv)
-                if success:
-                    app.save_data()
-                    self.load_data()
-                else:
-                    messagebox.showerror("Error", "No se pudo registrar el investigador (cédula duplicada o grupo inexistente).")
+    def _on_save_create(self, data: dict):
+        """Persiste el nuevo investigador mediante el CRUD."""
+        app = self.get_app()
+        if not app:
+            return
+        try:
+            nuevo = Investigador(
+                cedula=str(data.get('cedula', '')),
+                nombres=data.get('nombres') or data.get('name', ''),
+                apellidos=data.get('apellidos', ''),
+                email=data.get('email', ''),
+                activo=data.get('activo', True),
+                grupo_id=data.get('grupo_id') or data.get('group'),
+            )
+            app.inv_crud.create(nuevo)
+            app.save_data()
+            self.load_data()
+            if hasattr(app, 'load_tabs_data'):
+                app.load_tabs_data()
+            messagebox.showinfo("Éxito", "Investigador registrado correctamente.")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo registrar al investigador: {e}")
 
     def edit(self):
-        """Abre el formulario modal para editar el investigador seleccionado."""
-        if not self._selected_cedula:
+        """Abre el formulario para editar el investigador seleccionado."""
+        if self._selected_cedula is None:
             return
         app = self.get_app()
         if not app:
             return
 
-        inv = app.inv_crud.get_by_cedula(self._selected_cedula)
+        inv = app.inv_crud.read(self._selected_cedula)
         if not inv:
-            for i in self._all_investigadores:
-                if str(getattr(i, 'cedula', '')) == self._selected_cedula or str(getattr(i, 'id', '')) == self._selected_cedula:
-                    inv = i
-                    break
-        if not inv:
-            messagebox.showwarning("Aviso", "No se encontró el investigador seleccionado.")
-            return
-
-        form_data = {
-            'id': getattr(inv, 'cedula', '') or getattr(inv, 'id', ''),
-            'name': f"{getattr(inv, 'nombres', '')} {getattr(inv, 'apellidos', '')}".strip() or getattr(inv, 'name', ''),
-            'email': getattr(inv, 'email', ''),
-            'group': str(getattr(inv, 'grupo_id', '') or getattr(inv, 'group', '')),
-            'active': getattr(inv, 'activo', getattr(inv, 'active', True)),
-        }
-        form = InvestigadorForm(self, data=form_data)
-        self.wait_window(form)
-        if form.result:
-            data = form.result
-            name_parts = (data.get('name') or '').strip().split(' ', 1)
-            nombres = name_parts[0] if name_parts else ''
-            apellidos = name_parts[1] if len(name_parts) > 1 else ''
-
-            grupo_val = data.get('group') or data.get('grupo_id')
+            # Búsqueda por ID numérico en caso de que la clave sea el ID
             try:
-                grupo_id = int(grupo_val) if grupo_val is not None and str(grupo_val).strip() else None
+                inv_id = int(self._selected_cedula)
+                for item in self._all_investigadores:
+                    if getattr(item, 'id', None) == inv_id:
+                        inv = item
+                        break
             except ValueError:
-                grupo_id = None
+                pass
 
-            update_fields = {
-                'nombres': nombres,
-                'apellidos': apellidos,
-                'email': data.get('email', ''),
-                'activo': data.get('active', True),
-                'grupo_id': grupo_id,
-            }
-            app.inv_crud.update(self._selected_cedula, **update_fields)
-            app.save_data()
-            self.load_data()
-
-    def deactivate(self):
-        """Desactiva el investigador seleccionado."""
-        if not self._selected_cedula:
+        if not inv:
+            messagebox.showerror("Error", "No se encontró el investigador seleccionado.")
             return
-        app = self.get_app()
-        if app:
-            app.inv_crud.deactivate(self._selected_cedula)
-            app.save_data()
-            self.load_data()
 
-    def activate(self):
-        """Activa el investigador seleccionado."""
-        if not self._selected_cedula:
-            return
+        form = InvestigadorForm(self, app=app, investigador=inv, on_save=self._on_save_edit)
+        form.grab_set()
+
+    def _on_save_edit(self, data: dict):
+        """Aplica y guarda los cambios del investigador en edición."""
         app = self.get_app()
-        if app:
-            app.inv_crud.activate(self._selected_cedula)
+        if not app or self._selected_cedula is None:
+            return
+        try:
+            target_key = data.get('cedula', self._selected_cedula)
+            app.inv_crud.update(self._selected_cedula, **data)
             app.save_data()
             self.load_data()
+            if hasattr(app, 'load_tabs_data'):
+                app.load_tabs_data()
+            messagebox.showinfo("Éxito", "Investigador actualizado correctamente.")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo actualizar el investigador: {e}")
 
     def delete(self):
         """Elimina físicamente el investigador seleccionado tras confirmación."""
-        if not self._selected_cedula:
+        if self._selected_cedula is None:
             return
-        confirm = messagebox.askyesno(
+        app = self.get_app()
+        if not app:
+            return
+
+        confirma = messagebox.askyesno(
             "Confirmar eliminación",
-            "¿Está seguro de que desea eliminar permanentemente este investigador?",
+            f"¿Está seguro de eliminar el investigador con cédula {self._selected_cedula}?\n\nEsta acción no se puede deshacer.",
         )
-        if confirm:
-            app = self.get_app()
-            if app:
-                app.inv_crud.delete(self._selected_cedula)
+        if not confirma:
+            return
+
+        try:
+            res = app.inv_crud.delete(self._selected_cedula)
+            if res:
                 app.save_data()
                 self.load_data()
+                if hasattr(app, 'load_tabs_data'):
+                    app.load_tabs_data()
+                messagebox.showinfo("Éxito", "Investigador eliminado correctamente.")
+            else:
+                messagebox.showerror("Error", "No se pudo eliminar el investigador.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al eliminar: {e}")
+
+    def activate(self):
+        """Marca como activo el investigador seleccionado."""
+        self._set_active_status(True)
+
+    def deactivate(self):
+        """Marca como inactivo el investigador seleccionado."""
+        self._set_active_status(False)
+
+    def _set_active_status(self, is_active: bool):
+        """Actualiza el estado de activación en la capa de datos."""
+        if self._selected_cedula is None:
+            return
+        app = self.get_app()
+        if not app:
+            return
+        try:
+            if is_active:
+                app.inv_crud.activate(self._selected_cedula)
+            else:
+                app.inv_crud.deactivate(self._selected_cedula)
+            app.save_data()
+            self.load_data()
+            if hasattr(app, 'load_tabs_data'):
+                app.load_tabs_data()
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al cambiar estado: {e}")
 
     def refresh(self):
-        """Actualiza los datos de la tabla."""
+        """Actualiza manualmente la información del listado."""
         self.load_data()

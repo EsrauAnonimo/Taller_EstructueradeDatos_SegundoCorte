@@ -15,7 +15,7 @@ from gui.styles import (
 
 
 class ChartWidget(ctk.CTkFrame):
-    """Contenedor de gráfico estadístico Matplotlib con estilo minimalista."""
+    """Contenedor de gráfico estadístico Matplotlib con estado vacío centrado."""
 
     def __init__(self, master, title: Optional[str] = None, **kwargs):
         base_kwargs = {
@@ -26,8 +26,7 @@ class ChartWidget(ctk.CTkFrame):
         super().__init__(master, **merged_kwargs)
 
         self._default_title = title
-        # Figura con fondo uniforme a la tarjeta
-        self.fig = Figure(figsize=(3.8, 2.6), dpi=100)
+        self.fig = Figure(figsize=(3.8, 2.5), dpi=100)
         self.fig.patch.set_facecolor(COLORS['surface'])
 
         self.ax = self.fig.add_subplot(111)
@@ -46,14 +45,17 @@ class ChartWidget(ctk.CTkFrame):
         title: Optional[str] = None,
         color: Optional[str] = None,
     ):
-        """Dibuja un gráfico de barras estilizado."""
+        """Dibuja un gráfico de barras estilizado o muestra estado vacío centrado sin ejes."""
         self.ax.clear()
         bar_color = color or CHART_COLORS[0]
         chart_title = title or self._default_title
 
-        if labels and values and any(v > 0 for v in values):
+        has_data = labels and values and any(v > 0 for v in values)
+
+        if has_data:
+            self.ax.axis('on')
             str_labels = [str(l) for l in labels]
-            bars = self.ax.bar(
+            self.ax.bar(
                 str_labels,
                 values,
                 width=BAR_WIDTH,
@@ -61,32 +63,55 @@ class ChartWidget(ctk.CTkFrame):
                 edgecolor='none',
                 zorder=3,
             )
-            # Si hay más de 4 etiquetas o alguna es larga, rotar levemente para legibilidad
+            # Rotar levemente si hay muchas etiquetas o alguna es extensa
             if len(str_labels) > 4 or any(len(str(l)) > 6 for l in str_labels):
                 self.ax.tick_params(axis='x', rotation=20)
 
-            # Ajuste de escala en eje Y para que los valores no toquen el borde superior
             max_val = max(values) if values else 1
             self.ax.set_ylim(0, max_val * 1.15 if max_val > 0 else 1)
+            style_bar_axes(self.ax, chart_title)
         else:
-            # Estado sin datos
+            # Ocultar completamente ejes, spines y cuadrícula en estado vacío
+            self.ax.axis('off')
+
+            if chart_title:
+                self.ax.text(
+                    0.0,
+                    1.05,
+                    chart_title,
+                    transform=self.ax.transAxes,
+                    fontsize=11,
+                    fontweight='bold',
+                    color=COLORS['ink'],
+                    va='top',
+                )
+
+            # Mensaje centrado elegante y limpio sin glifos incompatibles
             self.ax.text(
                 0.5,
-                0.5,
-                "Sin datos para graficar",
+                0.52,
+                "Sin datos disponibles",
                 ha='center',
                 va='center',
                 transform=self.ax.transAxes,
-                color=COLORS['muted'],
                 fontsize=11,
+                fontweight='bold',
+                color=COLORS['ink_soft'],
+            )
+            self.ax.text(
+                0.5,
+                0.38,
+                "Registra o importa información para visualizar la gráfica",
+                ha='center',
+                va='center',
+                transform=self.ax.transAxes,
+                fontsize=9,
+                color=COLORS['muted'],
             )
 
-        style_bar_axes(self.ax, chart_title)
         self.fig.tight_layout()
         self.canvas.draw()
 
     def clear(self):
-        """Limpia el gráfico actual."""
-        self.ax.clear()
-        style_bar_axes(self.ax, self._default_title)
-        self.canvas.draw()
+        """Limpia el gráfico actual restableciendo el estado vacío centrado."""
+        self.plot_bar([], [])

@@ -11,6 +11,7 @@ from gui.styles import (
     RADIUS,
     SPACING,
     font,
+    button,
     apply_treeview_tags,
 )
 
@@ -24,7 +25,11 @@ class DataTable(ctk.CTkFrame):
         columns: Optional[List[Union[str, Tuple]]] = None,
         on_select: Optional[Callable[[Optional[str], Optional[Tuple]], None]] = None,
         on_double_click: Optional[Callable[[str, Tuple], None]] = None,
-        empty_text: str = "No hay registros para mostrar",
+        empty_icon: str = "",
+        empty_title: str = "No hay registros disponibles",
+        empty_message: str = "No se encontraron datos para mostrar con los criterios actuales.",
+        empty_action_text: Optional[str] = None,
+        empty_action_command: Optional[Callable[[], None]] = None,
         **kwargs,
     ):
         base_kwargs = {
@@ -41,7 +46,13 @@ class DataTable(ctk.CTkFrame):
 
         self._on_select_callback = on_select
         self._on_double_click_callback = on_double_click
-        self._empty_text = empty_text
+
+        # Configuración de estado vacío enriquecido
+        self._empty_icon = empty_icon
+        self._empty_title = empty_title
+        self._empty_message = empty_message
+        self._empty_action_text = empty_action_text
+        self._empty_action_command = empty_action_command
 
         # Seguimiento para el efecto hover
         self._last_hovered_item: Optional[str] = None
@@ -51,7 +62,7 @@ class DataTable(ctk.CTkFrame):
         self.tree = ttk.Treeview(self, show='headings', style='Pea.Treeview')
         apply_treeview_tags(self.tree)
 
-        # Scrollbar vertical delgada sin flechas
+        # Scrollbar vertical delgada y minimalista
         self.scrollbar = ttk.Scrollbar(
             self,
             orient='vertical',
@@ -64,14 +75,44 @@ class DataTable(ctk.CTkFrame):
         self.tree.grid(row=0, column=0, sticky='nsew', padx=(1, 0), pady=1)
         self.scrollbar.grid(row=0, column=1, sticky='ns', padx=(0, 1), pady=1)
 
-        # Etiqueta para estado vacío cuando no hay registros
-        self.empty_label = ctk.CTkLabel(
-            self,
-            text=self._empty_text,
+        # Contenedor enriquecido para el estado vacío
+        self.empty_container = ctk.CTkFrame(self, fg_color=COLORS['surface'])
+
+        self.empty_icon_label = ctk.CTkLabel(
+            self.empty_container,
+            text=self._empty_icon,
+            font=font('heading'),
+            text_color=COLORS['muted_light'],
+        )
+        if self._empty_icon:
+            self.empty_icon_label.pack(pady=(0, SPACING['xs']))
+
+        self.empty_title_label = ctk.CTkLabel(
+            self.empty_container,
+            text=self._empty_title,
+            font=font('heading'),
+            text_color=COLORS['ink'],
+        )
+        self.empty_title_label.pack(pady=(0, SPACING['xs']))
+
+        self.empty_message_label = ctk.CTkLabel(
+            self.empty_container,
+            text=self._empty_message,
             font=font('body'),
             text_color=COLORS['muted'],
-            fg_color=COLORS['surface'],
+            wraplength=380,
+            justify='center',
         )
+        self.empty_message_label.pack(pady=(0, SPACING['md']))
+
+        self.empty_action_btn = button(
+            self.empty_container,
+            text=self._empty_action_text or "Acción sugerida",
+            variant='primary',
+            command=self._handle_empty_action,
+        )
+        if self._empty_action_text and self._empty_action_command:
+            self.empty_action_btn.pack()
 
         # Enlace de eventos de interacción
         self.tree.bind('<Motion>', self._on_motion)
@@ -83,6 +124,43 @@ class DataTable(ctk.CTkFrame):
             self.set_columns(columns)
 
         self._update_empty_state()
+
+    def set_empty_state(
+        self,
+        icon: Optional[str] = None,
+        title: Optional[str] = None,
+        message: Optional[str] = None,
+        action_text: Optional[str] = None,
+        action_command: Optional[Callable[[], None]] = None,
+    ):
+        """Actualiza dinámicamente la apariencia y acción del estado vacío."""
+        if icon is not None:
+            self._empty_icon = icon
+            self.empty_icon_label.configure(text=icon)
+        if title is not None:
+            self._empty_title = title
+            self.empty_title_label.configure(text=title)
+        if message is not None:
+            self._empty_message = message
+            self.empty_message_label.configure(text=message)
+        if action_text is not None:
+            self._empty_action_text = action_text
+            self.empty_action_btn.configure(text=action_text)
+        if action_command is not None:
+            self._empty_action_command = action_command
+
+        if self._empty_action_text and self._empty_action_command:
+            if not self.empty_action_btn.winfo_ismapped():
+                self.empty_action_btn.pack()
+        else:
+            self.empty_action_btn.pack_forget()
+
+        self._update_empty_state()
+
+    def _handle_empty_action(self):
+        """Ejecuta la acción configurada para el estado vacío."""
+        if self._empty_action_command:
+            self._empty_action_command()
 
     def set_columns(self, columns: List[Union[str, Tuple]]):
         """Define las columnas, encabezados, anchos y alineación del Treeview."""
@@ -115,10 +193,11 @@ class DataTable(ctk.CTkFrame):
         iid: Optional[str] = None,
         is_active: bool = True,
     ) -> str:
-        """Inserta una fila con alternancia de color zebra y estado de activación."""
+        """Inserta una fila con alternancia zebra y badge de estado."""
         count = len(self.tree.get_children())
         zebra_tag = 'odd' if count % 2 == 0 else 'even'
-        tags = (zebra_tag,) if is_active else (zebra_tag, 'inactive')
+        badge_tag = 'active_badge' if is_active else 'inactive_badge'
+        tags = (zebra_tag, badge_tag)
 
         item_id = self.tree.insert('', 'end', iid=iid, values=values, tags=tags)
         self._update_empty_state()
@@ -143,7 +222,7 @@ class DataTable(ctk.CTkFrame):
                 elif isinstance(val, (int, float)):
                     is_active = bool(val)
                 elif isinstance(val, str):
-                    is_active = val.strip().lower() not in ('no', 'false', '0', 'inactivo')
+                    is_active = 'inactiv' not in val.strip().lower() and val.strip().lower() not in ('no', 'false', '0')
 
             self.insert_row(row_tuple, iid=iid, is_active=is_active)
 
@@ -191,11 +270,11 @@ class DataTable(ctk.CTkFrame):
     # --- Manejadores internos de eventos ---
 
     def _update_empty_state(self):
-        """Muestra u oculta la etiqueta centrada de estado vacío."""
+        """Muestra u oculta el contenedor centrado de estado vacío."""
         if len(self.tree.get_children()) == 0:
-            self.empty_label.place(relx=0.5, rely=0.5, anchor='center')
+            self.empty_container.place(relx=0.5, rely=0.5, anchor='center')
         else:
-            self.empty_label.place_forget()
+            self.empty_container.place_forget()
 
     def _clear_hover(self):
         """Restaura las etiquetas originales de la fila actualmente en hover."""

@@ -6,51 +6,66 @@ import tkinter as tk
 from tkinter import ttk
 import customtkinter as ctk
 
-# Paleta de colores oficial del sistema de diseño (Tema claro)
+# Paleta de colores curada del sistema de diseño (Tema claro profesional con acento Índigo)
 COLORS: Dict[str, str] = {
     # Superficies y fondos
-    'bg': '#F3F4F6',
+    'bg': '#F8FAFC',
     'surface': '#FFFFFF',
-    'surface_alt': '#F9FAFB',
-    'border': '#E3E5E9',
+    'surface_alt': '#F1F5F9',
+    'surface_subtle': '#F8FAFC',
+    'border': '#E2E8F0',
+    'border_subtle': '#EDF2F7',
 
     # Jerarquía tipográfica (Ink)
-    'ink': '#111827',
-    'ink_soft': '#374151',
-    'muted': '#6B7280',
+    'ink': '#0F172A',
+    'ink_soft': '#334155',
+    'muted': '#64748B',
+    'muted_light': '#94A3B8',
 
-    # Colores de acento e interacción
-    'accent': '#2F49D1',
-    'accent_hover': '#2438A8',
-    'accent_soft': '#E8ECFB',
+    # Colores de acento e interacción (Índigo profesional)
+    'accent': '#4F46E5',
+    'accent_hover': '#4338CA',
+    'accent_soft': '#EEF2FF',
+    'accent_border': '#C7D2FE',
 
-    # Estados semánticos
-    'danger': '#B42318',
-    'danger_hover': '#911C13',
-    'danger_soft': '#FDECEA',
-    'success': '#1F7A55',
-    'success_soft': '#E4F4EC',
+    # Estados semánticos y destructivos
+    'danger': '#DC2626',
+    'danger_hover': '#FEE2E2',
+    'danger_soft': '#FEF2F2',
+    'danger_border': '#FECACA',
+    'success': '#16A34A',
+    'success_soft': '#F0FDF4',
+    'success_border': '#BBF7D0',
+    'warning': '#D97706',
+    'warning_soft': '#FFFBEB',
+    'warning_border': '#FDE68A',
+
+    # Badges y estados
+    'badge_active_bg': '#DCFCE7',
+    'badge_active_text': '#15803D',
+    'badge_inactive_bg': '#F1F5F9',
+    'badge_inactive_text': '#64748B',
 
     # Pestañas y selectores segmentados
-    'segment_bg': '#E5E7EB',
+    'segment_bg': '#E2E8F0',
 
     # Utilidades
     'white': '#FFFFFF',
     'transparent': 'transparent',
 
-    # Alias para compatibilidad con código existente
-    'fg': '#111827',
+    # Alias para compatibilidad
+    'fg': '#0F172A',
     'accent_text': '#FFFFFF',
 }
 
 # Paleta curada para gráficos estadísticos
-CHART_COLORS = ['#2F49D1', '#0E8F8A', '#C98A1B', '#7A5AF8', '#98A2B3']
-BAR_WIDTH = 0.55
+CHART_COLORS = ['#4F46E5', '#0D9488', '#F59E0B', '#8B5CF6', '#64748B']
+BAR_WIDTH = 0.52
 
 # Alias de compatibilidad previa
 COLOR_PALETTE = COLORS
 
-# Escala de espaciado (múltiplos de 4)
+# Escala de espaciado estándar (múltiplos de 4)
 SPACING: Dict[str, int] = {
     'xs': 4,
     'sm': 8,
@@ -59,21 +74,26 @@ SPACING: Dict[str, int] = {
     'xl': 32,
 }
 
-# Radios de curvatura de esquinas
+# Radios de curvatura de esquinas consistentes
 RADIUS: Dict[str, int] = {
     'card': 12,
     'control': 8,
+    'badge': 6,
     'pill': 100,
 }
 
+# Altura estándar unificada para todos los controles interactivos
+CONTROL_HEIGHT = 36
+
 # Especificación y escala de tipografía
 FONT_SPECS: Dict[str, Dict[str, Any]] = {
-    'display': {'size': 28, 'weight': 'bold'},
+    'display': {'size': 24, 'weight': 'bold'},
     'title': {'size': 18, 'weight': 'bold'},
     'heading': {'size': 14, 'weight': 'bold'},
     'body': {'size': 13, 'weight': 'normal'},
-    'small': {'size': 12, 'weight': 'normal'},
-    'stat': {'size': 36, 'weight': 'bold'},
+    'small': {'size': 11, 'weight': 'normal'},
+    'badge': {'size': 11, 'weight': 'bold'},
+    'stat': {'size': 28, 'weight': 'bold'},
 }
 
 # Caché interno de fuentes CTkFont
@@ -93,7 +113,7 @@ def font(role: str) -> ctk.CTkFont:
 
 
 def get_dpi_scale(root=None) -> float:
-    """Calcula el factor de escala DPI en Windows para ajustar rowheight y paddings."""
+    """Calcula el factor de escala DPI para ajustar rowheight y paddings."""
     try:
         if root is not None:
             dpi = float(root.winfo_fpixels('1i'))
@@ -105,9 +125,16 @@ def get_dpi_scale(root=None) -> float:
 
 
 def button(master, text: str, variant: str = 'secondary', command=None, **kwargs) -> ctk.CTkButton:
-    """Crea un CTkButton respetando la jerarquía visual del sistema de diseño."""
+    """Crea un CTkButton con sistema estricto de jerarquía visual.
+
+    Jerarquías disponibles:
+    - 'primary': Relleno en color acento (índigo), texto blanco.
+    - 'secondary': Fondo blanco con borde sutil y texto oscuro.
+    - 'danger': Destructivo en rojo suave (fondo tenue, texto y borde rojo).
+    - 'tertiary' / 'ghost': Fondo blanco o transparente con ícono/borde sutil.
+    """
     base_kwargs: Dict[str, Any] = {
-        'height': 36,
+        'height': CONTROL_HEIGHT,
         'corner_radius': RADIUS['control'],
         'font': font('body'),
         'command': command,
@@ -118,7 +145,7 @@ def button(master, text: str, variant: str = 'secondary', command=None, **kwargs
             'fg_color': COLORS['accent'],
             'hover_color': COLORS['accent_hover'],
             'text_color': COLORS['white'],
-            'text_color_disabled': COLORS['muted'],
+            'text_color_disabled': COLORS['muted_light'],
             'border_width': 0,
         }
     elif variant == 'secondary':
@@ -126,32 +153,36 @@ def button(master, text: str, variant: str = 'secondary', command=None, **kwargs
             'fg_color': COLORS['surface'],
             'hover_color': COLORS['surface_alt'],
             'text_color': COLORS['ink'],
-            'text_color_disabled': COLORS['muted'],
+            'text_color_disabled': COLORS['muted_light'],
             'border_width': 1,
             'border_color': COLORS['border'],
         }
-    elif variant == 'ghost':
-        variant_kwargs = {
-            'fg_color': 'transparent',
-            'hover_color': COLORS['surface_alt'],
-            'text_color': COLORS['ink'],
-            'text_color_disabled': COLORS['muted'],
-            'border_width': 0,
-        }
     elif variant == 'danger':
+        # Destructivo en rojo suave con hover sutil
         variant_kwargs = {
-            'fg_color': 'transparent',
-            'hover_color': COLORS['danger_soft'],
+            'fg_color': COLORS['danger_soft'],
+            'hover_color': COLORS['danger_hover'],
             'text_color': COLORS['danger'],
-            'text_color_disabled': COLORS['muted'],
-            'border_width': 0,
+            'text_color_disabled': COLORS['muted_light'],
+            'border_width': 1,
+            'border_color': COLORS['danger_border'],
+        }
+    elif variant in ('tertiary', 'ghost'):
+        # Terciario para acciones como 'Actualizar' con ícono
+        variant_kwargs = {
+            'fg_color': COLORS['surface'],
+            'hover_color': COLORS['surface_alt'],
+            'text_color': COLORS['ink_soft'],
+            'text_color_disabled': COLORS['muted_light'],
+            'border_width': 1,
+            'border_color': COLORS['border'],
         }
     else:
         variant_kwargs = {
             'fg_color': COLORS['surface'],
             'hover_color': COLORS['surface_alt'],
             'text_color': COLORS['ink'],
-            'text_color_disabled': COLORS['muted'],
+            'text_color_disabled': COLORS['muted_light'],
             'border_width': 1,
             'border_color': COLORS['border'],
         }
@@ -161,9 +192,9 @@ def button(master, text: str, variant: str = 'secondary', command=None, **kwargs
 
 
 def entry(master, placeholder_text: str = '', width: Optional[int] = None, **kwargs) -> ctk.CTkEntry:
-    """Crea un CTkEntry con bordes sutiles y estilos unificados."""
+    """Crea un CTkEntry con bordes sutiles y dimensiones unificadas."""
     base_kwargs: Dict[str, Any] = {
-        'height': 36,
+        'height': CONTROL_HEIGHT,
         'corner_radius': RADIUS['control'],
         'border_width': 1,
         'border_color': COLORS['border'],
@@ -179,6 +210,30 @@ def entry(master, placeholder_text: str = '', width: Optional[int] = None, **kwa
     return ctk.CTkEntry(master, placeholder_text=placeholder_text, **merged_kwargs)
 
 
+def option_menu(master, values, variable=None, command=None, width: int = 150, **kwargs) -> ctk.CTkOptionMenu:
+    """Crea un CTkOptionMenu estilizado con altura unificada y estética limpia."""
+    base_kwargs: Dict[str, Any] = {
+        'values': values,
+        'variable': variable,
+        'command': command,
+        'height': CONTROL_HEIGHT,
+        'width': width,
+        'corner_radius': RADIUS['control'],
+        'font': font('body'),
+        'dropdown_font': font('body'),
+        'fg_color': COLORS['surface'],
+        'button_color': COLORS['surface_alt'],
+        'button_hover_color': COLORS['border'],
+        'text_color': COLORS['ink'],
+        'dropdown_fg_color': COLORS['surface'],
+        'dropdown_text_color': COLORS['ink'],
+        'dropdown_hover_color': COLORS['accent_soft'],
+        'dynamic_resizing': False,
+    }
+    merged_kwargs = {**base_kwargs, **kwargs}
+    return ctk.CTkOptionMenu(master, **merged_kwargs)
+
+
 def card(master, **kwargs) -> ctk.CTkFrame:
     """Crea un CTkFrame contenedor con estilo de tarjeta limpia."""
     base_kwargs: Dict[str, Any] = {
@@ -192,7 +247,7 @@ def card(master, **kwargs) -> ctk.CTkFrame:
 
 
 def style_tabview(tabview: ctk.CTkTabview):
-    """Configura las pestañas de CTkTabview con estilo tipo pill moderno."""
+    """Configura las pestañas de CTkTabview con estilo moderno."""
     tabview.configure(
         segmented_button_fg_color=COLORS['segment_bg'],
         segmented_button_selected_color=COLORS['surface'],
@@ -204,18 +259,18 @@ def style_tabview(tabview: ctk.CTkTabview):
         fg_color='transparent',
         bg_color='transparent',
     )
-    # Configuración de tipografía interna del botón segmentado si está disponible
     try:
         tabview._segmented_button.configure(
             corner_radius=RADIUS['control'],
             font=font('heading'),
+            height=34,
         )
     except Exception:
         pass
 
 
 def apply_ttk_styles(root=None):
-    """Aplica temas y estilos para ttk.Treeview y ttk.Scrollbar."""
+    """Aplica temas y estilos limpios para ttk.Treeview y ttk.Scrollbar."""
     style = ttk.Style(root)
     try:
         style.theme_use('clam')
@@ -224,10 +279,9 @@ def apply_ttk_styles(root=None):
 
     dpi_scale = get_dpi_scale(root)
     row_height = int(round(38 * dpi_scale))
-    pad_x = int(round(12 * dpi_scale))
+    pad_x = int(round(14 * dpi_scale))
     pad_y = int(round(10 * dpi_scale))
 
-    # Quitar el borde interno de ttk.Treeview para que lo aporte la tarjeta contenedora
     style.layout('Pea.Treeview', [('Treeview.treearea', {'sticky': 'nswe'})])
 
     style.configure(
@@ -251,7 +305,7 @@ def apply_ttk_styles(root=None):
         'Pea.Treeview.Heading',
         background=COLORS['surface_alt'],
         foreground=COLORS['muted'],
-        font=('Segoe UI', 10, 'bold'),
+        font=('Segoe UI', 9, 'bold'),
         relief='flat',
         borderwidth=0,
         padding=(pad_x, pad_y),
@@ -259,11 +313,11 @@ def apply_ttk_styles(root=None):
 
     style.map(
         'Pea.Treeview.Heading',
-        background=[('active', COLORS['surface_alt']), ('pressed', COLORS['border'])],
+        background=[('active', COLORS['border']), ('pressed', COLORS['border'])],
         foreground=[('active', COLORS['ink'])],
     )
 
-    # Scrollbar vertical delgada sin flechas
+    # Scrollbar vertical delgada y minimalista
     style.layout(
         'Pea.Vertical.TScrollbar',
         [
@@ -281,14 +335,14 @@ def apply_ttk_styles(root=None):
 
     style.configure(
         'Pea.Vertical.TScrollbar',
-        troughcolor=COLORS['surface_alt'],
+        troughcolor=COLORS['surface'],
         background=COLORS['border'],
-        bordercolor=COLORS['surface_alt'],
-        lightcolor=COLORS['surface_alt'],
-        darkcolor=COLORS['surface_alt'],
-        arrowcolor=COLORS['surface_alt'],
+        bordercolor=COLORS['surface'],
+        lightcolor=COLORS['surface'],
+        darkcolor=COLORS['surface'],
+        arrowcolor=COLORS['surface'],
         gripcount=0,
-        width=10,
+        width=8,
     )
 
     style.map(
@@ -298,11 +352,12 @@ def apply_ttk_styles(root=None):
 
 
 def apply_treeview_tags(tree: ttk.Treeview):
-    """Configura las etiquetas zebra, hover e inactivo en una instancia de Treeview."""
+    """Configura las etiquetas zebra, hover y estados de color en el Treeview."""
     tree.tag_configure('odd', background=COLORS['surface'], foreground=COLORS['ink'])
-    tree.tag_configure('even', background=COLORS['surface_alt'], foreground=COLORS['ink'])
+    tree.tag_configure('even', background=COLORS['surface_subtle'], foreground=COLORS['ink'])
     tree.tag_configure('hover', background=COLORS['accent_soft'], foreground=COLORS['ink'])
-    tree.tag_configure('inactive', foreground=COLORS['muted'])
+    tree.tag_configure('active_badge', foreground=COLORS['badge_active_text'])
+    tree.tag_configure('inactive_badge', foreground=COLORS['badge_inactive_text'])
 
 
 def apply_matplotlib_style():
@@ -320,7 +375,7 @@ def apply_matplotlib_style():
         mpl.rcParams['grid.color'] = COLORS['border']
         mpl.rcParams['grid.linestyle'] = '-'
         mpl.rcParams['grid.linewidth'] = 0.8
-        mpl.rcParams['grid.alpha'] = 0.7
+        mpl.rcParams['grid.alpha'] = 0.6
         mpl.rcParams['axes.grid'] = True
         mpl.rcParams['axes.grid.axis'] = 'y'
     except Exception:
@@ -336,7 +391,7 @@ def style_bar_axes(ax, title: Optional[str] = None):
     ax.spines['bottom'].set_linewidth(1)
 
     ax.tick_params(left=False, bottom=False, labelsize=9, labelcolor=COLORS['muted'])
-    ax.yaxis.grid(True, color=COLORS['border'], linestyle='-', linewidth=0.8, alpha=0.7)
+    ax.yaxis.grid(True, color=COLORS['border'], linestyle='-', linewidth=0.8, alpha=0.6)
     ax.xaxis.grid(False)
 
     ax.set_facecolor(COLORS['surface'])
