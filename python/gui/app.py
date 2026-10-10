@@ -2,9 +2,11 @@
 """Ventana principal de la aplicación PEA-i."""
 
 import sys
+import threading
+from datetime import datetime
 from pathlib import Path
 import tkinter as tk
-from tkinter import messagebox, filedialog, simpledialog
+from tkinter import messagebox, filedialog
 
 import customtkinter as ctk
 
@@ -33,9 +35,13 @@ from gui.styles import (
     SPACING,
     font,
     setup_app,
-    style_tabview,
 )
 from scraping import scienti
+
+
+# ─── Constantes de layout ──────────────────────────────────────────────
+_LATERAL_PAD = SPACING['lg']          # 24 px márgenes laterales
+_TAB_NAMES = ["Grupos", "Investigadores", "Productos", "Estadísticas"]
 
 
 class App(ctk.CTk):
@@ -58,28 +64,187 @@ class App(ctk.CTk):
         self.inv_crud = InvestigadorCRUD(self.multilista)
         self.prod_crud = ProductoCRUD(self.multilista)
 
+        # Timestamp del último guardado
+        self._last_saved: str = ""
+        # Timer id para mensajes temporales en la barra de estado
+        self._status_toast_timer = None
+
         self.init_persistence()
 
-        # Menú superior nativo del sistema (tkinter.Menu)
-        self.create_menu()
+        # ── 1. Barra de menú superior moderna (reemplaza tk.Menu) ──────
+        self._build_menu_bar()
 
-        # Contenedor de pestañas
-        self.tabview = ctk.CTkTabview(self)
-        self.tabview.pack(
-            fill='both',
-            expand=True,
-            padx=SPACING['md'],
-            pady=(SPACING['xs'], 0),
-        )
-        style_tabview(self.tabview)
+        # ── 2. Pestañas con CTkSegmentedButton ─────────────────────────
+        self._build_tab_navigation()
+
+        # ── Contenedor de contenido de pestañas ────────────────────────
+        self.content_wrapper = ctk.CTkFrame(self, fg_color='transparent')
+        self.content_wrapper.pack(fill='both', expand=True, padx=0, pady=(SPACING['xs'], 0))
+
+        # Frames individuales por pestaña (se muestran/ocultan)
+        self._tab_frames = {}
+        for name in _TAB_NAMES:
+            frame = ctk.CTkFrame(self.content_wrapper, fg_color='transparent')
+            self._tab_frames[name] = frame
 
         # Creación e inyección de dependencias en las pestañas
-        self.grupos_tab = GruposTab(self.tabview.add("Grupos"), app=self)
-        self.investigadores_tab = InvestigadoresTab(self.tabview.add("Investigadores"), app=self)
-        self.productos_tab = ProductosTab(self.tabview.add("Productos"), app=self)
-        self.estadisticas_tab = EstadisticasTab(self.tabview.add("Estadísticas"), app=self)
+        self.grupos_tab = GruposTab(self._tab_frames["Grupos"], app=self)
+        self.investigadores_tab = InvestigadoresTab(self._tab_frames["Investigadores"], app=self)
+        self.productos_tab = ProductosTab(self._tab_frames["Productos"], app=self)
+        self.estadisticas_tab = EstadisticasTab(self._tab_frames["Estadísticas"], app=self)
 
-        # Barra de estado discreta inferior
+        # Activar la primera pestaña por defecto
+        self._current_tab = _TAB_NAMES[0]
+        self._show_tab(_TAB_NAMES[0])
+
+        # ── 3. Barra de estado inferior mejorada ───────────────────────
+        self._build_status_bar()
+
+        # ── 6. Atajos globales con bind_all ────────────────────────────
+        self._bind_global_shortcuts()
+
+        self.load_data()
+
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  INICIALIZACIÓN DE SECCIONES                                    ║
+    # ╚══════════════════════════════════════════════════════════════════╝
+
+    def init_persistence(self):
+        """Inicializa la persistencia directa con archivo JSON."""
+        datos_path = Path(__file__).resolve().parent.parent / 'datos' / 'datos.json'
+        self.persistencia = PersistenciaJSON(filepath=str(datos_path))
+
+    # ── 1. Menú superior ────────────────────────────────────────────────
+
+    def _build_menu_bar(self):
+        """Construye la barra de menú CTk personalizada (reemplaza tk.Menu nativo)."""
+        self.menu_bar = MenuBarModerno(self, app=self)
+        self.menu_bar.pack(side='top', fill='x')
+
+        self.menu_bar.add_menu("Archivo", [
+            {
+                'label': "Cargar datos",
+                'icon': "📂",
+                'shortcut': "Ctrl+O",
+                'command': self.load_data,
+                'enabled': True,
+            },
+            {
+                'label': "Guardar datos",
+                'icon': "💾",
+                'shortcut': "Ctrl+S",
+                'command': self.save_data,
+                'enabled': self.has_data,
+            },
+            {
+                'label': "Exportar a CSV",
+                'icon': "📊",
+                'shortcut': "Ctrl+Shift+C",
+                'command': self.export_to_csv,
+                'enabled': self.has_data,
+            },
+            {'separator': True},
+            {
+                'label': "Salir",
+                'icon': "🚪",
+                'shortcut': "Ctrl+Q",
+                'command': self.quit,
+                'enabled': True,
+            },
+        ])
+
+        self.menu_bar.add_menu("Datos", [
+            {
+                'label': "Descargar del SCIENTI",
+                'icon': "🌐",
+                'shortcut': "Ctrl+U",
+                'command': lambda: self.download_from_url(DEFAULT_SCIENTI_URL),
+                'enabled': True,
+            },
+            {
+                'label': "Descargar de otra URL",
+                'icon': "🔗",
+                'shortcut': "Ctrl+Shift+U",
+                'command': self.download_from_custom_url,
+                'enabled': True,
+            },
+            {
+                'label': "Cargar CSV/PDF",
+                'icon': "📄",
+                'shortcut': "",
+                'command': self.load_from_csv,
+                'enabled': True,
+            },
+            {'separator': True},
+            {
+                'label': "Limpiar datos",
+                'icon': "🗑️",
+                'shortcut': "Ctrl+Shift+Del",
+                'command': self.clear_data,
+                'enabled': self.has_data,
+            },
+        ])
+
+        self.menu_bar.add_menu("Ayuda", [
+            {
+                'label': "Guía rápida",
+                'icon': "📖",
+                'shortcut': "F1",
+                'command': self.show_quick_guide,
+                'enabled': True,
+            },
+            {
+                'label': "Acerca de PEA-i",
+                'icon': "ℹ️",
+                'shortcut': "Ctrl+H",
+                'command': self.about,
+                'enabled': True,
+            },
+        ])
+
+    # ── 2. Pestañas segmentadas ─────────────────────────────────────────
+
+    def _build_tab_navigation(self):
+        """Construye el selector de pestañas con CTkSegmentedButton centrado."""
+        self.tab_nav_container = ctk.CTkFrame(self, fg_color='transparent', height=48)
+        self.tab_nav_container.pack(fill='x', padx=_LATERAL_PAD, pady=(SPACING['sm'], 0))
+
+        self.tab_selector = ctk.CTkSegmentedButton(
+            self.tab_nav_container,
+            values=_TAB_NAMES,
+            command=self._on_tab_changed,
+            font=font('heading'),
+            height=38,
+            corner_radius=RADIUS['control'],
+            fg_color=COLORS['segment_bg'],
+            selected_color=COLORS['accent'],
+            selected_hover_color=COLORS['accent_hover'],
+            unselected_color=COLORS['segment_bg'],
+            unselected_hover_color=COLORS['border'],
+            text_color=COLORS['white'],
+            text_color_disabled=COLORS['muted_light'],
+        )
+        self.tab_selector.set(_TAB_NAMES[0])
+        self.tab_selector.pack(anchor='center')
+
+    def _on_tab_changed(self, tab_name: str):
+        """Callback cuando el usuario cambia de pestaña."""
+        self._show_tab(tab_name)
+
+    def _show_tab(self, tab_name: str):
+        """Muestra el frame de la pestaña seleccionada y oculta las demás."""
+        for name, frame in self._tab_frames.items():
+            if name == tab_name:
+                frame.pack(fill='both', expand=True)
+            else:
+                frame.pack_forget()
+        self._current_tab = tab_name
+
+    # ── 3. Barra de estado inferior ─────────────────────────────────────
+
+    def _build_status_bar(self):
+        """Construye la barra de estado inferior con persistencia, guardado, conteo y toast."""
+        # Borde superior de 1 px
         self.status_border = ctk.CTkFrame(
             self,
             height=1,
@@ -90,193 +255,178 @@ class App(ctk.CTk):
 
         self.status_bar = ctk.CTkFrame(
             self,
-            height=28,
+            height=32,
             fg_color=COLORS['surface_alt'],
             corner_radius=0,
         )
         self.status_bar.pack(fill='x', side='bottom')
+        self.status_bar.pack_propagate(False)
 
-        self.status_label = ctk.CTkLabel(
+        # Sección izquierda: persistencia
+        self.status_persistence_lbl = ctk.CTkLabel(
             self.status_bar,
-            text="Usando persistencia: JSON",
+            text="Persistencia: JSON",
             font=font('small'),
             text_color=COLORS['muted'],
             anchor='w',
         )
-        self.status_label.pack(side='left', padx=SPACING['md'], pady=(2, 2))
-        self.update_status()
+        self.status_persistence_lbl.pack(side='left', padx=(_LATERAL_PAD, SPACING['md']), pady=2)
 
-        self.load_data()
+        # Separador vertical fino
+        _sep1 = ctk.CTkFrame(self.status_bar, width=1, fg_color=COLORS['border'], corner_radius=0)
+        _sep1.pack(side='left', fill='y', padx=SPACING['xs'], pady=6)
 
-    def init_persistence(self):
-        """Inicializa la persistencia directa con archivo JSON."""
-        datos_path = Path(__file__).resolve().parent.parent / 'datos' / 'datos.json'
-        self.persistencia = PersistenciaJSON(filepath=str(datos_path))
+        # Último guardado
+        self.status_saved_lbl = ctk.CTkLabel(
+            self.status_bar,
+            text="Sin guardar",
+            font=font('small'),
+            text_color=COLORS['muted'],
+            anchor='w',
+        )
+        self.status_saved_lbl.pack(side='left', padx=SPACING['sm'], pady=2)
 
-    def update_status(self, text: str = "Usando persistencia: JSON"):
-        """Actualiza el texto de la barra de estado inferior."""
+        # Separador vertical fino
+        _sep2 = ctk.CTkFrame(self.status_bar, width=1, fg_color=COLORS['border'], corner_radius=0)
+        _sep2.pack(side='left', fill='y', padx=SPACING['xs'], pady=6)
+
+        # Conteo de registros
+        self.status_count_lbl = ctk.CTkLabel(
+            self.status_bar,
+            text="0 grupos · 0 inv. · 0 prod.",
+            font=font('small'),
+            text_color=COLORS['muted'],
+            anchor='w',
+        )
+        self.status_count_lbl.pack(side='left', padx=SPACING['sm'], pady=2)
+
+        # Sección derecha: mensaje temporal (toast)
+        self.status_toast_lbl = ctk.CTkLabel(
+            self.status_bar,
+            text="",
+            font=font('small'),
+            text_color=COLORS['success'],
+            anchor='e',
+        )
+        self.status_toast_lbl.pack(side='right', padx=(SPACING['md'], _LATERAL_PAD), pady=2)
+
+    def _refresh_status_bar(self):
+        """Actualiza los indicadores persistentes de la barra de estado."""
         try:
-            self.status_label.configure(text=text)
+            ng = len(self.grupo_crud.list_all())
+            ni = len(self.inv_crud.list_all())
+            np_ = len(self.prod_crud.list_all())
+            self.status_count_lbl.configure(
+                text=f"{ng} grupo{'s' if ng != 1 else ''} · {ni} inv. · {np_} prod."
+            )
         except Exception:
             pass
 
-    def create_menu(self):
-        """Configura la barra de menú superior con opciones nativas y modernas."""
-        # Menú nativo del sistema para compatibilidad estricta
-        menubar = tk.Menu(self)
+        if self._last_saved:
+            self.status_saved_lbl.configure(text=f"Guardado: {self._last_saved}")
+        else:
+            self.status_saved_lbl.configure(text="Sin guardar")
 
-        file_menu = tk.Menu(menubar, tearoff=0)
-        file_menu.add_command(label="Cargar datos", command=self.load_data)
-        file_menu.add_command(label="Guardar datos", command=self.save_data)
-        file_menu.add_separator()
-        file_menu.add_command(label="Exportar a Excel", command=self.export_to_excel)
-        file_menu.add_command(label="Exportar a CSV", command=self.export_to_csv)
-        file_menu.add_separator()
-        file_menu.add_command(label="Salir", command=self.quit)
-        menubar.add_cascade(label="Archivo", menu=file_menu)
+    def show_toast(self, message: str, duration_ms: int = 4000, color: str = ""):
+        """Muestra un mensaje temporal en la barra de estado que desaparece después de `duration_ms`."""
+        if self._status_toast_timer:
+            self.after_cancel(self._status_toast_timer)
 
-        data_menu = tk.Menu(menubar, tearoff=0)
-        data_menu.add_command(
-            label="Descargar del SCIENTI",
-            command=lambda: self.download_from_url(DEFAULT_SCIENTI_URL),
-        )
-        data_menu.add_command(
-            label="Descargar de otra URL...",
-            command=self.download_from_custom_url,
-        )
-        data_menu.add_separator()
-        data_menu.add_command(label="Actualizar todo", command=self.refresh_all)
-        data_menu.add_separator()
-        data_menu.add_command(label="Limpiar datos", command=self.clear_data)
-        menubar.add_cascade(label="Datos", menu=data_menu)
+        toast_color = color or COLORS['success']
+        self.status_toast_lbl.configure(text=f"✓ {message}", text_color=toast_color)
+        self._status_toast_timer = self.after(duration_ms, self._clear_toast)
 
-        help_menu = tk.Menu(menubar, tearoff=0)
-        help_menu.add_command(label="Guía rápida", command=self.show_quick_guide)
-        help_menu.add_command(label="Acerca de", command=self.about)
-        menubar.add_cascade(label="Ayuda", menu=help_menu)
+    def _clear_toast(self):
+        """Limpia el mensaje temporal de la barra de estado."""
+        try:
+            self.status_toast_lbl.configure(text="")
+        except Exception:
+            pass
+        self._status_toast_timer = None
 
-        self.menubar = menubar
-        self.file_menu = file_menu
-        self.data_menu = data_menu
-        self.help_menu = help_menu
+    def update_status(self, text: str = "Persistencia: JSON"):
+        """Actualiza el texto de la barra de estado inferior (compatibilidad)."""
+        try:
+            self.show_toast(text)
+        except Exception:
+            pass
 
-        # Barra de menú moderna integrada (MenuBarModerno)
-        self.menu_bar = MenuBarModerno(self, app=self)
-        self.menu_bar.pack(side='top', fill='x')
+    # ── 6. Atajos globales ──────────────────────────────────────────────
 
-        self.menu_bar.add_menu("Archivo", [
-            {
-                'label': "Cargar datos",
-                'shortcut': "Ctrl+O",
-                'command': self.load_data,
-                'enabled': True,
-            },
-            {
-                'label': "Guardar datos",
-                'shortcut': "Ctrl+S",
-                'command': self.save_data,
-                'enabled': self.has_data,
-            },
-            {'separator': True},
-            {
-                'label': "Exportar a Excel",
-                'shortcut': "Ctrl+E",
-                'command': self.export_to_excel,
-                'enabled': self.has_data,
-            },
-            {
-                'label': "Exportar a CSV",
-                'shortcut': "Ctrl+Shift+C",
-                'command': self.export_to_csv,
-                'enabled': self.has_data,
-            },
-            {'separator': True},
-            {
-                'label': "Salir",
-                'shortcut': "Ctrl+Q",
-                'command': self.quit,
-                'enabled': True,
-            },
-        ])
+    def _bind_global_shortcuts(self):
+        """Registra atajos de teclado globales con bind_all."""
+        # Archivo
+        self.bind_all('<Control-o>', lambda e: self.load_data())
+        self.bind_all('<Control-O>', lambda e: self.load_data())
+        self.bind_all('<Control-s>', lambda e: self.save_data())
+        self.bind_all('<Control-S>', lambda e: self.save_data())
+        self.bind_all('<Control-q>', lambda e: self.quit())
+        self.bind_all('<Control-Q>', lambda e: self.quit())
 
-        self.menu_bar.add_menu("Datos", [
-            {
-                'label': "Descargar del SCIENTI",
-                'shortcut': "Ctrl+U",
-                'command': lambda: self.download_from_url(DEFAULT_SCIENTI_URL),
-                'enabled': True,
-            },
-            {
-                'label': "Descargar de otra URL...",
-                'shortcut': "Ctrl+Shift+U",
-                'command': self.download_from_custom_url,
-                'enabled': True,
-            },
-            {'separator': True},
-            {
-                'label': "Actualizar todo",
-                'shortcut': "F5",
-                'command': self.refresh_all,
-                'enabled': True,
-            },
-            {'separator': True},
-            {
-                'label': "Limpiar datos",
-                'shortcut': "Ctrl+Shift+Del",
-                'command': self.clear_data,
-                'enabled': self.has_data,
-            },
-        ])
+        # Datos
+        self.bind_all('<Control-u>', lambda e: self.download_from_url(DEFAULT_SCIENTI_URL))
+        self.bind_all('<Control-U>', lambda e: self.download_from_url(DEFAULT_SCIENTI_URL))
+        self.bind_all('<Control-Shift-U>', lambda e: self.download_from_custom_url())
 
-        self.menu_bar.add_menu("Ayuda", [
-            {
-                'label': "Guía rápida",
-                'shortcut': "F1",
-                'command': self.show_quick_guide,
-                'enabled': True,
-            },
-            {
-                'label': "Acerca de",
-                'shortcut': "Ctrl+H",
-                'command': self.about,
-                'enabled': True,
-            },
-        ])
+        # Ayuda
+        self.bind_all('<F1>', lambda e: self.show_quick_guide())
+        self.bind_all('<Control-h>', lambda e: self.about())
+        self.bind_all('<Control-H>', lambda e: self.about())
+
+        # Refrescar
+        self.bind_all('<F5>', lambda e: self.refresh_all())
+
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  4. MODAL DE URL (reemplaza simpledialog.askstring)             ║
+    # ╚══════════════════════════════════════════════════════════════════╝
 
     def download_from_custom_url(self):
-        """Solicita una URL personalizada mediante simpledialog y ejecuta la descarga."""
-        user_url = simpledialog.askstring(
-            "Descargar de otra URL",
-            "Ingrese la URL del grupo en SCIENTI / GrupLAC:",
+        """Abre el modal CTkToplevel para ingresar una URL con validación,
+        barra de progreso indeterminada y ejecución en hilo secundario."""
+        UrlImportModal(
             parent=self,
+            on_success=self._on_url_modal_success,
+            initial_url="",
         )
-        if user_url:
-            self.download_from_url(user_url.strip())
+
+    def _on_url_modal_success(self, datos: dict):
+        """Callback invocado por UrlImportModal cuando la descarga finaliza exitosamente.
+        Se ejecuta en el hilo principal (via after) para refrescar las pestañas."""
+        self.process_downloaded_data(datos)
 
     def download_scienti(self):
         """Descarga directa del SCIENTI con la URL por defecto."""
         self.download_from_url(DEFAULT_SCIENTI_URL)
 
     def download_from_url(self, url: str):
-        """Descarga e integra la información de un grupo desde la URL especificada de forma directa."""
+        """Descarga e integra la información de un grupo desde la URL especificada.
+        Ejecuta el scraping en un hilo secundario para no congelar la GUI."""
         if not url or not (url.startswith("http://") or url.startswith("https://")):
             messagebox.showerror("Error", "URL inválida")
             return
 
         if url == DEFAULT_SCIENTI_URL:
-            self.update_status("Descargando desde SCIENTI...")
+            self.show_toast("Descargando desde SCIENTI...", duration_ms=30000, color=COLORS['accent'])
         else:
-            self.update_status(f"Descargando desde {url}...")
+            self.show_toast(f"Descargando desde URL...", duration_ms=30000, color=COLORS['accent'])
         self.update()
 
-        try:
-            datos = scienti.download_group(url)
-        except Exception as e:
-            datos = {"error": f"Error de conexión: {e}"}
+        def _worker():
+            try:
+                datos = scienti.download_group(url)
+            except Exception as e:
+                datos = {"error": f"Error de conexión: {e}"}
+            # Regresar al hilo principal con after()
+            self.after(0, lambda: self._on_download_complete(datos, url))
 
+        thread = threading.Thread(target=_worker, daemon=True)
+        thread.start()
+
+    def _on_download_complete(self, datos, url: str):
+        """Callback ejecutado en el hilo principal cuando termina la descarga."""
         if not datos or (isinstance(datos, dict) and "error" in datos):
             error_msg = datos.get("error", "Error al descargar.") if isinstance(datos, dict) else "Error al descargar."
-            self.update_status("Error al descargar. Ofreciendo CSV...")
+            self.show_toast("Error al descargar", color=COLORS['danger'])
             messagebox.showerror("Error", error_msg)
             if messagebox.askyesno("Cargar CSV", "¿Desea cargar los datos desde un archivo CSV?"):
                 path = filedialog.askopenfilename(
@@ -424,7 +574,7 @@ class App(ctk.CTk):
                 "Éxito",
                 f"Grupo descargado: {nombre_grupo}. Investigadores: {num_inv}. Productos: {num_prod}.",
             )
-            self.update_status("Descarga completada.")
+            self.show_toast("Descarga completada correctamente")
         except Exception as e:
             messagebox.showerror("Error", f"Error al procesar los datos descargados: {e}")
 
@@ -433,8 +583,8 @@ class App(ctk.CTk):
         try:
             if not path:
                 path = filedialog.askopenfilename(
-                    filetypes=[("Archivos CSV", "*.csv"), ("Todos los archivos", "*.*")],
-                    title="Seleccionar archivo CSV",
+                    filetypes=[("Archivos CSV", "*.csv"), ("Archivos PDF", "*.pdf"), ("Todos los archivos", "*.*")],
+                    title="Seleccionar archivo CSV o PDF",
                 )
             if not path:
                 return
@@ -453,10 +603,9 @@ class App(ctk.CTk):
 
             self.save_data(silent=True)
             self.load_tabs_data()
-            messagebox.showinfo("Éxito", "Datos cargados correctamente desde CSV.")
-            self.update_status("Descarga completada.")
+            self.show_toast("Datos cargados correctamente desde archivo")
         except Exception as e:
-            messagebox.showerror("Error", f"Error al cargar el archivo CSV: {e}")
+            messagebox.showerror("Error", f"Error al cargar el archivo: {e}")
 
     def load_csv(self, path: str = None):
         """Alias para load_from_csv."""
@@ -480,6 +629,7 @@ class App(ctk.CTk):
             self.estadisticas_tab.refresh()
         except Exception:
             pass
+        self._refresh_status_bar()
 
     def load_data(self):
         """Carga y sincroniza los datos persistidos en memoria y pestañas."""
@@ -574,8 +724,10 @@ class App(ctk.CTk):
         """Guarda la estructura actual en la capa de persistencia activa."""
         try:
             self.persistencia.save(self.multilista)
+            self._last_saved = datetime.now().strftime("%H:%M:%S")
+            self._refresh_status_bar()
             if not silent:
-                messagebox.showinfo("Guardar", "Datos guardados correctamente")
+                self.show_toast("Datos guardados correctamente")
         except Exception:
             try:
                 datos = {
@@ -584,8 +736,10 @@ class App(ctk.CTk):
                     'productos': [p.to_dict() if hasattr(p, 'to_dict') else p.__dict__ for p in self.prod_crud.list_all()],
                 }
                 self.persistencia.save(datos)
+                self._last_saved = datetime.now().strftime("%H:%M:%S")
+                self._refresh_status_bar()
                 if not silent:
-                    messagebox.showinfo("Guardar", "Datos guardados correctamente")
+                    self.show_toast("Datos guardados correctamente")
             except Exception as ex:
                 if not silent:
                     messagebox.showerror("Error", f"No se pudo guardar la información: {ex}")
@@ -593,7 +747,7 @@ class App(ctk.CTk):
     def about(self):
         """Muestra ventana modal con información sobre la aplicación."""
         messagebox.showinfo(
-            "Acerca de",
+            "Acerca de PEA-i",
             "PEA-i (Programa Estadístico de Análisis de Investigación)\n\n"
             "Taller de Estructura de Datos - Segundo Corte\n"
             "Diseñado con CustomTkinter y arquitectura de Multilistas.",
@@ -637,7 +791,7 @@ class App(ctk.CTk):
                 pd.DataFrame(prods_data).to_excel(writer, sheet_name='Productos', index=False)
 
             messagebox.showinfo("Exportación exitosa", f"Datos exportados correctamente en:\n{filepath}")
-            self.update_status(f"Exportado a Excel: {Path(filepath).name}")
+            self.show_toast(f"Exportado a Excel: {Path(filepath).name}")
         except Exception as e:
             messagebox.showerror("Error de exportación", f"No se pudo exportar a Excel:\n{e}")
 
@@ -675,14 +829,14 @@ class App(ctk.CTk):
                 "Exportación exitosa",
                 f"Archivos CSV exportados correctamente en:\n{directory}",
             )
-            self.update_status("Exportación CSV completada.")
+            self.show_toast("Exportación CSV completada")
         except Exception as e:
             messagebox.showerror("Error de exportación", f"No se pudo exportar a CSV:\n{e}")
 
     def refresh_all(self):
         """Recarga los datos de persistencia y actualiza todas las pestañas de la interfaz."""
         self.load_data()
-        self.update_status("Vistas actualizadas correctamente.")
+        self.show_toast("Vistas actualizadas correctamente")
 
     def clear_data(self):
         """Limpia todos los datos cargados en memoria y persiste el estado vacío."""
@@ -704,7 +858,7 @@ class App(ctk.CTk):
         self.prod_crud = ProductoCRUD(self.multilista)
         self.save_data(silent=True)
         self.load_tabs_data()
-        self.update_status("Todos los datos han sido limpiados.")
+        self.show_toast("Todos los datos han sido limpiados", color=COLORS['warning'])
         messagebox.showinfo("Limpieza completada", "Se han limpiado todos los registros del sistema.")
 
     def show_quick_guide(self):
@@ -714,17 +868,16 @@ class App(ctk.CTk):
             "1. Menú Archivo:\n"
             "  - Cargar datos (Ctrl+O): Recarga la información desde el archivo JSON local.\n"
             "  - Guardar datos (Ctrl+S): Guarda el estado actual en disco.\n"
-            "  - Exportar a Excel (Ctrl+E): Genera un libro .xlsx con Grupos, Investigadores y Productos.\n"
             "  - Exportar a CSV (Ctrl+Shift+C): Genera archivos .csv independientes.\n"
             "  - Salir (Ctrl+Q): Cierra la aplicación.\n\n"
             "2. Menú Datos:\n"
             "  - Descargar del SCIENTI (Ctrl+U): Descarga directa del grupo oficial de MinCiencias.\n"
-            "  - Descargar de otra URL... (Ctrl+Shift+U): Solicita una URL para descargar e indexar.\n"
-            "  - Actualizar todo (F5): Refresca las listas, tablas y estadísticas.\n"
+            "  - Descargar de otra URL... (Ctrl+Shift+U): Abre modal para ingresar URL personalizada.\n"
+            "  - Cargar CSV/PDF: Importa datos desde archivo local.\n"
             "  - Limpiar datos (Ctrl+Shift+Del): Restablece todas las estructuras en memoria.\n\n"
             "3. Menú Ayuda:\n"
             "  - Guía rápida (F1): Muestra esta guía informativa.\n"
-            "  - Acerca de (Ctrl+H): Información de versión y créditos."
+            "  - Acerca de PEA-i (Ctrl+H): Información de versión y créditos."
         )
         messagebox.showinfo("Guía Rápida - PEA-i", guia)
 
