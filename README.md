@@ -34,7 +34,7 @@ python gui/app.py
 ```
 
 ## Persistencia
-El proyecto usa persistencia en JSON (python/datos/datos.json). No requiere base de datos.
+El proyecto usa persistencia en JSON (python/datos/datos.json). 
 
 ## Estructura del proyecto (breve)
 - python/ — Código fuente (modelos, CRUD, persistencia, scraping, GUI con CustomTkinter)
@@ -43,5 +43,3 @@ El proyecto usa persistencia en JSON (python/datos/datos.json). No requiere base
 - .vscode/launch.json — Configuración para ejecutar con F5 en VS Code
 - python/requirements.txt — Dependencias del proyecto
 
-## Enlace al video de YouTube
-[Video de demostración - PEA-i](https://www.youtube.com/placeholder)
