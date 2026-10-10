@@ -17,9 +17,9 @@ Estructura de Datos
 - pip
 
 ## Instalación
-`ash
+```bash
 pip install -r python/requirements.txt
-`
+```
 
 ## Cómo ejecutar
 
@@ -28,14 +28,13 @@ pip install -r python/requirements.txt
 2. Presionar F5 y seleccionar la configuración "PEA-i GUI".
 
 ### Opción B — Terminal
-`ash
+```bash
 cd python
 python gui/app.py
-`
+```
 
 ## Persistencia
-- Por defecto usa JSON (python/datos/datos.json) para facilitar la evaluación sin necesidad de configurar base de datos.
-- Para usar PostgreSQL, copiar .env.example a .env y configurar las credenciales correspondientes.
+El proyecto usa persistencia en JSON (python/datos/datos.json). No requiere base de datos.
 
 ## Estructura del proyecto (breve)
 - python/ — Código fuente (modelos, CRUD, persistencia, scraping, GUI con CustomTkinter)
