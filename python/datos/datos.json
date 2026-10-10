@@ -1,16 +1,3 @@
 {
-    "grupos": [
-        {
-            "grupo": {
-                "id": 1,
-                "codigo_gruplac": "COL0001",
-                "nombre": "Grupo Demo",
-                "categoria": "A",
-                "lider": "Demo",
-                "activo": true,
-                "fecha_creacion": "2023-01-15"
-            },
-            "investigadores": []
-        }
-    ]
+    "grupos": []
 }

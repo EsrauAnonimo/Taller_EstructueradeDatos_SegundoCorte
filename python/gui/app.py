@@ -121,22 +121,58 @@ class App(ctk.CTk):
             pass
 
     def create_menu(self):
-        """Configura la barra de menú superior moderna integrada (MenuBarModerno)."""
+        """Configura la barra de menú superior con opciones nativas y modernas."""
+        # Menú nativo del sistema para compatibilidad estricta
+        menubar = tk.Menu(self)
+
+        file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label="Cargar datos", command=self.load_data)
+        file_menu.add_command(label="Guardar datos", command=self.save_data)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exportar a Excel", command=self.export_to_excel)
+        file_menu.add_command(label="Exportar a CSV", command=self.export_to_csv)
+        file_menu.add_separator()
+        file_menu.add_command(label="Salir", command=self.quit)
+        menubar.add_cascade(label="Archivo", menu=file_menu)
+
+        data_menu = tk.Menu(menubar, tearoff=0)
+        data_menu.add_command(
+            label="Descargar del SCIENTI",
+            command=lambda: self.download_from_url(DEFAULT_SCIENTI_URL),
+        )
+        data_menu.add_command(
+            label="Descargar de otra URL...",
+            command=self.download_from_custom_url,
+        )
+        data_menu.add_separator()
+        data_menu.add_command(label="Actualizar todo", command=self.refresh_all)
+        data_menu.add_separator()
+        data_menu.add_command(label="Limpiar datos", command=self.clear_data)
+        menubar.add_cascade(label="Datos", menu=data_menu)
+
+        help_menu = tk.Menu(menubar, tearoff=0)
+        help_menu.add_command(label="Guía rápida", command=self.show_quick_guide)
+        help_menu.add_command(label="Acerca de", command=self.about)
+        menubar.add_cascade(label="Ayuda", menu=help_menu)
+
+        self.menubar = menubar
+        self.file_menu = file_menu
+        self.data_menu = data_menu
+        self.help_menu = help_menu
+
+        # Barra de menú moderna integrada (MenuBarModerno)
         self.menu_bar = MenuBarModerno(self, app=self)
         self.menu_bar.pack(side='top', fill='x')
 
-        # 1. Menú Archivo
         self.menu_bar.add_menu("Archivo", [
             {
                 'label': "Cargar datos",
-                'icon': "📂",
                 'shortcut': "Ctrl+O",
                 'command': self.load_data,
                 'enabled': True,
             },
             {
                 'label': "Guardar datos",
-                'icon': "💾",
                 'shortcut': "Ctrl+S",
                 'command': self.save_data,
                 'enabled': self.has_data,
@@ -144,14 +180,12 @@ class App(ctk.CTk):
             {'separator': True},
             {
                 'label': "Exportar a Excel",
-                'icon': "📊",
                 'shortcut': "Ctrl+E",
                 'command': self.export_to_excel,
                 'enabled': self.has_data,
             },
             {
                 'label': "Exportar a CSV",
-                'icon': "📄",
                 'shortcut': "Ctrl+Shift+C",
                 'command': self.export_to_csv,
                 'enabled': self.has_data,
@@ -159,25 +193,28 @@ class App(ctk.CTk):
             {'separator': True},
             {
                 'label': "Salir",
-                'icon': "🚪",
                 'shortcut': "Ctrl+Q",
                 'command': self.quit,
                 'enabled': True,
             },
         ])
 
-        # 2. Menú Datos
         self.menu_bar.add_menu("Datos", [
             {
-                'label': "Importar grupo desde URL",
-                'icon': "🌐",
+                'label': "Descargar del SCIENTI",
                 'shortcut': "Ctrl+U",
-                'command': self.download_from_custom_url,
+                'command': lambda: self.download_from_url(DEFAULT_SCIENTI_URL),
                 'enabled': True,
             },
             {
+                'label': "Descargar de otra URL...",
+                'shortcut': "Ctrl+Shift+U",
+                'command': self.download_from_custom_url,
+                'enabled': True,
+            },
+            {'separator': True},
+            {
                 'label': "Actualizar todo",
-                'icon': "🔄",
                 'shortcut': "F5",
                 'command': self.refresh_all,
                 'enabled': True,
@@ -185,25 +222,21 @@ class App(ctk.CTk):
             {'separator': True},
             {
                 'label': "Limpiar datos",
-                'icon': "🗑️",
                 'shortcut': "Ctrl+Shift+Del",
                 'command': self.clear_data,
                 'enabled': self.has_data,
             },
         ])
 
-        # 3. Menú Ayuda
         self.menu_bar.add_menu("Ayuda", [
             {
                 'label': "Guía rápida",
-                'icon': "📖",
                 'shortcut': "F1",
                 'command': self.show_quick_guide,
                 'enabled': True,
             },
             {
                 'label': "Acerca de",
-                'icon': "ℹ️",
                 'shortcut': "Ctrl+H",
                 'command': self.about,
                 'enabled': True,
@@ -211,20 +244,18 @@ class App(ctk.CTk):
         ])
 
     def download_from_custom_url(self):
-        """Abre el modal moderno interactivo para importar desde una URL personalizada."""
-        UrlImportModal(
+        """Solicita una URL personalizada mediante simpledialog y ejecuta la descarga."""
+        user_url = simpledialog.askstring(
+            "Descargar de otra URL",
+            "Ingrese la URL del grupo en SCIENTI / GrupLAC:",
             parent=self,
-            on_success=self.process_downloaded_data,
-            initial_url="",
         )
+        if user_url:
+            self.download_from_url(user_url.strip())
 
     def download_scienti(self):
-        """Abre el modal interactivo preconfigurado con la URL oficial de SCIENTI / GrupLAC."""
-        UrlImportModal(
-            parent=self,
-            on_success=self.process_downloaded_data,
-            initial_url=DEFAULT_SCIENTI_URL,
-        )
+        """Descarga directa del SCIENTI con la URL por defecto."""
+        self.download_from_url(DEFAULT_SCIENTI_URL)
 
     def download_from_url(self, url: str):
         """Descarga e integra la información de un grupo desde la URL especificada de forma directa."""
@@ -679,18 +710,19 @@ class App(ctk.CTk):
     def show_quick_guide(self):
         """Muestra una guía rápida de uso y atajos de teclado del sistema."""
         guia = (
-            "PEA-i — Guía Rápida de Uso\n\n"
-            "• Menú Archivo:\n"
+            "PEA-i - Guía Rápida de Uso\n\n"
+            "1. Menú Archivo:\n"
             "  - Cargar datos (Ctrl+O): Recarga la información desde el archivo JSON local.\n"
             "  - Guardar datos (Ctrl+S): Guarda el estado actual en disco.\n"
             "  - Exportar a Excel (Ctrl+E): Genera un libro .xlsx con Grupos, Investigadores y Productos.\n"
             "  - Exportar a CSV (Ctrl+Shift+C): Genera archivos .csv independientes.\n"
             "  - Salir (Ctrl+Q): Cierra la aplicación.\n\n"
-            "• Menú Datos:\n"
-            "  - Importar grupo desde URL (Ctrl+U): Descarga e indexa grupos desde MinCiencias / SCIENTI.\n"
+            "2. Menú Datos:\n"
+            "  - Descargar del SCIENTI (Ctrl+U): Descarga directa del grupo oficial de MinCiencias.\n"
+            "  - Descargar de otra URL... (Ctrl+Shift+U): Solicita una URL para descargar e indexar.\n"
             "  - Actualizar todo (F5): Refresca las listas, tablas y estadísticas.\n"
             "  - Limpiar datos (Ctrl+Shift+Del): Restablece todas las estructuras en memoria.\n\n"
-            "• Menú Ayuda:\n"
+            "3. Menú Ayuda:\n"
             "  - Guía rápida (F1): Muestra esta guía informativa.\n"
             "  - Acerca de (Ctrl+H): Información de versión y créditos."
         )

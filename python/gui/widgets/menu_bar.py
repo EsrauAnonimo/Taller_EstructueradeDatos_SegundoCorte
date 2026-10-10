@@ -257,16 +257,22 @@ class MenuBarModerno(ctk.CTkFrame):
             )
             row_frame.pack(fill='x', pady=1)
 
-            # Ícono a la izquierda
-            icon_lbl = ctk.CTkLabel(
-                row_frame,
-                text=icon_char,
-                width=24,
-                font=('Segoe UI Emoji', 12),
-                text_color=COLORS['ink'] if is_enabled else COLORS['muted_light'],
-                anchor='center',
-            )
-            icon_lbl.pack(side='left', padx=(6, 4))
+            widgets_in_row = [row_frame]
+
+            if icon_char and icon_char.strip():
+                icon_lbl = ctk.CTkLabel(
+                    row_frame,
+                    text=icon_char,
+                    width=24,
+                    font=('Segoe UI Emoji', 12),
+                    text_color=COLORS['ink'] if is_enabled else COLORS['muted_light'],
+                    anchor='center',
+                )
+                icon_lbl.pack(side='left', padx=(6, 4))
+                widgets_in_row.append(icon_lbl)
+                left_pad = (0, 24)
+            else:
+                left_pad = (12, 24)
 
             # Texto de la opción
             text_lbl = ctk.CTkLabel(
@@ -276,7 +282,8 @@ class MenuBarModerno(ctk.CTkFrame):
                 text_color=COLORS['ink'] if is_enabled else COLORS['muted_light'],
                 anchor='w',
             )
-            text_lbl.pack(side='left', padx=(0, 24), fill='x', expand=True)
+            text_lbl.pack(side='left', padx=left_pad, fill='x', expand=True)
+            widgets_in_row.append(text_lbl)
 
             # Atajo de teclado alineado a la derecha en gris tenue
             if shortcut:
@@ -291,10 +298,11 @@ class MenuBarModerno(ctk.CTkFrame):
             else:
                 sc_lbl = None
 
-            widgets_in_row = (row_frame, icon_lbl, text_lbl) + ((sc_lbl,) if sc_lbl else ())
+            if sc_lbl:
+                widgets_in_row.append(sc_lbl)
             item_record = {
                 'frame': row_frame,
-                'widgets': widgets_in_row,
+                'widgets': tuple(widgets_in_row),
                 'command': command,
                 'enabled': is_enabled,
             }

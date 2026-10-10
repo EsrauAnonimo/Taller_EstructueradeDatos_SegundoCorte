@@ -103,17 +103,17 @@ class InvestigadoresTab(ctk.CTkFrame):
         # Botón terciario de actualización
         self.btn_refresh = button(
             self.right_tools,
-            text="🔄 Actualizar",
+            text="Actualizar",
             variant='tertiary',
             command=self.refresh,
             height=CONTROL_HEIGHT,
         )
         self.btn_refresh.pack(side='right', padx=(SPACING['sm'], 0))
 
-        # Botón responsive 'Más acciones ▾'
+        # Botón responsive 'Más acciones'
         self.btn_more = button(
             self.right_tools,
-            text="Más acciones ▾",
+            text="Más acciones",
             variant='secondary',
             command=self._show_more_actions_menu,
             height=CONTROL_HEIGHT,
@@ -227,7 +227,7 @@ class InvestigadoresTab(ctk.CTkFrame):
             activeforeground=COLORS['accent'],
             font=font('body'),
         )
-        menu.add_command(label="🔄 Actualizar lista", command=self.refresh)
+        menu.add_command(label="Actualizar lista", command=self.refresh)
 
         bx = self.btn_more.winfo_rootx()
         by = self.btn_more.winfo_rooty() + self.btn_more.winfo_height() + 2
@@ -363,10 +363,10 @@ class InvestigadoresTab(ctk.CTkFrame):
             font=font('body'),
         )
         if len(selected_ids) == 1:
-            menu.add_command(label="✏️ Editar", command=self.edit)
-        menu.add_command(label=f"🔄 {toggle_text}", command=self.toggle_active)
+            menu.add_command(label="Editar", command=self.edit)
+        menu.add_command(label=toggle_text, command=self.toggle_active)
         menu.add_separator()
-        menu.add_command(label="🗑️ Eliminar", command=self.delete)
+        menu.add_command(label="Eliminar", command=self.delete)
 
         try:
             menu.tk_popup(event.x_root, event.y_root)
