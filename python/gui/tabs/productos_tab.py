@@ -69,11 +69,13 @@ class ProductosTab(ctk.CTkFrame):
         # --- 2. Tabla CRUD Reutilizable ---
         columns = [
             ('id', 'ID', 70, 'center'),
-            ('title', 'Título del producto', 320, 'w'),
-            ('type', 'Tipo', 140, 'w'),
-            ('year', 'Año', 90, 'center'),
-            ('group', 'Grupo ID', 90, 'center'),
-            ('active', 'Estado', 100, 'center'),
+            ('title', 'Título del producto', 270, 'w'),
+            ('gran_cat', 'Gran Cat.', 90, 'center'),
+            ('codigo', 'Código', 85, 'center'),
+            ('type', 'Tipo', 170, 'w'),
+            ('year', 'Año', 70, 'center'),
+            ('group', 'Grupo ID', 85, 'center'),
+            ('active', 'Estado', 90, 'center'),
         ]
 
         self.table = TablaCRUD(
@@ -111,6 +113,17 @@ class ProductosTab(ctk.CTkFrame):
         """Inyecta el selector de tipo y el filtro de año con CTkSegmentedButton
         en extra_filters_frame de TablaCRUD."""
         container = self.table.extra_filters_frame
+
+        # Selector de gran categoría
+        self.gran_cat_var = ctk.StringVar(value="Todas las categorías")
+        self.gran_cat_menu = combo(
+            container,
+            values=["Todas las categorías", "GNC", "DTI", "ASC", "FRH", "Sin clasificar"],
+            variable=self.gran_cat_var,
+            command=lambda c: self.table.apply_filter(),
+            width=150,
+        )
+        self.gran_cat_menu.pack(side='left', padx=(0, SPACING['sm']))
 
         # Selector de tipo con estilo consistente
         self.type_var = ctk.StringVar(value="Todos los tipos")
@@ -186,6 +199,13 @@ class ProductosTab(ctk.CTkFrame):
         raw_prod = row.get('raw')
         if raw_prod is None:
             return True
+
+        # 0. Filtro por gran categoría
+        selected_gc = self.gran_cat_var.get()
+        if selected_gc and selected_gc != "Todas las categorías":
+            pgc = str(getattr(raw_prod, 'gran_categoria', '') or 'Sin clasificar').strip()
+            if selected_gc.lower() != pgc.lower():
+                return False
 
         # 1. Filtro por tipo de producto
         selected_type = self.type_var.get()
@@ -289,6 +309,8 @@ class ProductosTab(ctk.CTkFrame):
         for p in self._all_productos:
             pid = getattr(p, 'id', None)
             title = getattr(p, 'titulo', '') or getattr(p, 'title', '')
+            gran_cat = getattr(p, 'gran_categoria', None) or "Sin clasificar"
+            codigo = getattr(p, 'codigo_minciencias', None) or ""
             ptype = getattr(p, 'tipo', '') or getattr(p, 'type', '')
             year = getattr(p, 'anio', '') or getattr(p, 'year', '')
             gid = getattr(p, 'grupo_id', getattr(p, 'group', ''))
@@ -299,6 +321,8 @@ class ProductosTab(ctk.CTkFrame):
                 'values': (
                     str(pid) if pid is not None else '',
                     str(title),
+                    str(gran_cat),
+                    str(codigo),
                     str(ptype),
                     str(year),
                     str(gid) if gid is not None else '',
@@ -330,6 +354,8 @@ class ProductosTab(ctk.CTkFrame):
                 anio=int(data.get('anio') or data.get('year') or 0),
                 investigador_id=data.get('investigador_id'),
                 grupo_id=data.get('grupo_id') or data.get('group'),
+                gran_categoria=data.get('gran_categoria', 'Sin clasificar'),
+                codigo_minciencias=data.get('codigo_minciencias', ''),
             )
             app.prod_crud.create(nuevo)
             app.save_data()
@@ -355,9 +381,9 @@ class ProductosTab(ctk.CTkFrame):
         if not app:
             return
 
-        prod = app.prod_crud.read(target_id)
+        prod = app.prod_crud.get_by_id(target_id) if hasattr(app.prod_crud, 'get_by_id') else getattr(app.prod_crud, 'read', lambda _: None)(target_id)
         if not prod:
-            for item in self._all_productos:
+            for item in getattr(self, '_all_productos', []):
                 if getattr(item, 'id', None) == target_id:
                     prod = item
                     break
