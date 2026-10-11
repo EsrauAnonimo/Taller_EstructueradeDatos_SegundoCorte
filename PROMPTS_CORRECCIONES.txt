@@ -1,0 +1,79 @@
+Aquí tienes los prompts para enviar a otra IA y que corrija las falencias detectadas (sin modificar nada más de lo necesario).
+
+PROMPT 1: CORRECCIÓN DE ESTRUCTURAS DE DATOS (PILA Y COLA CON USO REAL)
+
+`
+Tarea: Agregar usos prácticos para Stack (pila) y Queue (cola) en la GUI del proyecto PEA-i.
+
+Requisitos:
+- Implementa funcionalidad "Deshacer eliminación" usando Stack en python/modelos/pila.py. Al eliminar un Grupo, Investigador o Producto, guarda una copia del objeto eliminado (con su tipo: 'grupo', 'investigador', 'producto') en una pila antes de eliminarlo de la Multilista.
+- Añade botón "Deshacer" en la barra de herramientas de cada pestaña (Grupos, Investigadores, Productos). Al presionar, desapila el último elemento eliminado y lo vuelve a crear en su estructura correspondiente (usando CRUD existente). Si la pila está vacía, mostrar mensaje "No hay acciones para deshacer".
+- Implementa funcionalidad "Cola de importación" usando Queue en python/modelos/cola.py. Al cargar datos desde CSV/SCIENTI, en lugar de insertar todo directamente, encola cada registro (grupos/investigadores/productos) y procesarlos por lotes (desencolar uno por uno) aplicando validaciones. Debe haber un botón "Procesar cola de importación" o que al finalizar el encolado muestre el estado (elementos en cola). Agregar esta opción en menú Datos o en pestañas.
+- NO modificar la implementación base de las estructuras salvo lo necesario para su uso. Usar nombres en inglés, comentarios en español, sin emojis.
+- Actualizar GUI para reflejar estos cambios sin romper funcionalidad existente.
+`
+
+
+PROMPT 2: CORRECCIÓN DE FORMULARIOS Y CRUD DE PRODUCTOS
+
+`
+Tarea: Corregir formulario y CRUD de productos según requerimientos.
+
+Requisitos:
+- En gui/forms/producto_form.py añadir campo OBLIGATORIO "Categoría" (ctk.CTkEntry o ctk.CTkOptionMenu). Incluirlo en get_data(), validación (no vacío) y en pre-llenado al editar.
+- Validar todos los campos de Producto: título obligatorio, año numérico válido (>=1900 y <= año actual), tipo obligatorio, categoría obligatoria, grupo/investigador válidos. Mostrar messagebox.showerror en español con mensaje claro si falla validación.
+- En gui/tabs/productos_tab.py asegurar botones Crear/Editar/Eliminar/Desactivar/Modificar/Actualizar funcionan correctamente. "Modificar" equivale a Editar (usar misma lógica). Asegurar que eliminación/desactivación usan la pila de deshacer si se implementó (integrar con PROMPT 1).
+- Sin romper otros formularios. Código en inglés, comentarios español, sin emojis.
+`
+
+
+PROMPT 3: GESTIÓN DE INTEGRANTES, PLAN DEL GRUPO Y RELACIONES
+
+`
+Tarea: Completar gestión de integrantes, plan del grupo y productos por investigador/grupo.
+
+Requisitos:
+- En gui/forms/grupo_form.py añadir campo "Plan del grupo" (ctk.CTkTextbox o ctk.CTkEntry multilínea). Debe guardarse en datos del grupo (to_dict). Incluir validación básica si aplica.
+- En gui/forms/investigador_form.py asegurar que se registra correctamente la relación con grupo (grupo_id/código). Añadir campos necesarios para "información personal completa" (mínimo: identificación/cedula, nombre, correo, grupo). Mantener activo/inactivo.
+- Mostrar en pestañas o añadir vistas: poder visualizar productos por investigador (en pestaña Investigadores: botón "Ver productos" que filtre productos de ese investigador) y productos por grupo (pestaña Grupos: "Ver productos"). Usar Treeview filtrado.
+- Cumplir punto 3 y 4: gestionar integrantes, plan y productos de cada grupo; información personal y productos del investigador.
+- Código inglés/comentarios español, sin emojis.
+`
+
+
+PROMPT 4: VISTAS POR GRUPO/INVESTIGADOR Y ESTADÍSTICAS CON FILTROS E HISTOGRAMAS
+
+`
+Tarea: Mejorar estadísticas y vistas (punto 12c).
+
+Requisitos:
+- En gui/tabs/estadisticas_tab.py añadir selectores: ctk.CTkOptionMenu para "Grupo" (Todos + lista de grupos) y ctk.CTkOptionMenu para "Investigador" (Todos + lista de investigadores). Al cambiar cualquiera, recalcular TODAS las gráficas y tarjetas con datos filtrados por esa selección.
+- El filtro de años (de Productos: Todos/Últimos 2/5/Personalizado) también debe aplicarse a las Estadísticas cuando esté activo. Compartir lógica de filtrado entre Productos y Estadísticas.
+- Añadir un 4to gráfico: Histograma de productos por año (usar matplotlib hist o bar adaptado). También mantener 3 existentes (Productos por año, por tipo, por categoría). Todos actualizables con los filtros (grupo/investigador/años).
+- Gráficas deben mostrar datos filtrados, no globales. Actualizar método refresh() para leer filtros.
+- Código inglés/comentarios español, sin emojis.
+`
+
+
+PROMPT 5: DIÁLOGO INICIAL Y DOCUMENTACIÓN DE VARIABLES (E/S)
+
+`
+Tarea: Diálogo inicial y documentación de variables de entrada/salida.
+
+Requisitos:
+- Al iniciar app.py, mostrar cuadro de diálogo (messagebox.askyesnocancel o custom Toplevel) con opciones: "Cargar datos de ejemplo/JSON", "Iniciar vacío" o Cancelar. 
+  - Si elige Cargar datos: cargar desde python/datos/datos.json (o persistencia actual).
+  - Si elige Iniciar vacío: crear Multilista vacía (sin cargar datos.json). NO cargar datos automáticamente.
+  - Si cancela: cerrar aplicación.
+- Documentar variables de entrada y salida (punto 6) para Grupos, Investigadores y Productos. Crear/actualizar docstrings en modelos, formularios o añadir sección "VARIABLES DE ENTRADA Y SALIDA" en README.md con formato claro:
+  - Grupo: E/S (campos, tipos, descripción)
+  - Investigador: E/S
+  - Producto: E/S (incluir Categoría)
+- Mantener compatibilidad con persistencia JSON/Postgres. Código inglés/comentarios español, sin emojis.
+`
+
+INSTRUCCIONES PARA LA IA RECEPTORA:
+- Aplicar prompts en orden (1 a 5). No modificar archivos no relacionados.
+- Usar CustomTkinter + matplotlib existentes. No añadir PyQt6.
+- Respetar convenciones: inglés para variables/funciones, español para comentarios/docstrings, UTF-8 sin BOM, sin emojis.
+- Verificar que compila (python -m py_compile) y que la app inicia sin errores.
