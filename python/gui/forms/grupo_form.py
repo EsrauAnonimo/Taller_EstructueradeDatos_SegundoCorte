@@ -1,156 +1,116 @@
 # -*- coding: utf-8 -*-
-"""Formulario modal para creación y edición de Grupo."""
+"""Formulario modal para creación y edición de Grupo de Investigación."""
 
-from typing import Optional, Dict, Any
-from tkinter import messagebox
-import customtkinter as ctk
-
-from gui.styles import (
-    COLORS,
-    RADIUS,
-    SPACING,
-    font,
-    button,
-    entry,
-    card,
-)
+from typing import Optional, Dict, Any, Callable
+from gui.forms.base_form import FormularioBase
 
 
-class GrupoForm(ctk.CTkToplevel):
-    """Modal para captura y modificación de atributos de Grupo."""
+class GrupoForm(FormularioBase):
+    """Modal para captura y modificación de atributos de Grupo de Investigación."""
 
-    def __init__(self, master, data: Optional[Dict[str, Any]] = None):
-        super().__init__(master)
-        self.configure(fg_color=COLORS['bg'])
-
-        is_edit = data is not None
-        title_text = "Editar grupo" if is_edit else "Crear grupo"
-        self.title(title_text)
-        self.geometry('480x530')
-        self.resizable(False, False)
-        self.transient(master)
-        self.grab_set()
-        self.result = None
-
-        # Tarjeta contenedora blanca con 24 px de padding
-        self.container = card(self)
-        self.container.pack(fill='both', expand=True, padx=SPACING['lg'], pady=SPACING['lg'])
-
-        # Encabezado con tipografía heading
-        self.lbl_title = ctk.CTkLabel(
-            self.container,
-            text=title_text,
-            font=font('heading'),
-            text_color=COLORS['ink'],
-            anchor='w',
-        )
-        self.lbl_title.pack(fill='x', padx=SPACING['lg'], pady=(SPACING['lg'], SPACING['md']))
-
-        # Campo: Código Gruplac
-        self.lbl_code = ctk.CTkLabel(
-            self.container,
-            text="Código Gruplac",
-            font=font('small'),
-            text_color=COLORS['muted'],
-            anchor='w',
-        )
-        self.lbl_code.pack(fill='x', padx=SPACING['lg'], pady=(0, 2))
-        self.code_entry = entry(self.container, placeholder_text="Ej. COL0001")
-        self.code_entry.pack(fill='x', padx=SPACING['lg'], pady=(0, SPACING['sm']))
-
-        # Campo: Nombre
-        self.lbl_name = ctk.CTkLabel(
-            self.container,
-            text="Nombre del grupo",
-            font=font('small'),
-            text_color=COLORS['muted'],
-            anchor='w',
-        )
-        self.lbl_name.pack(fill='x', padx=SPACING['lg'], pady=(0, 2))
-        self.name_entry = entry(self.container, placeholder_text="Nombre de la línea o grupo")
-        self.name_entry.pack(fill='x', padx=SPACING['lg'], pady=(0, SPACING['sm']))
-
-        # Campo: Categoría
-        self.lbl_cat = ctk.CTkLabel(
-            self.container,
-            text="Categoría",
-            font=font('small'),
-            text_color=COLORS['muted'],
-            anchor='w',
-        )
-        self.lbl_cat.pack(fill='x', padx=SPACING['lg'], pady=(0, 2))
-        self.category_entry = entry(self.container, placeholder_text="Ej. A1, A, B, C o Reconocido")
-        self.category_entry.pack(fill='x', padx=SPACING['lg'], pady=(0, SPACING['sm']))
-
-        # Campo: Líder
-        self.lbl_leader = ctk.CTkLabel(
-            self.container,
-            text="Líder del grupo",
-            font=font('small'),
-            text_color=COLORS['muted'],
-            anchor='w',
-        )
-        self.lbl_leader.pack(fill='x', padx=SPACING['lg'], pady=(0, 2))
-        self.leader_entry = entry(self.container, placeholder_text="Nombre completo del líder")
-        self.leader_entry.pack(fill='x', padx=SPACING['lg'], pady=(0, SPACING['sm']))
-
-        # Campo: Activo
-        self.active_var = ctk.BooleanVar(value=True)
-        self.active_check = ctk.CTkCheckBox(
-            self.container,
-            text="Grupo activo en el sistema",
-            variable=self.active_var,
-            font=font('body'),
-            text_color=COLORS['ink'],
-            fg_color=COLORS['accent'],
-            hover_color=COLORS['accent_hover'],
-            corner_radius=RADIUS['control'],
-        )
-        self.active_check.pack(anchor='w', padx=SPACING['lg'], pady=(SPACING['xs'], SPACING['md']))
-
-        # Barra de botones inferior alineada a la derecha
-        self.btn_frame = ctk.CTkFrame(self.container, fg_color='transparent')
-        self.btn_frame.pack(fill='x', padx=SPACING['lg'], pady=(SPACING['sm'], SPACING['lg']))
-
-        self.btn_save = button(
-            self.btn_frame,
-            text="Guardar",
-            variant='primary',
-            command=self.save,
-            width=100,
-        )
-        self.btn_save.pack(side='right', padx=(SPACING['sm'], 0))
-
-        self.btn_cancel = button(
-            self.btn_frame,
-            text="Cancelar",
-            variant='secondary',
-            command=self.cancel,
-            width=100,
-        )
-        self.btn_cancel.pack(side='right')
-
-        # Cargar datos preexistentes si es edición
+    def __init__(
+        self,
+        master,
+        data: Optional[Dict[str, Any]] = None,
+        grupo: Optional[Any] = None,
+        on_save: Optional[Callable[[Dict[str, Any]], None]] = None,
+        app: Optional[Any] = None,
+        **kwargs,
+    ):
+        # Convertir objeto entidad a diccionario si se proporcionó
+        initial_data = {}
         if data:
-            code_val = data.get('code') or data.get('codigo_gruplac', '')
-            name_val = data.get('name') or data.get('nombre', '')
-            cat_val = data.get('category') or data.get('categoria', '')
-            leader_val = data.get('leader') or data.get('lider', '')
-            active_val = data.get('active', data.get('activo', True))
+            initial_data = dict(data)
+        elif grupo is not None:
+            if hasattr(grupo, 'to_dict'):
+                initial_data = grupo.to_dict()
+            elif hasattr(grupo, '__dict__'):
+                initial_data = dict(grupo.__dict__)
 
-            self.code_entry.insert(0, str(code_val))
-            self.name_entry.insert(0, str(name_val))
-            self.category_entry.insert(0, str(cat_val))
-            self.leader_entry.insert(0, str(leader_val))
-            self.active_var.set(bool(active_val))
+        is_edit = bool(initial_data)
+        title_text = "Editar grupo de investigación" if is_edit else "Crear grupo de investigación"
+        sub_text = (
+            "Modifica los datos del grupo académico seleccionado"
+            if is_edit
+            else "Registra un nuevo grupo académico en el sistema"
+        )
+
+        super().__init__(
+            master=master,
+            title=title_text,
+            subtitle=sub_text,
+            width=500,
+            height=580,
+            on_save=on_save,
+            data=initial_data,
+            app=app,
+            **kwargs,
+        )
+
+        self._build_fields()
+
+    def _build_fields(self):
+        """Construye las secciones y campos del formulario."""
+        d = self._initial_data
+
+        # --- Sección 1: Información del Grupo ---
+        self.add_section("Información del grupo")
+
+        code_val = d.get('code') or d.get('codigo_gruplac', '')
+        self.add_text_field(
+            key='code',
+            label_text="Código Gruplac",
+            placeholder="Ej. COL0008234",
+            required=True,
+            initial_value=str(code_val),
+        )
+
+        name_val = d.get('name') or d.get('nombre', '')
+        self.add_text_field(
+            key='name',
+            label_text="Nombre del grupo",
+            placeholder="Nombre de la línea o grupo de investigación",
+            required=True,
+            initial_value=str(name_val),
+        )
+
+        cat_val = d.get('category') or d.get('categoria', '')
+        self.add_text_field(
+            key='category',
+            label_text="Categoría",
+            placeholder="Ej. A1, A, B, C o Reconocido",
+            required=False,
+            initial_value=str(cat_val),
+        )
+
+        # --- Sección 2: Liderazgo y Estado ---
+        self.add_section("Liderazgo y estado")
+
+        leader_val = d.get('leader') or d.get('lider', '')
+        self.add_text_field(
+            key='leader',
+            label_text="Líder del grupo",
+            placeholder="Nombre completo del líder o director",
+            required=True,
+            initial_value=str(leader_val),
+        )
+
+        active_val = d.get('active', d.get('activo', True))
+        self.add_checkbox_field(
+            key='active',
+            label_text="Grupo activo en el sistema",
+            initial_value=bool(active_val),
+        )
 
     def get_data(self) -> Dict[str, Any]:
-        """Extrae el diccionario normalizado con alias para compatibilidad."""
-        code = self.code_entry.get().strip()
-        name = self.name_entry.get().strip()
-        cat = self.category_entry.get().strip()
-        leader = self.leader_entry.get().strip()
-        active = self.active_var.get()
+        """Extrae el diccionario normalizado con alias completos para la capa CRUD."""
+        raw = super().get_data()
+        code = raw.get('code', '').strip()
+        name = raw.get('name', '').strip()
+        cat = raw.get('category', '').strip()
+        leader = raw.get('leader', '').strip()
+        active = bool(raw.get('active', True))
+
         return {
             'code': code,
             'codigo_gruplac': code,
@@ -163,17 +123,3 @@ class GrupoForm(ctk.CTkToplevel):
             'active': active,
             'activo': active,
         }
-
-    def save(self):
-        """Valida los campos obligatorios y cierra el modal con el resultado."""
-        data = self.get_data()
-        if not data['code'] or not data['name']:
-            messagebox.showerror("Error", "Código y Nombre son obligatorios")
-            return
-        self.result = data
-        self.destroy()
-
-    def cancel(self):
-        """Cancela la operación y destruye la ventana."""
-        self.result = None
-        self.destroy()

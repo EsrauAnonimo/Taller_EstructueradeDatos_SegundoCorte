@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Pestaña de gestión de Productos Académicos."""
+"""Pestaña de gestión de Productos de Investigación refactorizada con TablaCRUD."""
 
-from typing import Optional, List
+from typing import Optional, List, Any
 import datetime
 import tkinter as tk
 from tkinter import messagebox
@@ -9,21 +9,21 @@ import customtkinter as ctk
 
 from gui.styles import (
     COLORS,
+    RADIUS,
     SPACING,
     CONTROL_HEIGHT,
     font,
-    button,
     entry,
-    option_menu,
+    combo,
 )
-from gui.widgets.data_table import DataTable
-from gui.widgets.selection_bar import SelectionActionBar
+from gui.widgets.tabla_crud import TablaCRUD
 from gui.forms.producto_form import ProductoForm
 from entidades.producto import Producto
 
 
 class ProductosTab(ctk.CTkFrame):
-    """Pestaña para listar, buscar, filtrar por tipo/año, crear, editar y eliminar productos académicos."""
+    """Pestaña para listar, buscar, filtrar por año/tipo, crear, editar y eliminar productos
+    utilizando el componente estandarizado TablaCRUD."""
 
     def __init__(self, master, app=None):
         super().__init__(master, fg_color='transparent')
@@ -31,10 +31,11 @@ class ProductosTab(ctk.CTkFrame):
         self.pack(fill='both', expand=True)
 
         self._all_productos: List = []
-        self._selected_ids: List[int] = []
 
         # Configuración del layout vertical
-        self.grid_rowconfigure(3, weight=1)
+        # Row 0: Encabezado (título + subtítulo)
+        # Row 1: TablaCRUD (barra de herramientas + filtros + barra contextual + tabla + pie)
+        self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
         # --- 1. Encabezado ---
@@ -49,7 +50,7 @@ class ProductosTab(ctk.CTkFrame):
 
         self.title_label = ctk.CTkLabel(
             self.header_frame,
-            text="Productos académicos",
+            text="Productos de investigación",
             font=font('display'),
             text_color=COLORS['ink'],
             anchor='w',
@@ -65,221 +66,168 @@ class ProductosTab(ctk.CTkFrame):
         )
         self.subtitle_label.pack(fill='x', anchor='w', pady=(SPACING['xs'], 0))
 
-        # --- 2. Barra de herramientas principal (Dos Zonas) ---
-        self.toolbar = ctk.CTkFrame(self, fg_color='transparent')
-        self.toolbar.grid(
+        # --- 2. Tabla CRUD Reutilizable ---
+        columns = [
+            ('id', 'ID', 70, 'center'),
+            ('title', 'Título del producto', 320, 'w'),
+            ('type', 'Tipo', 140, 'w'),
+            ('year', 'Año', 90, 'center'),
+            ('group', 'Grupo ID', 90, 'center'),
+            ('active', 'Estado', 100, 'center'),
+        ]
+
+        self.table = TablaCRUD(
+            self,
+            columns=columns,
+            on_editar=self.edit,
+            on_toggle_estado=self.toggle_active,
+            on_eliminar=self.delete,
+            on_crear=self.create,
+            on_actualizar=self.refresh,
+            entity_name="producto",
+            entity_name_plural="productos",
+            create_button_text="Crear producto",
+            search_placeholder="Buscar por título...",
+            empty_icon="📄",
+            empty_title="No hay productos registrados",
+            empty_message="Registra productos manualmente o importa un grupo desde MinCiencias para extraer publicaciones.",
+            empty_action_text="Crear producto",
+            empty_action_command=self.create,
+        )
+        self.table.grid(
             row=1,
             column=0,
-            sticky='ew',
+            sticky='nsew',
             padx=SPACING['lg'],
-            pady=(0, SPACING['sm']),
+            pady=(0, SPACING['lg']),
         )
 
-        # Zona Izquierda: Buscador + Selector de tipo + Selector de año
-        self.left_tools = ctk.CTkFrame(self.toolbar, fg_color='transparent')
-        self.left_tools.pack(side='left', fill='y')
+        # --- 3. Filtros específicos inyectados en la zona izquierda de TablaCRUD ---
+        self._setup_custom_filters()
 
-        self.search_entry = entry(
-            self.left_tools,
-            placeholder_text="Buscar por título...",
-            width=210,
-        )
-        self.search_entry.pack(side='left', padx=(0, SPACING['sm']))
-        self.search_entry.bind('<KeyRelease>', lambda e: self._apply_filters())
+        self.load_data()
 
-        # Selector de Tipo con ancho suficiente y placeholder
+    def _setup_custom_filters(self):
+        """Inyecta el selector de tipo y el filtro de año con CTkSegmentedButton
+        en extra_filters_frame de TablaCRUD."""
+        container = self.table.extra_filters_frame
+
+        # Selector de tipo con estilo consistente
         self.type_var = ctk.StringVar(value="Todos los tipos")
-        self.type_menu = option_menu(
-            self.left_tools,
+        self.type_menu = combo(
+            container,
             values=["Todos los tipos"],
             variable=self.type_var,
-            command=lambda c: self._apply_filters(),
+            command=lambda c: self.table.apply_filter(),
             width=160,
         )
         self.type_menu.pack(side='left', padx=(0, SPACING['sm']))
 
-        # Selector de filtro por año con ancho suficiente
-        self.year_var = ctk.StringVar(value="Todos los años")
-        self.year_menu = option_menu(
-            self.left_tools,
-            values=["Todos los años", "Últimos 2 años", "Últimos 5 años", "Personalizado"],
-            variable=self.year_var,
-            command=self._on_filter_option_changed,
-            width=150,
-        )
-        self.year_menu.pack(side='left', padx=(0, SPACING['sm']))
-
-        # Entradas numéricas para rango personalizado
-        self.from_entry = entry(self.left_tools, placeholder_text="Desde", width=80)
-        self.to_entry = entry(self.left_tools, placeholder_text="Hasta", width=80)
-        self.btn_apply_range = button(
-            self.left_tools,
-            text="Aplicar",
-            variant='secondary',
-            command=self._apply_filters,
+        # Filtro de año con CTkSegmentedButton
+        self.year_segmented = ctk.CTkSegmentedButton(
+            container,
+            values=["Todos", "Últimos 2 años", "Últimos 5 años", "Personalizado"],
+            command=self._on_year_segmented_changed,
             height=CONTROL_HEIGHT,
+            corner_radius=RADIUS['control'],
+            fg_color=COLORS['segment_bg'],
+            selected_color=COLORS['accent'],
+            selected_hover_color=COLORS['accent_hover'],
+            unselected_color=COLORS['surface'],
+            unselected_hover_color=COLORS['surface_alt'],
+            text_color=COLORS['ink'],
+            font=font('small'),
         )
+        self.year_segmented.set("Todos")
+        self.year_segmented.pack(side='left', padx=(0, SPACING['sm']))
 
-        # Zona Derecha: Acciones globales con orden fijo
-        # [Actualizar] -> [Crear producto (Primario al final)]
-        self.right_tools = ctk.CTkFrame(self.toolbar, fg_color='transparent')
-        self.right_tools.pack(side='right', fill='y')
+        # Contenedor para rango personalizado Desde/Hasta (ancho amplio para no cortarse)
+        self.custom_range_frame = ctk.CTkFrame(container, fg_color='transparent')
 
-        # Botón primario al final (Crear producto)
-        self.btn_create = button(
-            self.right_tools,
-            text="Crear producto",
-            variant='primary',
-            command=self.create,
-            height=CONTROL_HEIGHT,
+        self.from_entry = entry(
+            self.custom_range_frame,
+            placeholder_text="Desde",
+            width=75,
         )
-        self.btn_create.pack(side='right', padx=(SPACING['sm'], 0))
+        self.from_entry.pack(side='left', padx=(0, SPACING['xs']))
+        self.from_entry.bind('<KeyRelease>', lambda e: self.table.apply_filter())
 
-        # Botón terciario de actualización
-        self.btn_refresh = button(
-            self.right_tools,
-            text="Actualizar",
-            variant='tertiary',
-            command=self.refresh,
-            height=CONTROL_HEIGHT,
-        )
-        self.btn_refresh.pack(side='right', padx=(SPACING['sm'], 0))
-
-        # Botón responsive 'Más acciones'
-        self.btn_more = button(
-            self.right_tools,
-            text="Más acciones",
-            variant='secondary',
-            command=self._show_more_actions_menu,
-            height=CONTROL_HEIGHT,
-        )
-
-        # --- 3. Barra contextual de selección (Oculta por defecto) ---
-        self.context_bar = SelectionActionBar(
-            self,
-            on_edit=self.edit,
-            on_toggle_active=self.toggle_active,
-            on_delete=self.delete,
-            on_clear=self._clear_selection,
-        )
-        self.context_bar.grid(
-            row=2,
-            column=0,
-            sticky='ew',
-            padx=SPACING['lg'],
-            pady=(0, SPACING['sm']),
-        )
-        self.context_bar.grid_remove()
-
-        # --- 4. Tabla dentro de tarjeta con casillas y selección múltiple ---
-        columns = [
-            ('id', 'ID', 70, 'center'),
-            ('title', 'Título del producto', 320, 'w'),
-            ('type', 'Tipo de producto', 160, 'w'),
-            ('year', 'Año', 90, 'center'),
-            ('group', 'Grupo ID', 100, 'center'),
-            ('active', 'Estado', 100, 'center'),
-        ]
-        self.table = DataTable(
-            self,
-            columns=columns,
-            on_selection_change=self._on_table_selection_change,
-            on_double_click=self._on_row_double_click,
-            on_delete_key=self.delete,
-            on_context_menu=self._show_context_menu,
-            empty_icon="",
-            empty_title="No hay productos registrados",
-            empty_message="No se encontraron productos académicos con los criterios actuales de búsqueda y filtro.",
-            empty_action_text="Restablecer filtros",
-            empty_action_command=self._reset_filters,
-        )
-        self.table.grid(
-            row=3,
-            column=0,
-            sticky='nsew',
-            padx=SPACING['lg'],
-            pady=(0, SPACING['sm']),
-        )
-
-        # --- 5. Pie con contador de registros ---
-        self.footer_frame = ctk.CTkFrame(self, fg_color='transparent')
-        self.footer_frame.grid(
-            row=4,
-            column=0,
-            sticky='ew',
-            padx=SPACING['lg'],
-            pady=(0, SPACING['md']),
-        )
-
-        self.count_label = ctk.CTkLabel(
-            self.footer_frame,
-            text="0 productos",
+        self.lbl_sep = ctk.CTkLabel(
+            self.custom_range_frame,
+            text="a",
             font=font('small'),
             text_color=COLORS['muted'],
-            anchor='w',
         )
-        self.count_label.pack(side='left')
+        self.lbl_sep.pack(side='left', padx=(0, SPACING['xs']))
 
-        # Atajos de teclado y adaptabilidad responsive
-        self._bind_shortcuts()
-        self.bind('<Configure>', self._on_configure)
+        self.to_entry = entry(
+            self.custom_range_frame,
+            placeholder_text="Hasta",
+            width=75,
+        )
+        self.to_entry.pack(side='left', padx=(0, SPACING['xs']))
+        self.to_entry.bind('<KeyRelease>', lambda e: self.table.apply_filter())
 
-        self.load_data()
+        # Conectar el predicado de filtrado con TablaCRUD
+        self.table.set_filter_predicate(self._custom_filter_predicate)
 
-    def _bind_shortcuts(self):
-        """Vincula atajos de teclado para la pestaña."""
-        self.bind('<F5>', lambda e: self.refresh())
-        self.bind('<Control-n>', lambda e: (self.create(), "break")[1])
-        self.bind('<Control-N>', lambda e: (self.create(), "break")[1])
-        self.bind('<Control-f>', lambda e: self._focus_search())
-        self.bind('<Control-F>', lambda e: self._focus_search())
-
-    def _focus_search(self):
-        """Enfoca y selecciona el texto del buscador."""
-        self.search_entry.focus_set()
-        self.search_entry.select_range(0, 'end')
-        return "break"
-
-    def _on_configure(self, event):
-        """Adapta la visibilidad de los botones en pantallas angostas."""
-        width = self.winfo_width()
-        if width < 860:
-            if not self.btn_more.winfo_ismapped():
-                self.btn_refresh.pack_forget()
-                self.btn_more.pack(side='right', padx=(SPACING['sm'], 0))
+    def _on_year_segmented_changed(self, value: str):
+        """Muestra u oculta los campos numéricos de rango según la opción elegida."""
+        if value == "Personalizado":
+            self.custom_range_frame.pack(side='left')
+            self.from_entry.focus_set()
         else:
-            if self.btn_more.winfo_ismapped():
-                self.btn_more.pack_forget()
-                self.btn_refresh.pack(side='right', padx=(SPACING['sm'], 0))
+            self.custom_range_frame.pack_forget()
 
-    def _show_more_actions_menu(self):
-        """Muestra menú desplegable cuando la barra está en modo compacto."""
-        menu = tk.Menu(
-            self,
-            tearoff=0,
-            bg=COLORS['surface'],
-            fg=COLORS['ink'],
-            activebackground=COLORS['surface_alt'],
-            activeforeground=COLORS['accent'],
-            font=font('body'),
-        )
-        menu.add_command(label="Actualizar lista", command=self.refresh)
-        menu.add_command(label="Restablecer filtros", command=self._reset_filters)
+        self.table.apply_filter()
 
-        bx = self.btn_more.winfo_rootx()
-        by = self.btn_more.winfo_rooty() + self.btn_more.winfo_height() + 2
+    def _custom_filter_predicate(self, row: dict) -> bool:
+        """Predicado aplicado a cada fila para evaluar tipo de producto y rango de años."""
+        raw_prod = row.get('raw')
+        if raw_prod is None:
+            return True
+
+        # 1. Filtro por tipo de producto
+        selected_type = self.type_var.get()
+        if selected_type and selected_type != "Todos los tipos":
+            ptype = str(getattr(raw_prod, 'tipo', '') or getattr(raw_prod, 'type', '')).lower()
+            if selected_type.lower() != ptype:
+                return False
+
+        # 2. Filtro por año
+        current_year = datetime.datetime.now().year
         try:
-            menu.tk_popup(bx, by)
-        finally:
-            menu.grab_release()
+            pyear = int(getattr(raw_prod, 'anio', 0) or getattr(raw_prod, 'year', 0))
+        except Exception:
+            pyear = 0
 
-    def _reset_filters(self):
-        """Restablece los filtros de búsqueda, tipo y año."""
-        self.search_entry.delete(0, 'end')
-        self.type_var.set("Todos los tipos")
-        self.year_var.set("Todos los años")
-        self._on_filter_option_changed("Todos los años")
-        self._apply_filters()
+        year_mode = self.year_segmented.get()
+        if year_mode == "Últimos 2 años":
+            if pyear < (current_year - 2):
+                return False
+        elif year_mode == "Últimos 5 años":
+            if pyear < (current_year - 5):
+                return False
+        elif year_mode == "Personalizado":
+            from_str = self.from_entry.get().strip()
+            to_str = self.to_entry.get().strip()
+
+            try:
+                from_val = int(from_str) if from_str else None
+            except ValueError:
+                from_val = None
+
+            try:
+                to_val = int(to_str) if to_str else None
+            except ValueError:
+                to_val = None
+
+            if from_val is not None and pyear < from_val:
+                return False
+            if to_val is not None and pyear > to_val:
+                return False
+
+        return True
 
     def get_app(self):
         """Resuelve dinámicamente la instancia principal de App en la jerarquía."""
@@ -294,196 +242,73 @@ class ProductosTab(ctk.CTkFrame):
         return None
 
     def _get_all_raw_productos(self) -> List:
-        """Obtiene todos los productos (activos e inactivos) de la multilista."""
+        """Obtiene todos los productos de la estructura de multilista o CRUD."""
         app = self.get_app()
         if app is None or not hasattr(app, 'multilista'):
             return []
-        products = []
+        prods = []
         try:
-            curr_group = app.multilista.head_group
-            while curr_group is not None:
-                curr_inv = curr_group.down_investigador
-                while curr_inv is not None:
-                    curr_prod = curr_inv.down_producto
-                    while curr_prod is not None:
-                        products.append(curr_prod.data)
-                        curr_prod = curr_prod.next
-                    curr_inv = curr_inv.next
-                curr_group = curr_group.next
+            curr_g = app.multilista.head_group
+            while curr_g is not None:
+                curr_i = curr_g.sublist
+                while curr_i is not None:
+                    curr_p = curr_i.sublist
+                    while curr_p is not None:
+                        prods.append(curr_p.data)
+                        curr_p = curr_p.next
+                    curr_i = curr_i.next
+                curr_g = curr_g.next
         except Exception:
             try:
-                products = list(app.prod_crud.list_all())
+                prods = list(app.prod_crud.list_all())
             except Exception:
-                products = []
-        return products
+                prods = []
+        return prods
 
     def load_data(self):
-        """Recarga los datos de los productos desde la capa de persistencia."""
+        """Recarga los datos de los productos y actualiza las opciones del menú de tipos."""
         self._all_productos = self._get_all_raw_productos()
 
-        # Actualiza dinámicamente los tipos disponibles en el selector
-        available_types = sorted(list(set(
-            str(getattr(p, 'tipo', '') or getattr(p, 'type', '')).strip()
-            for p in self._all_productos
-            if getattr(p, 'tipo', None) or getattr(p, 'type', None)
-        )))
-        type_options = ["Todos los tipos"] + [t for t in available_types if t]
-        self.type_menu.configure(values=type_options)
-
-        self._apply_filters()
-        self._clear_selection()
-
-    def _on_filter_option_changed(self, choice: str):
-        """Gestiona la visibilidad de los campos de rango personalizado de año."""
-        if choice == "Personalizado":
-            self.from_entry.pack(side='left', padx=(0, SPACING['xs']))
-            self.to_entry.pack(side='left', padx=(0, SPACING['xs']))
-            self.btn_apply_range.pack(side='left', padx=(0, SPACING['sm']))
-        else:
-            self.from_entry.pack_forget()
-            self.to_entry.pack_forget()
-            self.btn_apply_range.pack_forget()
-            self._apply_filters()
-
-    def _apply_filters(self):
-        """Aplica conjuntamente los filtros de tipo, año y texto de búsqueda."""
-        query = self.search_entry.get().strip().lower()
-        selected_type = self.type_var.get()
-        filter_year = self.year_var.get()
-        current_year = datetime.datetime.now().year
-
-        filtered = []
+        # Actualizar dinámicamente las opciones del menú de tipo
+        types_set = set()
         for p in self._all_productos:
-            title = str(getattr(p, 'titulo', '') or getattr(p, 'title', '')).lower()
-            ptype_raw = str(getattr(p, 'tipo', '') or getattr(p, 'type', ''))
-            ptype = ptype_raw.lower()
-            try:
-                pyear = int(getattr(p, 'anio', 0) or getattr(p, 'year', 0))
-            except Exception:
-                pyear = 0
+            t = getattr(p, 'tipo', '') or getattr(p, 'type', '')
+            if t and t.strip():
+                types_set.add(t.strip())
 
-            # 1. Filtro por tipo de producto
-            if selected_type != "Todos los tipos":
-                if selected_type.lower() != ptype:
-                    continue
+        unique_types = ["Todos los tipos"] + sorted(list(types_set))
+        current_val = self.type_var.get()
+        self.type_menu.configure(values=unique_types)
+        if current_val in unique_types:
+            self.type_var.set(current_val)
+        else:
+            self.type_var.set("Todos los tipos")
 
-            # 2. Filtro por año
-            year_match = True
-            if filter_year == "Últimos 2 años":
-                year_match = pyear >= (current_year - 2)
-            elif filter_year == "Últimos 5 años":
-                year_match = pyear >= (current_year - 5)
-            elif filter_year == "Personalizado":
-                try:
-                    f_from = int(self.from_entry.get().strip()) if self.from_entry.get().strip() else None
-                except ValueError:
-                    f_from = None
-                try:
-                    f_to = int(self.to_entry.get().strip()) if self.to_entry.get().strip() else None
-                except ValueError:
-                    f_to = None
-
-                if f_from is not None and pyear < f_from:
-                    year_match = False
-                if f_to is not None and pyear > f_to:
-                    year_match = False
-
-            if not year_match:
-                continue
-
-            # 3. Filtro por texto de búsqueda
-            if query:
-                if query not in title and query not in ptype and query not in str(pyear):
-                    continue
-
-            filtered.append(p)
-
-        self._render_rows(filtered)
-
-    def _render_rows(self, productos: List):
-        """Inserta los registros filtrados en el DataTable con badges de color."""
-        self.table.clear()
-        for p in productos:
+        # Preparar filas para TablaCRUD
+        rows = []
+        for p in self._all_productos:
             pid = getattr(p, 'id', None)
             title = getattr(p, 'titulo', '') or getattr(p, 'title', '')
             ptype = getattr(p, 'tipo', '') or getattr(p, 'type', '')
             year = getattr(p, 'anio', '') or getattr(p, 'year', '')
             gid = getattr(p, 'grupo_id', getattr(p, 'group', ''))
             active = getattr(p, 'validado', getattr(p, 'active', True))
-            status_text = "Activo" if active else "Inactivo"
 
-            values = (
-                str(pid) if pid is not None else '',
-                str(title),
-                str(ptype),
-                str(year),
-                str(gid) if gid is not None else '',
-                status_text,
-            )
-            self.table.insert_row(values, iid=str(pid), is_active=bool(active))
+            rows.append({
+                'id': str(pid) if pid is not None else '',
+                'values': (
+                    str(pid) if pid is not None else '',
+                    str(title),
+                    str(ptype),
+                    str(year),
+                    str(gid) if gid is not None else '',
+                    "● Activo" if active else "● Inactivo",
+                ),
+                'is_active': bool(active),
+                'raw': p,
+            })
 
-        total = len(productos)
-        suffix = "producto" if total == 1 else "productos"
-        self.count_label.configure(text=f"{total} {suffix}")
-
-    def _on_table_selection_change(self, selected_ids: List[str]):
-        """Notificación de cambio en la selección múltiple."""
-        self._selected_ids = []
-        for sid in selected_ids:
-            try:
-                self._selected_ids.append(int(sid))
-            except ValueError:
-                pass
-
-        count = len(self._selected_ids)
-        if count == 0:
-            self.context_bar.grid_remove()
-        else:
-            self.context_bar.grid()
-            is_active = self.table.are_selected_active()
-            self.context_bar.update_selection(count, is_active=is_active)
-
-    def _clear_selection(self):
-        """Limpia la selección tanto en la tabla como en la barra contextual."""
-        self.table.clear_selection()
-        self._selected_ids.clear()
-        self.context_bar.grid_remove()
-
-    def _on_row_double_click(self, item_id: str, values: tuple):
-        """Abre la edición al hacer doble clic o Enter sobre una fila."""
-        try:
-            self._selected_ids = [int(item_id)]
-        except ValueError:
-            pass
-        self.edit()
-
-    def _show_context_menu(self, event, selected_ids: List[str]):
-        """Despliega el menú contextual con clic derecho sobre una fila."""
-        if not selected_ids:
-            return
-
-        is_active = self.table.are_selected_active()
-        toggle_text = "Desactivar" if is_active else "Activar"
-
-        menu = tk.Menu(
-            self,
-            tearoff=0,
-            bg=COLORS['surface'],
-            fg=COLORS['ink'],
-            activebackground=COLORS['surface_alt'],
-            activeforeground=COLORS['accent'],
-            font=font('body'),
-        )
-        if len(selected_ids) == 1:
-            menu.add_command(label="Editar", command=self.edit)
-        menu.add_command(label=toggle_text, command=self.toggle_active)
-        menu.add_separator()
-        menu.add_command(label="Eliminar", command=self.delete)
-
-        try:
-            menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            menu.grab_release()
+        self.table.set_rows(rows)
 
     def create(self):
         """Abre el formulario modal para registrar un nuevo producto."""
@@ -492,7 +317,7 @@ class ProductosTab(ctk.CTkFrame):
         form.grab_set()
 
     def _on_save_create(self, data: dict):
-        """Persiste el nuevo producto mediante el CRUD."""
+        """Persiste el nuevo producto mediante la capa CRUD."""
         app = self.get_app()
         if not app:
             return
@@ -515,11 +340,17 @@ class ProductosTab(ctk.CTkFrame):
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo registrar el producto: {e}")
 
-    def edit(self):
+    def edit(self, item_id: Optional[str] = None):
         """Abre el formulario para editar el producto seleccionado."""
-        if not self._selected_ids:
+        target_id_str = item_id or self.table.get_selected_id()
+        if not target_id_str:
             return
-        target_id = self._selected_ids[0]
+
+        try:
+            target_id = int(target_id_str)
+        except ValueError:
+            target_id = target_id_str
+
         app = self.get_app()
         if not app:
             return
@@ -538,7 +369,7 @@ class ProductosTab(ctk.CTkFrame):
         form = ProductoForm(self, app=app, producto=prod, on_save=lambda data: self._on_save_edit(target_id, data))
         form.grab_set()
 
-    def _on_save_edit(self, target_id: int, data: dict):
+    def _on_save_edit(self, target_id: Any, data: dict):
         """Aplica y guarda los cambios del producto en edición."""
         app = self.get_app()
         if not app:
@@ -553,17 +384,21 @@ class ProductosTab(ctk.CTkFrame):
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo actualizar el producto: {e}")
 
-    def toggle_active(self):
+    def toggle_active(self, selected_ids: Optional[List[str]] = None, should_activate: Optional[bool] = None):
         """Alterna el estado (Activar / Desactivar) de los productos seleccionados."""
-        if not self._selected_ids:
+        ids = selected_ids or self.table.get_selected_ids()
+        if not ids:
             return
         app = self.get_app()
         if not app:
             return
 
-        should_activate = not self.table.are_selected_active()
+        if should_activate is None:
+            should_activate = not self.table.are_selected_active()
+
         try:
-            for pid in self._selected_ids:
+            for sid in ids:
+                pid = int(sid) if sid.isdigit() else sid
                 if should_activate:
                     app.prod_crud.activate(pid)
                 else:
@@ -574,56 +409,21 @@ class ProductosTab(ctk.CTkFrame):
             if hasattr(app, 'load_tabs_data'):
                 app.load_tabs_data()
         except Exception as e:
-            messagebox.showerror("Error", f"Error al cambiar estado: {e}")
+            messagebox.showerror("Error", f"Error al cambiar estado de productos: {e}")
 
-    def activate(self):
-        """Compatibilidad con métodos anteriores."""
-        self._set_active_batch(True)
-
-    def deactivate(self):
-        """Compatibilidad con métodos anteriores."""
-        self._set_active_batch(False)
-
-    def _set_active_batch(self, is_active: bool):
-        if not self._selected_ids:
+    def delete(self, selected_ids: Optional[List[str]] = None):
+        """Elimina los productos seleccionados tras la confirmación del modal."""
+        ids = selected_ids or self.table.get_selected_ids()
+        if not ids:
             return
         app = self.get_app()
         if not app:
-            return
-        try:
-            for pid in self._selected_ids:
-                if is_active:
-                    app.prod_crud.activate(pid)
-                else:
-                    app.prod_crud.deactivate(pid)
-            app.save_data()
-            self.load_data()
-            if hasattr(app, 'load_tabs_data'):
-                app.load_tabs_data()
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al cambiar estado: {e}")
-
-    def delete(self):
-        """Elimina físicamente los productos seleccionados tras confirmación modal."""
-        if not self._selected_ids:
-            return
-        app = self.get_app()
-        if not app:
-            return
-
-        count = len(self._selected_ids)
-        plural = "s" if count != 1 else ""
-        confirma = messagebox.askyesno(
-            "Confirmar eliminación",
-            f"¿Está seguro de eliminar {count} producto{plural} seleccionado{plural}?\n\nEsta acción no se puede deshacer.",
-            icon='warning',
-        )
-        if not confirma:
             return
 
         try:
             deleted_count = 0
-            for pid in list(self._selected_ids):
+            for sid in ids:
+                pid = int(sid) if sid.isdigit() else sid
                 if app.prod_crud.delete(pid):
                     deleted_count += 1
 

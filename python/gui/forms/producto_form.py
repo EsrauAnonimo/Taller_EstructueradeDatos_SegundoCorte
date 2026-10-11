@@ -1,178 +1,165 @@
 # -*- coding: utf-8 -*-
-"""Formulario modal para creación y edición de Producto."""
+"""Formulario modal para creación y edición de Producto de Investigación."""
 
-from typing import Optional, Dict, Any
-from tkinter import messagebox
-import customtkinter as ctk
-
-from gui.styles import (
-    COLORS,
-    RADIUS,
-    SPACING,
-    font,
-    button,
-    entry,
-    card,
-)
+from typing import Optional, Dict, Any, Callable
+from gui.forms.base_form import FormularioBase
 
 
-class ProductoForm(ctk.CTkToplevel):
-    """Modal para captura y modificación de atributos de Producto."""
+class ProductoForm(FormularioBase):
+    """Modal para captura y modificación de atributos de Producto de Investigación."""
 
-    def __init__(self, master, data: Optional[Dict[str, Any]] = None):
-        super().__init__(master)
-        self.configure(fg_color=COLORS['bg'])
+    TIPOS_PRODUCTO_COMUNES = [
+        "Artículo en revista indexada",
+        "Libro resultado de investigación",
+        "Capítulo de libro",
+        "Ponencia en evento científico",
+        "Software / Desarrollo tecnológico",
+        "Patente o modelo de utilidad",
+        "Trabajo de grado / Tesis",
+        "Otro tipo de producto",
+    ]
 
-        is_edit = data is not None
-        title_text = "Editar producto" if is_edit else "Crear producto"
-        self.title(title_text)
-        self.geometry('480x530')
-        self.resizable(False, False)
-        self.transient(master)
-        self.grab_set()
-        self.result = None
-
-        # Tarjeta contenedora blanca con 24 px de padding
-        self.container = card(self)
-        self.container.pack(fill='both', expand=True, padx=SPACING['lg'], pady=SPACING['lg'])
-
-        # Encabezado
-        self.lbl_title = ctk.CTkLabel(
-            self.container,
-            text=title_text,
-            font=font('heading'),
-            text_color=COLORS['ink'],
-            anchor='w',
-        )
-        self.lbl_title.pack(fill='x', padx=SPACING['lg'], pady=(SPACING['lg'], SPACING['md']))
-
-        # Campo: Título
-        self.lbl_product_title = ctk.CTkLabel(
-            self.container,
-            text="Título del producto",
-            font=font('small'),
-            text_color=COLORS['muted'],
-            anchor='w',
-        )
-        self.lbl_product_title.pack(fill='x', padx=SPACING['lg'], pady=(0, 2))
-        self.title_entry = entry(self.container, placeholder_text="Título de la publicación o desarrollo")
-        self.title_entry.pack(fill='x', padx=SPACING['lg'], pady=(0, SPACING['sm']))
-
-        # Campo: Tipo
-        self.lbl_type = ctk.CTkLabel(
-            self.container,
-            text="Tipo de producto",
-            font=font('small'),
-            text_color=COLORS['muted'],
-            anchor='w',
-        )
-        self.lbl_type.pack(fill='x', padx=SPACING['lg'], pady=(0, 2))
-        self.type_entry = entry(self.container, placeholder_text="Ej. Artículo, Libro, Ponencia, Software")
-        self.type_entry.pack(fill='x', padx=SPACING['lg'], pady=(0, SPACING['sm']))
-
-        # Campo: Año
-        self.lbl_year = ctk.CTkLabel(
-            self.container,
-            text="Año de publicación",
-            font=font('small'),
-            text_color=COLORS['muted'],
-            anchor='w',
-        )
-        self.lbl_year.pack(fill='x', padx=SPACING['lg'], pady=(0, 2))
-        self.year_entry = entry(self.container, placeholder_text="Ej. 2024")
-        self.year_entry.pack(fill='x', padx=SPACING['lg'], pady=(0, SPACING['sm']))
-
-        # Campo: Grupo ID
-        self.lbl_group = ctk.CTkLabel(
-            self.container,
-            text="ID de grupo asociado",
-            font=font('small'),
-            text_color=COLORS['muted'],
-            anchor='w',
-        )
-        self.lbl_group.pack(fill='x', padx=SPACING['lg'], pady=(0, 2))
-        self.group_entry = entry(self.container, placeholder_text="Ej. 1")
-        self.group_entry.pack(fill='x', padx=SPACING['lg'], pady=(0, SPACING['sm']))
-
-        # Campo: Activo
-        self.active_var = ctk.BooleanVar(value=True)
-        self.active_check = ctk.CTkCheckBox(
-            self.container,
-            text="Producto validado y activo",
-            variable=self.active_var,
-            font=font('body'),
-            text_color=COLORS['ink'],
-            fg_color=COLORS['accent'],
-            hover_color=COLORS['accent_hover'],
-            corner_radius=RADIUS['control'],
-        )
-        self.active_check.pack(anchor='w', padx=SPACING['lg'], pady=(SPACING['xs'], SPACING['md']))
-
-        # Barra de botones inferior
-        self.btn_frame = ctk.CTkFrame(self.container, fg_color='transparent')
-        self.btn_frame.pack(fill='x', padx=SPACING['lg'], pady=(SPACING['sm'], SPACING['lg']))
-
-        self.btn_save = button(
-            self.btn_frame,
-            text="Guardar",
-            variant='primary',
-            command=self.save,
-            width=100,
-        )
-        self.btn_save.pack(side='right', padx=(SPACING['sm'], 0))
-
-        self.btn_cancel = button(
-            self.btn_frame,
-            text="Cancelar",
-            variant='secondary',
-            command=self.cancel,
-            width=100,
-        )
-        self.btn_cancel.pack(side='right')
-
+    def __init__(
+        self,
+        master,
+        data: Optional[Dict[str, Any]] = None,
+        producto: Optional[Any] = None,
+        on_save: Optional[Callable[[Dict[str, Any]], None]] = None,
+        app: Optional[Any] = None,
+        **kwargs,
+    ):
+        initial_data = {}
         if data:
-            title_val = data.get('title') or data.get('titulo', '')
-            type_val = data.get('type') or data.get('tipo', '')
-            year_val = data.get('year', data.get('anio', ''))
-            group_val = data.get('group', data.get('grupo_id', ''))
-            active_val = data.get('active', data.get('validado', True))
+            initial_data = dict(data)
+        elif producto is not None:
+            if hasattr(producto, 'to_dict'):
+                initial_data = producto.to_dict()
+            elif hasattr(producto, '__dict__'):
+                initial_data = dict(producto.__dict__)
 
-            self.title_entry.insert(0, str(title_val))
-            self.type_entry.insert(0, str(type_val))
-            self.year_entry.insert(0, str(year_val) if year_val else '')
-            self.group_entry.insert(0, str(group_val) if group_val is not None else '')
-            self.active_var.set(bool(active_val))
+        is_edit = bool(initial_data)
+        title_text = "Editar producto de investigación" if is_edit else "Crear producto de investigación"
+        sub_text = (
+            "Modifica los datos de la producción científica seleccionada"
+            if is_edit
+            else "Registra un nuevo producto, publicación o desarrollo científico"
+        )
+
+        super().__init__(
+            master=master,
+            title=title_text,
+            subtitle=sub_text,
+            width=520,
+            height=660,
+            on_save=on_save,
+            data=initial_data,
+            app=app,
+            **kwargs,
+        )
+
+        self._build_fields()
+
+    def _build_fields(self):
+        """Construye las secciones y campos del formulario."""
+        d = self._initial_data
+
+        # --- Sección 1: Detalles del Producto ---
+        self.add_section("Detalles del producto")
+
+        title_val = d.get('titulo') or d.get('title', '')
+        self.add_text_field(
+            key='titulo',
+            label_text="Título de la publicación o desarrollo",
+            placeholder="Título completo del artículo, libro o desarrollo",
+            required=True,
+            initial_value=str(title_val),
+        )
+
+        type_val = d.get('tipo') or d.get('type', '')
+        # Si el tipo preexistente no está en la lista estándar, agregarlo
+        tipo_options = list(self.TIPOS_PRODUCTO_COMUNES)
+        if type_val and type_val not in tipo_options:
+            tipo_options.insert(0, str(type_val))
+
+        self.add_combo_field(
+            key='tipo',
+            label_text="Tipo de producto científico",
+            options=tipo_options,
+            required=True,
+            initial_value=str(type_val) if type_val else tipo_options[0],
+        )
+
+        year_val = d.get('anio') or d.get('year', '')
+        self.add_text_field(
+            key='anio',
+            label_text="Año de publicación",
+            placeholder="Ej. 2024 (4 dígitos)",
+            required=True,
+            validator=self.validator_anio,
+            initial_value=str(year_val) if year_val else "",
+        )
+
+        # --- Sección 2: Afiliación y Validación ---
+        self.add_section("Afiliación y validación")
+
+        # Combo de Grupo asociado ("código - nombre")
+        options, mapping, reverse_mapping = self.get_grupos_combo_data()
+        current_group_val = d.get('grupo_id') or d.get('group', None)
+        initial_combo_val = None
+        if current_group_val is not None:
+            initial_combo_val = reverse_mapping.get(current_group_val) or reverse_mapping.get(str(current_group_val))
+
+        self.add_combo_field(
+            key='grupo_id',
+            label_text="Grupo de investigación asociado",
+            options=options,
+            required=True,
+            initial_value=initial_combo_val,
+            mapping=mapping,
+            reverse_mapping=reverse_mapping,
+        )
+
+        cat_val = d.get('categoria') or d.get('category', '')
+        self.add_text_field(
+            key='categoria',
+            label_text="Categoría o indexación",
+            placeholder="Ej. A1, B, C, Software registrado (opcional)",
+            required=False,
+            initial_value=str(cat_val),
+        )
+
+        active_val = d.get('validado', d.get('active', True))
+        self.add_checkbox_field(
+            key='validado',
+            label_text="Producto validado y activo",
+            initial_value=bool(active_val),
+        )
 
     def get_data(self) -> Dict[str, Any]:
         """Extrae el diccionario normalizado con alias para el CRUD."""
-        title_val = self.title_entry.get().strip()
-        type_val = self.type_entry.get().strip()
-        year_val = self.year_entry.get().strip()
-        group_val = self.group_entry.get().strip()
-        active_val = self.active_var.get()
+        raw = super().get_data()
+        titulo = raw.get('titulo', '').strip()
+        tipo = raw.get('tipo', '').strip()
+        grupo_id = raw.get('grupo_id')
+        categoria = raw.get('categoria', '').strip()
+        validado = bool(raw.get('validado', True))
+
+        try:
+            anio = int(raw.get('anio', 0) or 0)
+        except (ValueError, TypeError):
+            anio = 0
+
         return {
-            'title': title_val,
-            'titulo': title_val,
-            'type': type_val,
-            'tipo': type_val,
-            'year': year_val,
-            'anio': year_val,
-            'group': group_val,
-            'grupo_id': group_val,
-            'active': active_val,
-            'validado': active_val,
+            'title': titulo,
+            'titulo': titulo,
+            'type': tipo,
+            'tipo': tipo,
+            'year': anio,
+            'anio': anio,
+            'group': grupo_id,
+            'grupo_id': grupo_id,
+            'category': categoria,
+            'categoria': categoria,
+            'active': validado,
+            'validado': validado,
         }
-
-    def save(self):
-        """Valida que los campos obligatorios existan y guarda."""
-        data = self.get_data()
-        if not data['title']:
-            messagebox.showerror("Error", "Título es obligatorio")
-            return
-        self.result = data
-        self.destroy()
-
-    def cancel(self):
-        """Cancela la operación y destruye el modal."""
-        self.result = None
-        self.destroy()
