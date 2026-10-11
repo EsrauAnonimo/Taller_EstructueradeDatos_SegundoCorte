@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional, Callable
 import tkinter as tk
 from tkinter import messagebox, filedialog
+from PIL import Image, ImageTk
 
 import customtkinter as ctk
 
@@ -80,6 +81,9 @@ class App(ctk.CTk):
         self.geometry("1280x760")
         self.minsize(1200, 700)
 
+        # Configuración del ícono institucional de la ventana
+        self._setup_window_icon()
+
         # Inicialización de modelos de datos y CRUDs
         self.persistencia = None
         self.multilista = Multilist()
@@ -113,6 +117,17 @@ class App(ctk.CTk):
         self.navigate_to(_TAB_NAMES[0])
         self.load_data()
 
+    def _setup_window_icon(self):
+        """Establece el ícono institucional de Unicesar en la ventana."""
+        logo_path = Path(__file__).resolve().parent / "assets" / "logo_unicesar.png"
+        if logo_path.exists():
+            try:
+                pil_icon = Image.open(logo_path)
+                self._app_icon = ImageTk.PhotoImage(pil_icon)
+                self.wm_iconphoto(True, self._app_icon)
+            except Exception as e:
+                print("Aviso al configurar ícono de ventana:", e)
+
     # ╔══════════════════════════════════════════════════════════════════╗
     # ║  1. BARRA LATERAL IZQUIERDA (Sidebar, 259 px)                   ║
     # ╚══════════════════════════════════════════════════════════════════╝
@@ -128,23 +143,48 @@ class App(ctk.CTk):
         self.sidebar.pack(side="left", fill="y")
         self.sidebar.pack_propagate(False)
 
-        # Logo y texto institucional en la parte superior
+        # Logo institucional y texto en la esquina superior izquierda
         self.brand_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        self.brand_frame.pack(fill="x", padx=20, pady=(24, 16))
+        self.brand_frame.pack(fill="x", padx=16, pady=(20, 16))
+
+        # Cargar logo institucional de Unicesar
+        self.logo_image = None
+        logo_path = Path(__file__).resolve().parent / "assets" / "logo_unicesar.png"
+        if logo_path.exists():
+            try:
+                pil_logo = Image.open(logo_path)
+                self.logo_image = ctk.CTkImage(
+                    light_image=pil_logo,
+                    dark_image=pil_logo,
+                    size=(44, 44),
+                )
+            except Exception as e:
+                print("Aviso al cargar logo:", e)
+
+        if self.logo_image:
+            self.logo_img_lbl = ctk.CTkLabel(
+                self.brand_frame,
+                text="",
+                image=self.logo_image,
+            )
+            self.logo_img_lbl.pack(side="left", padx=(0, 10))
+
+        self.brand_text_frame = ctk.CTkFrame(self.brand_frame, fg_color="transparent")
+        self.brand_text_frame.pack(side="left", fill="both", expand=True)
 
         self.logo_title = ctk.CTkLabel(
-            self.brand_frame,
+            self.brand_text_frame,
             text="UNICESAR",
-            font=(FONT_FAMILY, 20, "bold"),
+            font=(FONT_FAMILY, 18, "bold"),
             text_color="#FFFFFF",
             anchor="w",
         )
         self.logo_title.pack(fill="x")
 
         self.logo_sub = ctk.CTkLabel(
-            self.brand_frame,
+            self.brand_text_frame,
             text="Universidad Popular del Cesar",
-            font=(FONT_FAMILY, 11),
+            font=(FONT_FAMILY, 10),
             text_color="#94A3B8",
             anchor="w",
         )
