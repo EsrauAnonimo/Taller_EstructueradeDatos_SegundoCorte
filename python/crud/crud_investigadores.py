@@ -47,14 +47,17 @@ class InvestigadorCRUD:
         return self.multilist.deactivate_investigador(cedula)
 
     def activate(self, cedula):
-        """Activa el investigador."""
-        result = self.multilist.get_investigador(cedula)
-        if result is None:
-            return False
-        inv_node, _ = result
-        inv_node.active = True
-        return True
+        """Activa el investigador y restaura sus relaciones en la multilista."""
+        return self.multilist.activate_investigador(cedula)
 
     def delete(self, cedula):
         """Elimina físicamente el investigador."""
         return self.multilist.remove_investigador(cedula)
+
+    def list_groups(self, cedula):
+        """Retorna los grupos a los que pertenece el investigador desde la multilista."""
+        return self.multilist.get_grupos_by_investigador(cedula)
+
+    def list_products(self, cedula):
+        """Retorna los productos del investigador desde la multilista."""
+        return self.multilist.get_productos_by_investigador(cedula)

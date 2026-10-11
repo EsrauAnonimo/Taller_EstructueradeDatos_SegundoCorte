@@ -6,7 +6,7 @@ Interfaz gráfica desarrollada con CustomTkinter. Estructura basada en Multilist
 
 ## Componentes implementados
 - GUI CustomTkinter (app.py, tabs, forms, widgets, styles)
-- Persistencia: PostgreSQL (intento) con fallback a JSON (sin aviso emergente)
+- Persistencia: JSON (intento) con fallback a JSON (sin aviso emergente)
 - CRUD para Grupos, Investigadores, Productos
 - Scraping SCIENTI con fallback CSV
 - Datos de ejemplo en python/datos/datos.json
@@ -26,5 +26,5 @@ Opción A (VS Code): Abrir proyecto -> F5 -> "PEA-i GUI"
 Opción B (Terminal): cd python && python gui/app.py
 
 ## Notas
-- Requiere customtkinter, matplotlib, pandas, requests, beautifulsoup4, psycopg2-binary, python-dotenv, pdfplumber
-- Funciona sin .env ni PostgreSQL (usa JSON por defecto)
+- Requiere customtkinter, matplotlib, pandas, requests, beautifulsoup4, , , pdfplumber
+- Funciona sin .env ni JSON (usa JSON por defecto)

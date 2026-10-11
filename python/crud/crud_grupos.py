@@ -59,3 +59,19 @@ class GrupoCRUD:
     def delete(self, group_id):
         """Elimina físicamente el grupo."""
         return self.multilist.remove_group(group_id)
+
+    def add_member(self, group_id, investigador):
+        """Agrega un integrante al grupo en la multilista."""
+        return self.multilist.add_investigador_to_group(group_id, investigador)
+
+    def remove_member(self, group_id, cedula):
+        """Quita un integrante del grupo en la multilista."""
+        return self.multilist.remove_investigador_from_group(group_id, cedula)
+
+    def list_members(self, group_id):
+        """Retorna los integrantes activos del grupo desde la multilista."""
+        return self.multilist.get_investigadores_by_grupo(group_id)
+
+    def list_products(self, group_id):
+        """Retorna los productos del grupo desde la multilista."""
+        return self.multilist.get_productos_by_grupo(group_id)

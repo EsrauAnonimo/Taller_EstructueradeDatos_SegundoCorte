@@ -96,7 +96,30 @@ class InvestigadoresTab(ctk.CTkFrame):
             pady=(0, SPACING['lg']),
         )
 
+        # --- 3. Botón Deshacer ---
+        self._build_undo_button()
+
         self.load_data()
+
+    def _build_undo_button(self):
+        """Crea el botón '↶ Deshacer' en la zona derecha del toolbar de TablaCRUD."""
+        from gui.styles import COLORS, RADIUS, font, SPACING
+        parent = getattr(self.table, 'right_tools', None) or self.header_frame
+
+        self.btn_undo = ctk.CTkButton(
+            parent,
+            text="↶ Deshacer",
+            width=110,
+            height=32,
+            corner_radius=RADIUS['control'],
+            fg_color=COLORS.get('warning', '#F59E0B'),
+            hover_color=COLORS.get('warning_hover', '#D97706'),
+            text_color='#FFFFFF',
+            font=font('body_bold'),
+            state='disabled',
+            command=self._on_undo,
+        )
+        self.btn_undo.pack(side='right', padx=(SPACING['sm'], 0))
 
     def get_app(self):
         """Resuelve dinámicamente la instancia principal de App en la jerarquía."""
@@ -251,8 +274,14 @@ class InvestigadoresTab(ctk.CTkFrame):
         except Exception as e:
             messagebox.showerror("Error", f"Error al cambiar estado de investigadores: {e}")
 
+    def _on_undo(self):
+        """Delega la acción de deshacer a la instancia central de App."""
+        app = self.get_app()
+        if app and hasattr(app, 'undo_delete'):
+            app.undo_delete()
+
     def delete(self, selected_ids: Optional[List[str]] = None):
-        """Elimina los investigadores seleccionados tras la confirmación del modal."""
+        """Elimina los investigadores seleccionados, apilando el snapshot en la pila de deshacer."""
         ids = selected_ids or self.table.get_selected_ids()
         if not ids:
             return
@@ -263,6 +292,34 @@ class InvestigadoresTab(ctk.CTkFrame):
         try:
             deleted_count = 0
             for cid in ids:
+                # ── Capturar snapshot ANTES de eliminar ────────────────────────────
+                inv_obj = app.inv_crud.get_by_cedula(cid)
+                if inv_obj is None:
+                    # Intentar búsqueda directa en la lista
+                    for item in getattr(self, '_all_investigadores', []):
+                        if str(getattr(item, 'cedula', None) or getattr(item, 'id', None)) == str(cid):
+                            inv_obj = item
+                            break
+                if inv_obj is None:
+                    continue
+
+                # Guardar productos asociados para restaurar relaciones
+                prods_snapshot = []
+                try:
+                    prods_snapshot = list(app.prod_crud.list_by_investigador(cid))
+                except Exception:
+                    pass
+
+                posicion = {
+                    'cedula': cid,
+                    'grupo_id': getattr(inv_obj, 'grupo_id', None),
+                    'productos': prods_snapshot,
+                }
+
+                # Apilar en la pila de deshacer
+                app.push_undo('investigador', inv_obj, posicion)
+
+                # Eliminar físicamente
                 if app.inv_crud.delete(cid):
                     deleted_count += 1
 
@@ -273,7 +330,9 @@ class InvestigadoresTab(ctk.CTkFrame):
 
             messagebox.showinfo(
                 "Eliminación completada",
-                f"Se ha{'n' if deleted_count != 1 else ''} eliminado {deleted_count} investigador{'es' if deleted_count != 1 else ''} correctamente.",
+                f"Se ha{'n' if deleted_count != 1 else ''} eliminado {deleted_count} "
+                f"investigador{'es' if deleted_count != 1 else ''} correctamente.\n"
+                f"Puede deshacer con Ctrl+Z o el botón Deshacer.",
             )
         except Exception as e:
             messagebox.showerror("Error", f"Error al eliminar investigadores: {e}")

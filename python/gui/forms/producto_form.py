@@ -48,6 +48,11 @@ class ProductoForm(FormularioBase):
         "D",
     ]
 
+    # Nuevos campos
+    from entidades.producto import Producto as _P
+    CATEGORIAS_PRODUCTO_OPCIONES = _P.CATEGORIAS_PRODUCTO
+    VALIDACION_OPCIONES = _P.VALIDACIONES
+
     def __init__(
         self,
         master,
@@ -170,8 +175,8 @@ class ProductoForm(FormularioBase):
             initial_value=str(year_val) if year_val else "",
         )
 
-        # --- Sección 2: Afiliación y Validación ---
-        self.add_section("Afiliación y validación")
+        # --- Sección 2: Afiliación institucional ---
+        self.add_section("Afiliación institucional")
 
         # Combo de Grupo asociado ("código - nombre")
         options, mapping, reverse_mapping = self.get_grupos_combo_data()
@@ -190,27 +195,21 @@ class ProductoForm(FormularioBase):
             reverse_mapping=reverse_mapping,
         )
 
-        # Combo de Categoría (A1, A2, B, C, D)
-        cat_val = d.get('categoria') or d.get('category', '')
-        cat_options = list(self.CATEGORIAS_OPCIONES)
-        if cat_val and cat_val not in cat_options:
-            cat_options.append(str(cat_val))
-
-        cat_mapping = {"Sin categoría": ""}
-        for c in ["A1", "A2", "B", "C", "D"]:
-            cat_mapping[c] = c
-        if cat_val and cat_val not in cat_mapping:
-            cat_mapping[cat_val] = cat_val
-
-        initial_cat = str(cat_val) if cat_val in cat_options else ("Sin categoría" if not cat_val else cat_val)
+        # Combo de Investigador asociado ("cédula - nombres apellidos")
+        inv_options, inv_mapping, inv_reverse = self.get_investigadores_combo_data()
+        current_inv_val = d.get('investigador_id') or d.get('investigador_cedula', None)
+        initial_inv_combo_val = None
+        if current_inv_val is not None:
+            initial_inv_combo_val = inv_reverse.get(current_inv_val) or inv_reverse.get(str(current_inv_val))
 
         self.add_combo_field(
-            key='categoria',
-            label_text="Categoría o indexación (A1, A2, B, C, D)",
-            options=cat_options,
-            required=False,
-            initial_value=initial_cat,
-            mapping=cat_mapping,
+            key='investigador_id',
+            label_text="Investigador asociado",
+            options=inv_options,
+            required=True,
+            initial_value=initial_inv_combo_val,
+            mapping=inv_mapping,
+            reverse_mapping=inv_reverse,
         )
 
         active_val = d.get('validado', d.get('active', True))
@@ -218,6 +217,32 @@ class ProductoForm(FormularioBase):
             key='validado',
             label_text="Producto validado y activo",
             initial_value=bool(active_val),
+        )
+
+        # --- Sección 3: Categoría y Validación ---
+        self.add_section("Categoría y validación")
+
+        from entidades.producto import Producto as _P
+        cat_val = d.get('categoria') or d.get('categoria_producto', 'Nuevo conocimiento')
+        if cat_val not in _P.CATEGORIAS:
+            cat_val = 'Nuevo conocimiento'
+        self.add_combo_field(
+            key='categoria',
+            label_text="Categoría del producto",
+            options=_P.CATEGORIAS,
+            required=True,
+            initial_value=cat_val,
+        )
+
+        val_val = d.get('validacion', 'No validado')
+        if val_val not in _P.VALIDACIONES:
+            val_val = 'No validado'
+        self.add_combo_field(
+            key='validacion',
+            label_text="Estado de validación",
+            options=_P.VALIDACIONES,
+            required=True,
+            initial_value=val_val,
         )
 
     def _on_gran_categoria_changed(self, selected_display: str):
@@ -235,7 +260,107 @@ class ProductoForm(FormularioBase):
             tipo_var.set(new_options[0])
             self.clear_error('tipo')
 
-    def get_data(self) -> Dict[str, Any]:
+    def validate_all(self) -> bool:
+        """Valida todos los campos. Muestra errores en rojo dentro del formulario sin cerrarlo."""
+        import datetime
+        current_year = datetime.datetime.now().year
+
+        # Ejecutar validación base (required + validators por campo)
+        base_ok = super().validate_all()
+
+        # Reglas adicionales de negocio
+        extra_ok = True
+        app = self.resolve_app()
+
+        # 1. Título no vacío
+        titulo_info = self._fields.get('titulo')
+        if titulo_info:
+            titulo_val = titulo_info['widget'].get().strip()
+            if not titulo_val:
+                self.set_error('titulo', "El título no puede estar vacío.")
+                extra_ok = False
+
+        # 2. Año entre 1900 y año actual
+        anio_info = self._fields.get('anio')
+        if anio_info:
+            anio_val = anio_info['widget'].get().strip()
+            if not anio_val:
+                self.set_error('anio', "El año de publicación es obligatorio.")
+                extra_ok = False
+            elif not anio_val.isdigit():
+                self.set_error('anio', "El año debe contener únicamente dígitos numéricos.")
+                extra_ok = False
+            else:
+                year_int = int(anio_val)
+                if year_int < 1900 or year_int > current_year:
+                    self.set_error('anio', f"El año debe estar entre 1900 y {current_year}.")
+                    extra_ok = False
+
+        # 3. Tipo obligatorio (subcategoría)
+        tipo_info = self._fields.get('tipo')
+        if tipo_info:
+            tipo_val = tipo_info['var'].get().strip()
+            if not tipo_val or tipo_val.startswith('(Sin'):
+                self.set_error('tipo', "El tipo de producto es obligatorio.")
+                extra_ok = False
+
+        # 4. Categoría obligatoria
+        cat_info = self._fields.get('categoria')
+        if cat_info:
+            cval = cat_info['var'].get().strip()
+            from entidades.producto import Producto as _P
+            if not cval or cval not in _P.CATEGORIAS:
+                self.set_error('categoria', "La categoría es obligatoria.")
+                extra_ok = False
+
+        # 5. Validación obligatoria
+        val_info = self._fields.get('validacion')
+        if val_info:
+            vval = val_info['var'].get().strip()
+            from entidades.producto import Producto as _P
+            if not vval or vval not in _P.VALIDACIONES:
+                self.set_error('validacion', "El estado de validación es obligatorio.")
+                extra_ok = False
+
+        # 6. Grupo existente (no placeholder)
+        grupo_info = self._fields.get('grupo_id')
+        if grupo_info:
+            gval = grupo_info['var'].get().strip()
+            gmapping = grupo_info.get('mapping', {})
+            gid = gmapping.get(gval)
+            if gid is None or gval.startswith('(Sin'):
+                self.set_error('grupo_id', "Selecciona un grupo de investigación existente.")
+                extra_ok = False
+            elif app and hasattr(app, 'grupo_crud'):
+                try:
+                    found = app.grupo_crud.get_by_id(gid)
+                    if found is None:
+                        self.set_error('grupo_id', "El grupo seleccionado no existe en el sistema.")
+                        extra_ok = False
+                except Exception:
+                    pass
+
+        # 7. Investigador existente (no placeholder)
+        inv_info = self._fields.get('investigador_id')
+        if inv_info:
+            ival = inv_info['var'].get().strip()
+            imapping = inv_info.get('mapping', {})
+            iid = imapping.get(ival)
+            if iid is None or ival.startswith('(Sin'):
+                self.set_error('investigador_id', "Selecciona un investigador existente.")
+                extra_ok = False
+            elif app and hasattr(app, 'inv_crud'):
+                try:
+                    found = app.inv_crud.get_by_cedula(str(iid))
+                    if found is None:
+                        self.set_error('investigador_id', "El investigador seleccionado no existe en el sistema.")
+                        extra_ok = False
+                except Exception:
+                    pass
+
+        return base_ok and extra_ok
+
+    def get_data(self) -> dict:
         """Extrae el diccionario normalizado con alias para el CRUD."""
         raw = super().get_data()
         titulo = raw.get('titulo', '').strip()
@@ -243,7 +368,9 @@ class ProductoForm(FormularioBase):
         gran_cat_raw = raw.get('gran_categoria', '').strip()
         gran_categoria = self.GRAN_CAT_MAPPING.get(gran_cat_raw, gran_cat_raw) or "Sin clasificar"
         grupo_id = raw.get('grupo_id')
-        categoria = raw.get('categoria', '').strip()
+        investigador_id = raw.get('investigador_id')
+        categoria = raw.get('categoria', 'Nuevo conocimiento')
+        validacion = raw.get('validacion', 'No validado')
         validado = bool(raw.get('validado', True))
 
         # Determinar el código MinCiencias a partir de la subcategoría seleccionada
@@ -271,8 +398,12 @@ class ProductoForm(FormularioBase):
             'anio': anio,
             'group': grupo_id,
             'grupo_id': grupo_id,
+            'investigador_id': investigador_id,
+            'investigador_cedula': investigador_id,
             'category': categoria,
             'categoria': categoria,
+            'categoria_producto': categoria,
+            'validacion': validacion,
             'active': validado,
             'validado': validado,
         }

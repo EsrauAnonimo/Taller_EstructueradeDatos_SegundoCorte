@@ -68,14 +68,15 @@ class ProductosTab(ctk.CTkFrame):
 
         # --- 2. Tabla CRUD Reutilizable ---
         columns = [
-            ('id', 'ID', 70, 'center'),
-            ('title', 'Título del producto', 270, 'w'),
-            ('gran_cat', 'Gran Cat.', 90, 'center'),
-            ('codigo', 'Código', 85, 'center'),
-            ('type', 'Tipo', 170, 'w'),
-            ('year', 'Año', 70, 'center'),
-            ('group', 'Grupo ID', 85, 'center'),
-            ('active', 'Estado', 90, 'center'),
+            ('id', 'ID', 60, 'center'),
+            ('title', 'Título del producto', 220, 'w'),
+            ('gran_cat', 'Gran Cat.', 80, 'center'),
+            ('codigo', 'Código', 75, 'center'),
+            ('type', 'Tipo', 140, 'w'),
+            ('cat_prod', 'Categoría', 120, 'center'),
+            ('year', 'Año', 60, 'center'),
+            ('validacion', 'Validación', 95, 'center'),
+            ('active', 'Estado', 85, 'center'),
         ]
 
         self.table = TablaCRUD(
@@ -107,7 +108,29 @@ class ProductosTab(ctk.CTkFrame):
         # --- 3. Filtros específicos inyectados en la zona izquierda de TablaCRUD ---
         self._setup_custom_filters()
 
+        # --- 4. Botón Deshacer ---
+        self._build_undo_button()
+
         self.load_data()
+
+    def _build_undo_button(self):
+        """Crea el botón '↶ Deshacer' en la zona derecha del toolbar de TablaCRUD."""
+        parent = getattr(self.table, 'right_tools', None) or self.header_frame
+
+        self.btn_undo = ctk.CTkButton(
+            parent,
+            text="↶ Deshacer",
+            width=110,
+            height=32,
+            corner_radius=RADIUS['control'],
+            fg_color=COLORS.get('warning', '#F59E0B'),
+            hover_color=COLORS.get('warning_hover', '#D97706'),
+            text_color='#FFFFFF',
+            font=font('body_bold'),
+            state='disabled',
+            command=self._on_undo,
+        )
+        self.btn_undo.pack(side='right', padx=(SPACING['sm'], 0))
 
     def _setup_custom_filters(self):
         """Inyecta el selector de tipo y el filtro de año con CTkSegmentedButton
@@ -315,6 +338,8 @@ class ProductosTab(ctk.CTkFrame):
             year = getattr(p, 'anio', '') or getattr(p, 'year', '')
             gid = getattr(p, 'grupo_id', getattr(p, 'group', ''))
             active = getattr(p, 'validado', getattr(p, 'active', True))
+            cat_prod = getattr(p, 'categoria', getattr(p, 'categoria_producto', 'Nuevo conocimiento')) or 'Nuevo conocimiento'
+            val_estado = getattr(p, 'validacion', 'No validado') or 'No validado'
 
             rows.append({
                 'id': str(pid) if pid is not None else '',
@@ -324,8 +349,9 @@ class ProductosTab(ctk.CTkFrame):
                     str(gran_cat),
                     str(codigo),
                     str(ptype),
+                    str(cat_prod),
                     str(year),
-                    str(gid) if gid is not None else '',
+                    str(val_estado),
                     "● Activo" if active else "● Inactivo",
                 ),
                 'is_active': bool(active),
@@ -346,17 +372,23 @@ class ProductosTab(ctk.CTkFrame):
         if not app:
             return
         try:
+            categoria_val = data.get('categoria') or data.get('categoria_producto', 'Nuevo conocimiento')
             nuevo = Producto(
                 titulo=data.get('titulo') or data.get('title', ''),
                 tipo=data.get('tipo') or data.get('type', ''),
-                categoria=data.get('categoria', ''),
+                categoria=categoria_val,
                 validado=data.get('validado', data.get('active', True)),
                 anio=int(data.get('anio') or data.get('year') or 0),
                 investigador_id=data.get('investigador_id'),
                 grupo_id=data.get('grupo_id') or data.get('group'),
                 gran_categoria=data.get('gran_categoria', 'Sin clasificar'),
                 codigo_minciencias=data.get('codigo_minciencias', ''),
+                categoria_producto=categoria_val,
+                validacion=data.get('validacion', 'No validado'),
             )
+            if data.get('investigador_id'):
+                nuevo.investigador_cedula = str(data.get('investigador_id'))
+
             app.prod_crud.create(nuevo)
             app.save_data()
             self.load_data()
@@ -437,8 +469,14 @@ class ProductosTab(ctk.CTkFrame):
         except Exception as e:
             messagebox.showerror("Error", f"Error al cambiar estado de productos: {e}")
 
+    def _on_undo(self):
+        """Delega la acción de deshacer a la instancia central de App."""
+        app = self.get_app()
+        if app and hasattr(app, 'undo_delete'):
+            app.undo_delete()
+
     def delete(self, selected_ids: Optional[List[str]] = None):
-        """Elimina los productos seleccionados tras la confirmación del modal."""
+        """Elimina los productos seleccionados, apilando el snapshot en la pila de deshacer."""
         ids = selected_ids or self.table.get_selected_ids()
         if not ids:
             return
@@ -450,6 +488,30 @@ class ProductosTab(ctk.CTkFrame):
             deleted_count = 0
             for sid in ids:
                 pid = int(sid) if sid.isdigit() else sid
+
+                # ── Capturar snapshot ANTES de eliminar ────────────────────────────
+                prod_obj = app.prod_crud.get_by_id(pid)
+                if prod_obj is None:
+                    for item in getattr(self, '_all_productos', []):
+                        if getattr(item, 'id', None) == pid:
+                            prod_obj = item
+                            break
+                if prod_obj is None:
+                    continue
+
+                posicion = {
+                    'producto_id': pid,
+                    'investigador_cedula': (
+                        getattr(prod_obj, 'investigador_cedula', None)
+                        or getattr(prod_obj, 'investigador_id', None)
+                    ),
+                    'grupo_id': getattr(prod_obj, 'grupo_id', None),
+                }
+
+                # Apilar en la pila de deshacer
+                app.push_undo('producto', prod_obj, posicion)
+
+                # Eliminar físicamente
                 if app.prod_crud.delete(pid):
                     deleted_count += 1
 
@@ -460,7 +522,9 @@ class ProductosTab(ctk.CTkFrame):
 
             messagebox.showinfo(
                 "Eliminación completada",
-                f"Se ha{'n' if deleted_count != 1 else ''} eliminado {deleted_count} producto{'s' if deleted_count != 1 else ''} correctamente.",
+                f"Se ha{'n' if deleted_count != 1 else ''} eliminado {deleted_count} "
+                f"producto{'s' if deleted_count != 1 else ''} correctamente.\n"
+                f"Puede deshacer con Ctrl+Z o el botón Deshacer.",
             )
         except Exception as e:
             messagebox.showerror("Error", f"Error al eliminar productos: {e}")

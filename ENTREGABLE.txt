@@ -3,7 +3,7 @@
 Descripción:
 - Aplicación de escritorio para gestionar grupos de investigación, investigadores y productos.
 - Interfaz gráfica: CustomTkinter (ventana 1200x700, pestañas Grupos/Investigadores/Productos/Estadísticas).
-- Persistencia: intenta PostgreSQL; si falla, usa JSON automáticamente (sin cuadro de advertencia al iniciar).
+- Persistencia: intenta JSON; si falla, usa JSON automáticamente (sin cuadro de advertencia al iniciar).
 - Datos de ejemplo cargados desde python/datos/datos.json al iniciar.
 
 Funcionalidades actuales:
@@ -18,6 +18,6 @@ Ejecución:
 - VS Code: F5 con configuración "PEA-i GUI" (launch.json apunta a python/gui/app.py con cwd python).
 - Terminal: cd python && python gui/app.py
 
-Dependencias: customtkinter, matplotlib, pandas, requests, beautifulsoup4, psycopg2-binary, python-dotenv, pdfplumber.
+Dependencias: customtkinter, matplotlib, pandas, requests, beautifulsoup4, , , pdfplumber.
 
 Estado: Funcional. La ventana se inicia correctamente sin errores de importación.

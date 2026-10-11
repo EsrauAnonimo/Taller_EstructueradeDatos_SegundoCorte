@@ -7,6 +7,7 @@ import datetime
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import customtkinter as ctk
+import matplotlib.pyplot as plt
 import pandas as pd
 
 from gui.styles import (
@@ -90,6 +91,42 @@ def _is_active(obj):
 
 def _is_validated(obj):
     return bool(getattr(obj, "validado", getattr(obj, "active", True)))
+
+
+def _group_id(grupo) -> str:
+    return str(getattr(grupo, "id", "") or getattr(grupo, "codigo_gruplac", "") or "")
+
+
+def _investigator_id(investigador) -> str:
+    return str(
+        getattr(investigador, "cedula", None)
+        or getattr(investigador, "id", None)
+        or ""
+    )
+
+
+def _investigator_group_id(investigador) -> str:
+    return str(getattr(investigador, "grupo_id", "") or getattr(investigador, "group", "") or "")
+
+
+def _product_group_id(producto) -> str:
+    return str(getattr(producto, "grupo_id", "") or getattr(producto, "group", "") or "")
+
+
+def _product_investigator_id(producto) -> str:
+    return str(
+        getattr(producto, "investigador_id", None)
+        or getattr(producto, "investigador_cedula", None)
+        or getattr(producto, "inv_id", "")
+        or ""
+    )
+
+
+def _product_year(producto) -> int:
+    try:
+        return int(getattr(producto, "anio", 0) or getattr(producto, "year", 0))
+    except (ValueError, TypeError):
+        return 0
 
 
 # ---------------------------------------------------------------------------
@@ -253,22 +290,15 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
             text_color=COLORS["ink"],
         ).pack(side="left", padx=(0, SPACING["sm"]))
 
-        self._view_seg = ctk.CTkSegmentedButton(
+        self._view_var = ctk.StringVar(value="Global")
+        self._view_menu = combo(
             v_left,
             values=["Global", "Por grupo", "Por investigador"],
+            variable=self._view_var,
             command=self._on_view_changed,
-            height=CONTROL_HEIGHT,
-            corner_radius=RADIUS["control"],
-            fg_color=COLORS["segment_bg"],
-            selected_color=COLORS["accent"],
-            selected_hover_color=COLORS["accent_hover"],
-            unselected_color=COLORS["surface"],
-            unselected_hover_color=COLORS["surface_alt"],
-            text_color=COLORS["ink"],
-            font=font("small"),
+            width=170,
         )
-        self._view_seg.set("Global")
-        self._view_seg.pack(side="left", padx=(0, SPACING["sm"]))
+        self._view_menu.pack(side="left", padx=(0, SPACING["sm"]))
 
         # Combo para seleccionar el grupo o investigador especifico
         self._target_var = ctk.StringVar(value="Todos")
@@ -295,7 +325,7 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
 
         self._year_seg = ctk.CTkSegmentedButton(
             v_right,
-            values=["Todos", "Ultimos 2 anos", "Ultimos 5 anos", "Personalizado"],
+            values=["Todos", "Últimos 2", "Últimos 5", "Personalizado"],
             command=self._on_year_filter_changed,
             height=CONTROL_HEIGHT,
             corner_radius=RADIUS["control"],
@@ -428,13 +458,23 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
         self.card_chart2 = ChartCard(self._charts_container, title="Productos por gran categoría")
         self.card_chart3 = ChartCard(self._charts_container, title="Productos por subcategoría (top 10)")
         self.card_chart4 = ChartCard(self._charts_container, title="Productos por categoría")
+        self.card_chart5 = ChartCard(self._charts_container, title="Histograma: productos por investigador")
 
         self._all_chart_cards = [
             self.card_chart1,
             self.card_chart2,
             self.card_chart3,
             self.card_chart4,
+            self.card_chart5,
         ]
+
+        self._empty_stats_msg = ctk.CTkLabel(
+            self,
+            text="No hay datos para las estadísticas con los filtros seleccionados.",
+            font=font("body_bold"),
+            text_color=COLORS["muted"],
+            anchor="center",
+        )
 
     def _on_container_resize(self, event):
         """Ajusta reactivamente el numero de columnas segun el ancho del frame."""
@@ -456,7 +496,7 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
         self._current_cols = cols
 
         # Limpiar configuracion previa
-        for i in range(4):
+        for i in range(len(self._all_chart_cards)):
             self._charts_container.grid_columnconfigure(i, weight=0)
 
         for i in range(cols):
@@ -492,7 +532,7 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
             grupos = list(_iter_grupos(app))
             self._target_choices = {"Todos los grupos": ""}
             for g in grupos:
-                gid = str(getattr(g, "id", ""))
+                gid = _group_id(g)
                 gcode = str(getattr(g, "codigo_gruplac", "") or getattr(g, "nombre", f"Grupo {gid}"))
                 lbl = f"{gid} - {gcode[:24]}"
                 self._target_choices[lbl] = gid
@@ -506,8 +546,10 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
             invs = list(_iter_investigadores(app))
             self._target_choices = {"Todos los investigadores": ""}
             for i in invs:
-                iid = str(getattr(i, "id", ""))
-                inom = str(getattr(i, "nombre", f"Investigador {iid}"))
+                iid = _investigator_id(i)
+                nombre = str(getattr(i, "nombres", "") or getattr(i, "nombre", "")).strip()
+                apellido = str(getattr(i, "apellidos", "")).strip()
+                inom = f"{nombre} {apellido}".strip() or f"Investigador {iid}"
                 lbl = f"{iid} - {inom[:24]}"
                 self._target_choices[lbl] = iid
 
@@ -555,18 +597,27 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
         app = self.get_app()
         if not app:
             return
+        plt.close("all")
 
         all_grupos = list(_iter_grupos(app))
         all_investigadores = list(_iter_investigadores(app))
         all_productos = list(_iter_productos(app))
 
-        # 1. Actualizar Tarjetas KPI globales
-        tot_g = len(all_grupos)
-        act_g = sum(1 for g in all_grupos if _is_active(g))
-        tot_i = len(all_investigadores)
-        act_i = sum(1 for i in all_investigadores if _is_active(i))
-        tot_p = len(all_productos)
-        act_p = sum(1 for p in all_productos if _is_validated(p))
+        # 1. Filtrado de productos y entidades segun periodo y vista seleccionada
+        filtered_prods = self._filter_products(all_productos)
+        scoped_grupos, scoped_investigadores = self._filter_entities(
+            all_grupos,
+            all_investigadores,
+            filtered_prods,
+        )
+
+        # 2. Actualizar Tarjetas KPI con el mismo alcance de filtros
+        tot_g = len(scoped_grupos)
+        act_g = sum(1 for g in scoped_grupos if _is_active(g))
+        tot_i = len(scoped_investigadores)
+        act_i = sum(1 for i in scoped_investigadores if _is_active(i))
+        tot_p = len(filtered_prods)
+        act_p = sum(1 for p in filtered_prods if _is_validated(p))
 
         self.card_grupos.set_value(
             str(tot_g),
@@ -581,11 +632,8 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
             variation=f"{act_p} validados" if tot_p > 0 else "Sin registros",
         )
 
-        # 2. Filtrado de productos segun periodo y vista seleccionada
-        filtered_prods = self._filter_products(all_productos)
-
         # 3. Resumen Descriptivo con pandas
-        self._update_descriptive_summary(all_grupos, all_investigadores, filtered_prods)
+        self._update_descriptive_summary(scoped_grupos, scoped_investigadores, filtered_prods)
 
         # 4. Grafico 1: Productos por ano (barras)
         self._plot_chart1_years(filtered_prods)
@@ -596,8 +644,13 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
         # 6. Grafico 3: Productos por subcategoría (top 10)
         self._plot_chart3_subcategorias(filtered_prods)
 
-        # 7. Grafico 4: Productos por categoría (A1, A2...)
+        # 7. Grafico 4: Productos por categoría (barras)
         self._plot_chart4_categorias(filtered_prods)
+
+        # 8. Grafico 5: Histograma real de productos por investigador
+        self._plot_chart5_histogram_investigadores(filtered_prods)
+
+        self._toggle_empty_message(bool(filtered_prods))
 
     # -----------------------------------------------------------------------
     # Metodos auxiliares de calculo
@@ -615,28 +668,19 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
 
             # Filtro por vista (Grupo o Investigador)
             if self._view_mode == "Por grupo" and self._selected_target_id:
-                gid = str(getattr(p, "grupo_id", getattr(p, "group", "")))
-                if gid != str(self._selected_target_id):
+                if _product_group_id(p) != str(self._selected_target_id):
                     continue
             elif self._view_mode == "Por investigador" and self._selected_target_id:
-                iid = str(
-                    getattr(p, "investigador_id", None)
-                    or getattr(p, "investigador_cedula", None)
-                    or getattr(p, "inv_id", "")
-                )
-                if iid != str(self._selected_target_id):
+                if _product_investigator_id(p) != str(self._selected_target_id):
                     continue
 
             # Filtro por ano
-            try:
-                pyear = int(getattr(p, "anio", 0) or getattr(p, "year", 0))
-            except (ValueError, TypeError):
-                pyear = 0
+            pyear = _product_year(p)
 
-            if year_mode == "Ultimos 2 anos":
+            if year_mode == "Últimos 2":
                 if pyear < (cur_year - 2):
                     continue
-            elif year_mode == "Ultimos 5 anos":
+            elif year_mode == "Últimos 5":
                 if pyear < (cur_year - 5):
                     continue
             elif year_mode == "Personalizado":
@@ -655,6 +699,36 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
 
             res.append(p)
         return res
+
+    def _filter_entities(self, grupos, investigadores, productos_filtrados):
+        """Devuelve grupos e investigadores afectados por vista, entidad y periodo."""
+        grupos_res = list(grupos)
+        investigadores_res = list(investigadores)
+
+        if self._view_mode == "Por grupo" and self._selected_target_id:
+            gid = str(self._selected_target_id)
+            grupos_res = [g for g in grupos_res if _group_id(g) == gid]
+            investigadores_res = [i for i in investigadores_res if _investigator_group_id(i) == gid]
+        elif self._view_mode == "Por investigador" and self._selected_target_id:
+            iid = str(self._selected_target_id)
+            investigadores_res = [i for i in investigadores_res if _investigator_id(i) == iid]
+            group_ids = {_investigator_group_id(i) for i in investigadores_res if _investigator_group_id(i)}
+            group_ids.update(_product_group_id(p) for p in productos_filtrados if _product_group_id(p))
+            grupos_res = [g for g in grupos_res if _group_id(g) in group_ids]
+
+        if self._year_seg.get() != "Todos":
+            product_group_ids = {_product_group_id(p) for p in productos_filtrados if _product_group_id(p)}
+            product_inv_ids = {_product_investigator_id(p) for p in productos_filtrados if _product_investigator_id(p)}
+            grupos_res = [g for g in grupos_res if _group_id(g) in product_group_ids]
+            investigadores_res = [i for i in investigadores_res if _investigator_id(i) in product_inv_ids]
+
+        return grupos_res, investigadores_res
+
+    def _toggle_empty_message(self, has_data: bool):
+        if has_data:
+            self._empty_stats_msg.pack_forget()
+        else:
+            self._empty_stats_msg.pack(fill="x", padx=SPACING["lg"], pady=(0, SPACING["md"]))
 
     def _update_descriptive_summary(self, grupos, investigadores, productos):
         """Calcula metricas estadisticas con pandas."""
@@ -792,6 +866,24 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
         else:
             self.card_chart4.chart.clear()
 
+    def _plot_chart5_histogram_investigadores(self, prods):
+        """Histograma real de la cantidad de productos acumulados por investigador."""
+        inv_cnt = Counter()
+        for p in prods:
+            iid = _product_investigator_id(p) or "Sin investigador"
+            inv_cnt[iid] += 1
+
+        values = list(inv_cnt.values())
+        if values:
+            self.card_chart5.chart.plot_histogram(
+                values,
+                bins=min(8, max(1, len(set(values)))),
+                title="Histograma: productos por investigador",
+                color=CHART_COLORS[4 % len(CHART_COLORS)],
+            )
+        else:
+            self.card_chart5.chart.clear()
+
     # -----------------------------------------------------------------------
     # 7. Exportacion de graficas a archivo PNG
     # -----------------------------------------------------------------------
@@ -811,8 +903,8 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
             from matplotlib.figure import Figure
             from matplotlib.backends.backend_agg import FigureCanvasAgg
 
-            export_fig = Figure(figsize=(12, 8), dpi=200, facecolor=COLORS["surface"])
-            axes = export_fig.subplots(2, 2)
+            export_fig = Figure(figsize=(12, 11), dpi=200, facecolor=COLORS["surface"])
+            axes = export_fig.subplots(3, 2)
 
             # Grafico 1: Barras verticales de anos
             ax1 = axes[0, 0]
@@ -887,7 +979,33 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
                 ax4.axis("off")
                 ax4.text(0.5, 0.5, "Sin datos para graficar", ha="center", va="center")
 
-            for ax in (ax1, ax2, ax3, ax4):
+            # Grafico 5: Histograma real de productos por investigador
+            ax5 = axes[2, 0]
+            ax5.set_facecolor(COLORS["surface"])
+            inv_cnt = Counter()
+            for p in prods:
+                iid = _product_investigator_id(p) or "Sin investigador"
+                inv_cnt[iid] += 1
+            hist_vals = list(inv_cnt.values())
+            if hist_vals:
+                bins = min(8, max(1, len(set(hist_vals))))
+                ax5.hist(
+                    hist_vals,
+                    bins=bins,
+                    color=CHART_COLORS[4 % len(CHART_COLORS)],
+                    edgecolor=COLORS["surface"],
+                    linewidth=1.2,
+                    rwidth=0.88,
+                )
+                ax5.set_title("Histograma: productos por investigador", fontweight="bold", fontsize=11, loc="left")
+            else:
+                ax5.axis("off")
+                ax5.text(0.5, 0.5, "Sin datos para graficar", ha="center", va="center")
+
+            ax6 = axes[2, 1]
+            ax6.axis("off")
+
+            for ax in (ax1, ax2, ax3, ax4, ax5):
                 if ax.axison:
                     ax.spines["top"].set_visible(False)
                     ax.spines["right"].set_visible(False)
@@ -896,6 +1014,7 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
             export_fig.tight_layout()
             canvas_agg = FigureCanvasAgg(export_fig)
             canvas_agg.print_png(path)
+            plt.close(export_fig)
 
             messagebox.showinfo("Exportacion exitosa", f"Graficas exportadas exitosamente en:\n{path}")
         except Exception as exc:

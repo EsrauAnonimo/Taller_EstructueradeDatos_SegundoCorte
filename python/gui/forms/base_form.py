@@ -257,6 +257,77 @@ class FormularioBase(ctk.CTkToplevel):
 
         return widget
 
+    def add_textarea_field(
+        self,
+        key: str,
+        label_text: str,
+        placeholder: str = "",
+        required: bool = False,
+        validator: Optional[Callable[[str], Optional[str]]] = None,
+        initial_value: str = "",
+        height: int = 90,
+    ) -> ctk.CTkTextbox:
+        """Crea un campo de texto multilínea con CTkTextbox."""
+        field_container = ctk.CTkFrame(self.body, fg_color='transparent')
+        field_container.pack(fill='x', padx=SPACING['sm'], pady=(0, SPACING['sm']))
+
+        lbl_frame = ctk.CTkFrame(field_container, fg_color='transparent')
+        lbl_frame.pack(fill='x', pady=(0, 2))
+
+        lbl = ctk.CTkLabel(
+            lbl_frame,
+            text=label_text,
+            font=font('body'),
+            text_color=COLORS['ink'],
+            anchor='w',
+        )
+        lbl.pack(side='left')
+
+        if required:
+            req_mark = ctk.CTkLabel(
+                lbl_frame,
+                text=" *",
+                font=font('body'),
+                text_color=COLORS['danger'],
+            )
+            req_mark.pack(side='left')
+
+        widget = ctk.CTkTextbox(
+            field_container,
+            height=height,
+            font=font('body'),
+            corner_radius=RADIUS['control'],
+            border_width=1,
+            border_color=COLORS['border'],
+            fg_color=COLORS['surface'],
+            text_color=COLORS['ink'],
+        )
+        if initial_value:
+            widget.insert("1.0", str(initial_value))
+        widget.pack(fill='x')
+
+        err_lbl = ctk.CTkLabel(
+            field_container,
+            text="",
+            font=font('small'),
+            text_color=COLORS['danger'],
+            anchor='w',
+        )
+        err_lbl.pack(fill='x', pady=(1, 0))
+
+        widget.bind('<KeyRelease>', lambda e, k=key: self.clear_error(k))
+
+        self._fields[key] = {
+            'type': 'textarea',
+            'widget': widget,
+            'error_lbl': err_lbl,
+            'required': required,
+            'validator': validator,
+            'label': label_text,
+        }
+
+        return widget
+
     def add_combo_field(
         self,
         key: str,
@@ -410,6 +481,8 @@ class FormularioBase(ctk.CTkToplevel):
 
             if field_type == 'entry':
                 val = widget.get().strip()
+            elif field_type == 'textarea':
+                val = widget.get("1.0", "end-1c").strip()
             elif field_type == 'combo':
                 val = info['var'].get().strip()
 
@@ -523,6 +596,44 @@ class FormularioBase(ctk.CTkToplevel):
         return options, mapping, reverse_mapping
 
     # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  HELPER PARA INVESTIGADORES (CÉDULA - NOMBRE COMPLETO)          ║
+    # ╚══════════════════════════════════════════════════════════════════╝
+
+    def get_investigadores_combo_data(self, group_id: Optional[Any] = None) -> Tuple[List[str], Dict[str, Any], Dict[Any, str]]:
+        """Obtiene las opciones de investigadores formateadas como 'cédula - nombre apellidos' y sus mapeos."""
+        app = self.resolve_app()
+        options = []
+        mapping = {}
+        reverse_mapping = {}
+
+        if app and hasattr(app, 'inv_crud'):
+            try:
+                if group_id:
+                    investigadores = app.inv_crud.list_by_group(group_id)
+                else:
+                    investigadores = app.inv_crud.list_all()
+                for inv in investigadores:
+                    cid = getattr(inv, 'cedula', None) or getattr(inv, 'id', None)
+                    nombres = getattr(inv, 'nombres', '') or getattr(inv, 'name', '')
+                    apellidos = getattr(inv, 'apellidos', '')
+                    full_name = f"{nombres} {apellidos}".strip()
+
+                    display_str = f"{cid} - {full_name}" if cid and full_name else (full_name or str(cid))
+                    options.append(display_str)
+                    mapping[display_str] = cid
+                    if cid is not None:
+                        reverse_mapping[cid] = display_str
+                        reverse_mapping[str(cid)] = display_str
+            except Exception:
+                pass
+
+        if not options:
+            options = ["(Sin investigadores registrados)"]
+            mapping[options[0]] = None
+
+        return options, mapping, reverse_mapping
+
+    # ╔══════════════════════════════════════════════════════════════════╗
     # ║  ACCIONES DE GUARDAR Y CANCELAR                                 ║
     # ╚══════════════════════════════════════════════════════════════════╝
 
@@ -533,6 +644,8 @@ class FormularioBase(ctk.CTkToplevel):
             ftype = info['type']
             if ftype == 'entry':
                 result[key] = info['widget'].get().strip()
+            elif ftype == 'textarea':
+                result[key] = info['widget'].get("1.0", "end-1c").strip()
             elif ftype == 'combo':
                 disp = info['var'].get()
                 mapping = info.get('mapping', {})

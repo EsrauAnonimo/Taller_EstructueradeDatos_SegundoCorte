@@ -102,7 +102,31 @@ class GruposTab(ctk.CTkFrame):
             pady=(0, SPACING['lg']),
         )
 
+        # --- 3. Botón Deshacer (fuera de TablaCRUD, en fila debajo del encabezado) ---
+        self._build_undo_button()
+
         self.load_data()
+
+    def _build_undo_button(self):
+        """Crea el botón '↶ Deshacer' en la zona derecha del toolbar de TablaCRUD."""
+        from gui.styles import COLORS, RADIUS, font, SPACING
+        # right_tools es el contenedor del toolbar donde viven 'Crear' y 'Actualizar'
+        parent = getattr(self.table, 'right_tools', None) or self.header_frame
+
+        self.btn_undo = ctk.CTkButton(
+            parent,
+            text="↶ Deshacer",
+            width=110,
+            height=32,
+            corner_radius=RADIUS['control'],
+            fg_color=COLORS.get('warning', '#F59E0B'),
+            hover_color=COLORS.get('warning_hover', '#D97706'),
+            text_color='#FFFFFF',
+            font=font('body_bold'),
+            state='disabled',
+            command=self._on_undo,
+        )
+        self.btn_undo.pack(side='right', padx=(SPACING['sm'], 0))
 
     def get_app(self):
         """Resuelve dinámicamente la instancia principal de App en la jerarquía."""
@@ -220,7 +244,7 @@ class GruposTab(ctk.CTkFrame):
             messagebox.showerror("Error", "No se encontró el grupo seleccionado.")
             return
 
-        form = GrupoForm(self, grupo=grupo, on_save=lambda data: self._on_save_edit(target_id, data))
+        form = GrupoForm(self, app=app, grupo=grupo, on_save=lambda data: self._on_save_edit(target_id, data))
         form.grab_set()
 
     def _on_save_edit(self, target_id: Any, data: dict):
@@ -265,8 +289,15 @@ class GruposTab(ctk.CTkFrame):
         except Exception as e:
             messagebox.showerror("Error", f"Error al cambiar estado de grupos: {e}")
 
+    def _on_undo(self):
+        """Delega la acción de deshacer a la instancia central de App."""
+        app = self.get_app()
+        if app and hasattr(app, 'undo_delete'):
+            app.undo_delete()
+
     def delete(self, selected_ids: Optional[List[str]] = None):
-        """Elimina los grupos seleccionados tras la confirmación realizada por el modal."""
+        """Elimina los grupos seleccionados tras la confirmación realizada por el modal,
+        apilando cada objeto en la pila de deshacer antes de borrarlo físicamente."""
         ids = selected_ids or self.table.get_selected_ids()
         if not ids:
             return
@@ -278,6 +309,37 @@ class GruposTab(ctk.CTkFrame):
             deleted_count = 0
             for sid in ids:
                 gid = int(sid) if sid.isdigit() else sid
+
+                # ── Capturar snapshot ANTES de eliminar ────────────────────────────
+                grupo_obj = app.grupo_crud.get_by_id(gid)
+                if grupo_obj is None:
+                    continue
+
+                # Recopilar investigadores y sus productos (relaciones multilista)
+                invs_snapshot = []
+                try:
+                    inv_list = app.inv_crud.list_by_group(gid)
+                    for inv in inv_list:
+                        ced = getattr(inv, 'cedula', None)
+                        prods = []
+                        if ced:
+                            try:
+                                prods = list(app.prod_crud.list_by_investigador(ced))
+                            except Exception:
+                                pass
+                        invs_snapshot.append({'investigador': inv, 'productos': prods})
+                except Exception:
+                    pass
+
+                posicion = {
+                    'grupo_id': gid,
+                    'investigadores': invs_snapshot,
+                }
+
+                # Apilar en la pila de deshacer
+                app.push_undo('grupo', grupo_obj, posicion)
+
+                # Eliminar físicamente
                 if app.grupo_crud.delete(gid):
                     deleted_count += 1
 
@@ -288,7 +350,9 @@ class GruposTab(ctk.CTkFrame):
 
             messagebox.showinfo(
                 "Eliminación completada",
-                f"Se ha{'n' if deleted_count != 1 else ''} eliminado {deleted_count} grupo{'s' if deleted_count != 1 else ''} correctamente.",
+                f"Se ha{'n' if deleted_count != 1 else ''} eliminado {deleted_count} "
+                f"grupo{'s' if deleted_count != 1 else ''} correctamente.\n"
+                f"Puede deshacer con Ctrl+Z o el botón Deshacer.",
             )
         except Exception as e:
             messagebox.showerror("Error", f"Error al eliminar grupos: {e}")

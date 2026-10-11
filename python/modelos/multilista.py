@@ -101,55 +101,175 @@ class Multilist:
             current.next = inv_node
         return inv_node
 
-    def get_investigador(self, cedula):
+    def get_investigador(self, cedula, only_active=True):
         """Busca un investigador por cedula en todas las sublistas."""
         group_current = self.head_group
         while group_current is not None:
             inv_current = group_current.sublist
             while inv_current is not None:
-                if inv_current.active and getattr(inv_current.data, 'cedula', None) == cedula:
+                matches = (str(getattr(inv_current.data, 'cedula', None) or '') == str(cedula) or
+                           str(getattr(inv_current.data, 'id', None) or '') == str(cedula))
+                if matches and (not only_active or inv_current.active):
                     return (inv_current, group_current)
                 inv_current = inv_current.next
             group_current = group_current.next
         return None
 
     def update_investigador(self, cedula, new_investigador):
-        """Reemplaza los datos del investigador con la cedula dada."""
-        result = self.get_investigador(cedula)
-        if result is None:
-            return False
-        inv_node, _ = result
-        inv_node.data = new_investigador
-        return True
+        """Actualiza los datos del investigador en todas sus apariciones en la Multilista."""
+        updated = False
+        group_current = self.head_group
+        while group_current is not None:
+            inv_current = group_current.sublist
+            while inv_current is not None:
+                if (str(getattr(inv_current.data, 'cedula', None) or '') == str(cedula) or
+                        str(getattr(inv_current.data, 'id', None) or '') == str(cedula)):
+                    inv_current.data = new_investigador
+                    updated = True
+                inv_current = inv_current.next
+            group_current = group_current.next
+        return updated
 
     def deactivate_investigador(self, cedula):
-        """Desactiva el investigador con la cedula dada."""
-        result = self.get_investigador(cedula)
-        if result is None:
-            return False
-        inv_node, _ = result
-        inv_node.active = False
-        return True
+        """Desactiva el investigador en todas las relaciones de la Multilista y sus productos."""
+        deactivated = False
+        group_current = self.head_group
+        while group_current is not None:
+            inv_current = group_current.sublist
+            while inv_current is not None:
+                if (str(getattr(inv_current.data, 'cedula', None) or '') == str(cedula) or
+                        str(getattr(inv_current.data, 'id', None) or '') == str(cedula)):
+                    inv_current.active = False
+                    if hasattr(inv_current.data, 'activo'):
+                        inv_current.data.activo = False
+                    # Desactivar también los productos del investigador en esta sublista
+                    prod_current = inv_current.sublist
+                    while prod_current is not None:
+                        prod_current.active = False
+                        prod_current = prod_current.next
+                    deactivated = True
+                inv_current = inv_current.next
+            group_current = group_current.next
+        return deactivated
+
+    def activate_investigador(self, cedula):
+        """Reactiva el investigador en todas las relaciones de la Multilista y sus productos."""
+        activated = False
+        group_current = self.head_group
+        while group_current is not None:
+            inv_current = group_current.sublist
+            while inv_current is not None:
+                if (str(getattr(inv_current.data, 'cedula', None) or '') == str(cedula) or
+                        str(getattr(inv_current.data, 'id', None) or '') == str(cedula)):
+                    inv_current.active = True
+                    if hasattr(inv_current.data, 'activo'):
+                        inv_current.data.activo = True
+                    # Reactivar también los productos del investigador en esta sublista
+                    prod_current = inv_current.sublist
+                    while prod_current is not None:
+                        prod_current.active = True
+                        prod_current = prod_current.next
+                    activated = True
+                inv_current = inv_current.next
+            group_current = group_current.next
+        return activated
 
     def remove_investigador(self, cedula):
-        """Elimina el investigador de su sublista."""
+        """Elimina físicamente el investigador de todas las relaciones en la Multilista."""
+        removed = False
         group_current = self.head_group
         while group_current is not None:
             prev_inv = None
             inv_current = group_current.sublist
             while inv_current is not None:
-                if getattr(inv_current.data, 'cedula', None) == cedula:
+                if (str(getattr(inv_current.data, 'cedula', None) or '') == str(cedula) or
+                        str(getattr(inv_current.data, 'id', None) or '') == str(cedula)):
                     if prev_inv is None:
                         group_current.sublist = inv_current.next
                     else:
                         prev_inv.next = inv_current.next
-                    inv_current.next = None
-                    inv_current.sublist = None
-                    return True
-                prev_inv = inv_current
-                inv_current = inv_current.next
+                    temp = inv_current
+                    inv_current = inv_current.next
+                    temp.next = None
+                    temp.sublist = None
+                    removed = True
+                else:
+                    prev_inv = inv_current
+                    inv_current = inv_current.next
             group_current = group_current.next
+        return removed
+
+    def add_investigador_to_group(self, group_id, investigador):
+        """Vincula un investigador a un grupo en la Multilista."""
+        group_node = self.get_group_by_id(group_id)
+        if group_node is None:
+            return None
+        ced = str(getattr(investigador, 'cedula', None) or getattr(investigador, 'id', None) or '')
+        # Verificar si ya existe en este grupo
+        current = group_node.sublist
+        while current is not None:
+            if str(getattr(current.data, 'cedula', None) or getattr(current.data, 'id', None) or '') == ced:
+                current.active = True
+                return current
+            current = current.next
+
+        # Si ya existe en la multilista en otro grupo, enlazar productos existentes
+        existing_res = self.get_investigador(ced, only_active=False)
+        inv_node = Node(investigador)
+        if existing_res is not None:
+            other_node, _ = existing_res
+            inv_node.sublist = other_node.sublist
+
+        if group_node.sublist is None:
+            group_node.sublist = inv_node
+        else:
+            curr = group_node.sublist
+            while curr.next is not None:
+                curr = curr.next
+            curr.next = inv_node
+        return inv_node
+
+    def remove_investigador_from_group(self, group_id, cedula):
+        """Desvincula a un investigador de un grupo específico en la Multilista."""
+        group_node = self.get_group_by_id(group_id)
+        if group_node is None:
+            return False
+        prev = None
+        current = group_node.sublist
+        while current is not None:
+            if (str(getattr(current.data, 'cedula', None) or '') == str(cedula) or
+                    str(getattr(current.data, 'id', None) or '') == str(cedula)):
+                if prev is None:
+                    group_node.sublist = current.next
+                else:
+                    prev.next = current.next
+                current.next = None
+                return True
+            prev = current
+            current = current.next
         return False
+
+    def get_grupos_by_investigador(self, cedula):
+        """Retorna la lista de grupos activos a los que pertenece el investigador en la Multilista."""
+        grupos = []
+        group_current = self.head_group
+        while group_current is not None:
+            if group_current.active:
+                inv_current = group_current.sublist
+                while inv_current is not None:
+                    if inv_current.active and (
+                        str(getattr(inv_current.data, 'cedula', None) or '') == str(cedula) or
+                        str(getattr(inv_current.data, 'id', None) or '') == str(cedula)
+                    ):
+                        grupos.append(group_current.data)
+                        break
+                    inv_current = inv_current.next
+            group_current = group_current.next
+        return grupos
+
+    def get_investigadores_by_grupo(self, group_id):
+        """Retorna lista de investigadores activos adscritos al grupo en la Multilista."""
+        return list(self.iterate_investigadores(group_id=group_id))
 
     def add_producto(self, cedula, producto):
         """Agrega un producto a la sublista del investigador indicado."""
@@ -168,17 +288,29 @@ class Multilist:
         return prod_node
 
     def get_productos_by_investigador(self, cedula):
-        """Retorna una lista de productos del investigador."""
-        result = self.get_investigador(cedula)
-        if result is None:
-            return []
-        inv_node, _ = result
+        """Retorna todos los productos activos del investigador en la Multilista (sin duplicados)."""
         productos = []
-        current = inv_node.sublist
-        while current is not None:
-            if current.active:
-                productos.append(current.data)
-            current = current.next
+        seen_ids = set()
+        group_current = self.head_group
+        while group_current is not None:
+            if group_current.active:
+                inv_current = group_current.sublist
+                while inv_current is not None:
+                    if inv_current.active and (
+                        str(getattr(inv_current.data, 'cedula', None) or '') == str(cedula) or
+                        str(getattr(inv_current.data, 'id', None) or '') == str(cedula)
+                    ):
+                        prod_current = inv_current.sublist
+                        while prod_current is not None:
+                            if prod_current.active:
+                                pid = getattr(prod_current.data, 'id', None)
+                                if pid is None or pid not in seen_ids:
+                                    if pid is not None:
+                                        seen_ids.add(pid)
+                                    productos.append(prod_current.data)
+                            prod_current = prod_current.next
+                    inv_current = inv_current.next
+            group_current = group_current.next
         return productos
 
     def get_productos_by_grupo(self, group_id):

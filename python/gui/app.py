@@ -19,6 +19,8 @@ DEFAULT_SCIENTI_URL = "https://scienti.minciencias.gov.co/gruplac/jsp/visualiza/
 
 from persistencia.persistencia_json import PersistenciaJSON
 from modelos.multilista import Multilist
+from modelos.pila import Stack
+from modelos.cola import Queue
 from crud.crud_grupos import GrupoCRUD
 from crud.crud_investigadores import InvestigadorCRUD
 from crud.crud_productos import ProductoCRUD
@@ -30,6 +32,7 @@ from gui.tabs.investigadores_tab import InvestigadoresTab
 from gui.tabs.productos_tab import ProductosTab
 from gui.tabs.estadisticas_tab import EstadisticasTab
 from gui.dialogs.url_modal import UrlImportModal
+from gui.dialogs.cola_importacion_modal import ColaImportacionModal
 from gui.styles import (
     COLORS,
     RADIUS,
@@ -80,6 +83,7 @@ class App(ctk.CTk):
         self.title("PEA-i · Sistema de Gestión de Investigación - Unicesar")
         self.geometry("1280x760")
         self.minsize(1200, 700)
+        self.withdraw()
 
         # Configuración del ícono institucional de la ventana
         self._setup_window_icon()
@@ -91,7 +95,16 @@ class App(ctk.CTk):
         self.inv_crud = InvestigadorCRUD(self.multilista)
         self.prod_crud = ProductoCRUD(self.multilista)
 
+        # ── Pila de deshacer (Stack propia, no list) ─────────────────────
+        self.undo_stack: Stack = Stack()
+
+        # ── Cola de importación (Queue propia, no deque) ────────────────
+        self.import_queue: Queue = Queue()
+        # Referencia a la ventana de cola si está abierta
+        self._cola_window: Optional[ctk.CTkToplevel] = None
+
         self._last_saved: str = ""
+        self._startup_source: str = "Sin definir"
         self._status_toast_timer = None
 
         # Variables para el panel flotante "Más opciones"
@@ -113,9 +126,18 @@ class App(ctk.CTk):
         # Atajos de teclado y listeners globales
         self._bind_global_events()
 
-        # Iniciar en la primera sección y cargar datos
+        # Iniciar en la primera sección y decidir carga inicial sin autoleer datos.json
+        startup_choice = self._show_startup_data_dialog()
         self.navigate_to(_TAB_NAMES[0])
-        self.load_data()
+        if startup_choice == "load":
+            self._startup_source = "Arranque: datos cargados"
+            self.load_data()
+        else:
+            self._startup_source = "Arranque: vacío"
+            self.start_empty_data()
+        self.deiconify()
+        self.lift()
+        self.focus_force()
 
     def _setup_window_icon(self):
         """Establece el ícono institucional de Unicesar en la ventana."""
@@ -456,9 +478,13 @@ class App(ctk.CTk):
                 ("Exportar a CSV", "📊", self.export_to_csv, self.has_data),
                 ("Cargar CSV/PDF", "📄", self.load_from_csv, True),
                 ("Descargar de otra URL", "🔗", self.download_from_custom_url, True),
+                (None, None, None, None),  # Separador
+                ("Agregar URL a cola", "➕", self.queue_add_url_and_show, True),
+                ("Cola de importaci\u00f3n", "📋", self.open_cola_importacion, True),
+                (None, None, None, None),  # Separador
                 ("Limpiar datos", "🗑️", self.clear_data, self.has_data),
                 (None, None, None, None),  # Separador
-                ("Guía rápida", "📖", self.show_quick_guide, True),
+                ("Gu\u00eda r\u00e1pida", "📖", self.show_quick_guide, True),
                 ("Acerca de PEA-i", "ℹ️", self.about, True),
             ]
 
@@ -584,6 +610,109 @@ class App(ctk.CTk):
         """Indica si existen grupos cargados en la multilista."""
         return len(self.grupo_crud.list_all()) > 0
 
+    def _show_startup_data_dialog(self) -> str:
+        """Pregunta si la sesión debe iniciar con persistencia activa o listas vacías."""
+        choice = {"value": "empty"}
+
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Inicio de datos")
+        dialog.geometry("460x230")
+        dialog.resizable(False, False)
+        dialog.configure(fg_color=COLORS["bg"])
+        dialog.transient(self)
+        dialog.grab_set()
+
+        try:
+            dialog.update_idletasks()
+            x = dialog.winfo_screenwidth() // 2 - 230
+            y = dialog.winfo_screenheight() // 2 - 115
+            dialog.geometry(f"460x230+{x}+{y}")
+        except Exception:
+            pass
+
+        def finish(value: str):
+            choice["value"] = value
+            try:
+                dialog.grab_release()
+            except Exception:
+                pass
+            dialog.destroy()
+
+        dialog.protocol("WM_DELETE_WINDOW", lambda: finish("empty"))
+
+        content = ctk.CTkFrame(
+            dialog,
+            fg_color=COLORS["surface"],
+            corner_radius=RADIUS["card"],
+            border_width=1,
+            border_color=COLORS["border"],
+        )
+        content.pack(fill="both", expand=True, padx=18, pady=18)
+
+        ctk.CTkLabel(
+            content,
+            text="¿Cómo deseas iniciar?",
+            font=font("heading"),
+            text_color=COLORS["ink"],
+            anchor="w",
+        ).pack(fill="x", padx=SPACING["lg"], pady=(SPACING["lg"], SPACING["xs"]))
+
+        ctk.CTkLabel(
+            content,
+            text=(
+                "Puedes cargar la persistencia activa ahora o abrir la aplicación con "
+                "listas vacías. Los datos nuevos se guardarán usando la misma persistencia."
+            ),
+            font=font("body"),
+            text_color=COLORS["muted"],
+            wraplength=380,
+            justify="left",
+            anchor="w",
+        ).pack(fill="x", padx=SPACING["lg"], pady=(0, SPACING["lg"]))
+
+        buttons = ctk.CTkFrame(content, fg_color="transparent")
+        buttons.pack(fill="x", padx=SPACING["lg"], pady=(0, SPACING["lg"]))
+
+        btn_load = ctk.CTkButton(
+            buttons,
+            text="Cargar datos",
+            height=40,
+            corner_radius=RADIUS["control"],
+            fg_color=COLORS["accent"],
+            hover_color=COLORS["accent_hover"],
+            text_color="#FFFFFF",
+            font=font("body_bold"),
+            command=lambda: finish("load"),
+        )
+        btn_load.pack(side="left", fill="x", expand=True, padx=(0, SPACING["sm"]))
+
+        btn_empty = ctk.CTkButton(
+            buttons,
+            text="Iniciar vacío",
+            height=40,
+            corner_radius=RADIUS["control"],
+            fg_color=COLORS["surface_alt"],
+            hover_color=COLORS["border"],
+            text_color=COLORS["ink"],
+            font=font("body_bold"),
+            command=lambda: finish("empty"),
+        )
+        btn_empty.pack(side="left", fill="x", expand=True)
+
+        dialog.after(100, dialog.focus_force)
+        self.wait_window(dialog)
+        return choice["value"]
+
+    def start_empty_data(self):
+        """Inicia la sesión con estructuras vacías sin borrar la persistencia activa."""
+        self.multilista = Multilist()
+        self.grupo_crud = GrupoCRUD(self.multilista)
+        self.inv_crud = InvestigadorCRUD(self.multilista)
+        self.prod_crud = ProductoCRUD(self.multilista)
+        self.undo_stack = Stack()
+        self.import_queue = Queue()
+        self.load_tabs_data()
+
     def load_data(self):
         """Carga y sincroniza los datos persistidos en memoria y actualiza pestañas."""
         try:
@@ -607,6 +736,7 @@ class App(ctk.CTk):
                                 lider=g.get("leader") or g.get("lider", ""),
                                 activo=g.get("active", g.get("activo", True)),
                                 fecha_creacion=g.get("fecha_creacion", ""),
+                                plan=g.get("plan", ""),
                             )
                         else:
                             grupo_obj = g
@@ -644,17 +774,21 @@ class App(ctk.CTk):
                                 anio_val = 0
                             inv_id_val = p.get("investigador_id")
                             cedula_val = p.get("investigador_cedula") or inv_id_to_cedula.get(inv_id_val) or str(inv_id_val)
+                            cat_p = p.get("categoria_producto") or p.get("categoria") or "Nuevo conocimiento"
+                            val_p = p.get("validacion") or "No validado"
                             prod_obj = Producto(
                                 id=p.get("id"),
                                 titulo=p.get("title") or p.get("titulo", ""),
                                 tipo=p.get("type") or p.get("tipo", ""),
-                                categoria=p.get("categoria", ""),
+                                categoria=cat_p,
                                 validado=p.get("active", p.get("validado", True)),
                                 anio=anio_val,
                                 investigador_id=inv_id_val,
                                 grupo_id=p.get("grupo_id") or p.get("group"),
                                 gran_categoria=p.get("gran_categoria", "Sin clasificar"),
                                 codigo_minciencias=p.get("codigo_minciencias", ""),
+                                categoria_producto=cat_p,
+                                validacion=val_p,
                             )
                             prod_obj.investigador_cedula = cedula_val
                         else:
@@ -717,16 +851,128 @@ class App(ctk.CTk):
         self._refresh_status_bar()
 
     def _refresh_status_bar(self):
-        """Actualiza los indicadores numéricos en el encabezado."""
+        """Actualiza indicadores numéricos, deshacer y tamaño de cola en el encabezado."""
         try:
             ng = len(self.grupo_crud.list_all())
             ni = len(self.inv_crud.list_all())
             np_ = len(self.prod_crud.list_all())
+            nu = len(self.undo_stack) if hasattr(self, 'undo_stack') else 0
+            nq = len(self.import_queue) if hasattr(self, 'import_queue') else 0
+            undo_text = f"  ·  Deshacer: {nu}" if nu > 0 else ""
+            cola_text = f"  ·  Cola: {nq}" if nq > 0 else ""
+            startup_text = f"  ·  {self._startup_source}" if getattr(self, "_startup_source", "") else ""
             self.status_count_lbl.configure(
-                text=f"{ng} grupo{'s' if ng != 1 else ''} · {ni} inv. · {np_} prod."
+                text=f"{ng} grupo{'s' if ng != 1 else ''} · {ni} inv. · {np_} prod.{undo_text}{cola_text}{startup_text}"
             )
         except Exception:
             pass
+
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  PILA DE DESHACER ELIMINACIÓN (Stack propia)                   ║
+    # ╚══════════════════════════════════════════════════════════════════╝
+
+    def push_undo(self, tipo: str, objeto, posicion: dict):
+        """Apila una operación de eliminación para poder deshacerla.
+
+        Args:
+            tipo: 'grupo', 'investigador' o 'producto'
+            objeto: instancia completa del objeto eliminado
+            posicion: dict con metadatos de posición y relaciones necesarias
+                      para reinsertar en la multilista exactamente.
+        """
+        self.undo_stack.push({'tipo': tipo, 'objeto': objeto, 'posicion': posicion})
+        self._refresh_status_bar()
+        self._sync_undo_buttons()
+
+    def undo_delete(self):
+        """Extrae el tope de la pila y reinserta el objeto eliminado en su posición."""
+        if self.undo_stack.is_empty():
+            return
+
+        entrada = self.undo_stack.pop()  # pop() de la Stack propia
+        tipo = entrada['tipo']
+        obj = entrada['objeto']
+        pos = entrada['posicion']
+
+        try:
+            if tipo == 'grupo':
+                self._undo_grupo(obj, pos)
+            elif tipo == 'investigador':
+                self._undo_investigador(obj, pos)
+            elif tipo == 'producto':
+                self._undo_producto(obj, pos)
+        except Exception as e:
+            self.show_toast(f"Error al deshacer: {e}", color="#FCA5A5")
+            return
+
+        self.save_data(silent=True)
+        self.load_tabs_data()
+        self._refresh_status_bar()
+        self._sync_undo_buttons()
+        self.show_toast(f"Eliminación de {tipo} deshecha correctamente")
+
+    def _undo_grupo(self, grupo, pos: dict):
+        """Reinserta un grupo en la multilista en su posición original."""
+        # Restaurar todos los investigadores y productos del grupo
+        # (almacenados en pos['investigadores'])
+        grupo.activo = True
+        self.grupo_crud.create(grupo)
+
+        invs = pos.get('investigadores', [])
+        for inv_entry in invs:
+            inv = inv_entry['investigador']
+            inv.activo = True
+            inv.grupo_id = getattr(grupo, 'id', inv.grupo_id)
+            try:
+                self.inv_crud.create(inv)
+            except Exception:
+                pass
+            for prod in inv_entry.get('productos', []):
+                prod.investigador_cedula = getattr(inv, 'cedula', None)
+                prod.investigador_id = getattr(inv, 'cedula', None)
+                prod.grupo_id = getattr(grupo, 'id', prod.grupo_id)
+                try:
+                    self.prod_crud.create(prod)
+                except Exception:
+                    pass
+
+    def _undo_investigador(self, inv, pos: dict):
+        """Reinserta un investigador y sus productos en la multilista."""
+        inv.activo = True
+        try:
+            self.inv_crud.create(inv)
+        except Exception:
+            pass
+        for prod in pos.get('productos', []):
+            prod.investigador_cedula = getattr(inv, 'cedula', None)
+            prod.investigador_id = getattr(inv, 'cedula', None)
+            try:
+                self.prod_crud.create(prod)
+            except Exception:
+                pass
+
+    def _undo_producto(self, prod, pos: dict):
+        """Reinserta un producto en la multilista."""
+        try:
+            self.prod_crud.create(prod)
+        except Exception:
+            pass
+
+    def _sync_undo_buttons(self):
+        """Habilita o deshabilita todos los botones 'Deshacer' según el estado de la pila."""
+        tiene_acciones = not self.undo_stack.is_empty()
+        tabs = [
+            getattr(self, 'grupos_tab', None),
+            getattr(self, 'investigadores_tab', None),
+            getattr(self, 'productos_tab', None),
+        ]
+        for tab in tabs:
+            if tab is not None and hasattr(tab, 'btn_undo'):
+                try:
+                    state = 'normal' if tiene_acciones else 'disabled'
+                    tab.btn_undo.configure(state=state)
+                except Exception:
+                    pass
 
     def show_toast(self, message: str, duration_ms: int = 4000, color: str = ""):
         """Muestra un mensaje temporal en el encabezado azul."""
@@ -954,6 +1200,90 @@ class App(ctk.CTk):
     def _on_url_modal_success(self, datos: dict):
         """Callback al descargar exitosamente desde UrlImportModal."""
         self.process_downloaded_data(datos)
+
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  COLA DE IMPORTACIÓN (Queue propia)                            ║
+    # ╚══════════════════════════════════════════════════════════════════╝
+
+    def open_cola_importacion(self):
+        """Abre (o trae al frente) la ventana de Cola de Importación."""
+        self._close_more_options_panel()
+        # Reutilizar la ventana si ya está abierta
+        if self._cola_window is not None:
+            try:
+                self._cola_window.lift()
+                self._cola_window.focus_force()
+                return
+            except Exception:
+                self._cola_window = None
+
+        self._cola_window = ColaImportacionModal(parent=self, app_ref=self)
+        # Limpiar la referencia cuando se cierre
+        self._cola_window.bind(
+            "<Destroy>",
+            lambda e: setattr(self, '_cola_window', None),
+        )
+
+    def queue_add_url_and_show(self):
+        """Abre un mini-diálogo para encolar una URL SCIENTI y luego muestra la cola."""
+        self._close_more_options_panel()
+        # Diálogo simple de entrada
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Agregar URL a la cola")
+        dialog.geometry("520x180")
+        dialog.resizable(False, False)
+        dialog.configure(fg_color=COLORS["bg"])
+        dialog.transient(self)
+        dialog.grab_set()
+
+        try:
+            x = self.winfo_x() + max(0, (self.winfo_width() - 520) // 2)
+            y = self.winfo_y() + max(0, (self.winfo_height() - 180) // 2)
+            dialog.geometry(f"520x180+{x}+{y}")
+        except Exception:
+            pass
+
+        from gui.styles import tarjeta, RADIUS
+        card = tarjeta(dialog, corner_radius=RADIUS["card"])
+        card.pack(fill="both", expand=True, padx=SPACING["md"], pady=SPACING["md"])
+
+        from gui.styles import entry as _entry
+        ctk.CTkLabel(
+            card,
+            text="URL de GrupLAC para encolar:",
+            font=font("body_bold"),
+            text_color=COLORS["ink"],
+            anchor="w",
+        ).pack(fill="x", padx=SPACING["lg"], pady=(SPACING["md"], SPACING["xs"]))
+
+        url_var = ctk.StringVar()
+        url_field = _entry(card, placeholder_text="https://scienti.minciencias.gov.co/gruplac/...", width=460)
+        url_field.pack(fill="x", padx=SPACING["lg"], pady=(0, SPACING["sm"]))
+
+        err_lbl = ctk.CTkLabel(card, text="", font=font("small"), text_color=COLORS["danger"], anchor="w")
+        err_lbl.pack(fill="x", padx=SPACING["lg"])
+
+        def _do_enqueue():
+            url = url_field.get().strip()
+            if not url or not (url.startswith("http://") or url.startswith("https://")):
+                err_lbl.configure(text="Ingresa una URL válida (http:// o https://)")
+                return
+            self.import_queue.enqueue({"tipo": "url", "valor": url, "etiqueta": url[:60]})
+            self._refresh_status_bar()
+            dialog.destroy()
+            self.open_cola_importacion()
+
+        btns = ctk.CTkFrame(card, fg_color="transparent")
+        btns.pack(fill="x", padx=SPACING["lg"], pady=(SPACING["xs"], SPACING["md"]))
+
+        from gui.styles import boton_primario, boton_secundario
+        boton_primario(btns, text="Agregar a cola", command=_do_enqueue, height=36).pack(side="right", padx=(SPACING["sm"], 0))
+        boton_secundario(btns, text="Cancelar", command=dialog.destroy, height=36).pack(side="right")
+
+        url_field.bind("<Return>", lambda e: _do_enqueue())
+        dialog.after(100, url_field.focus_set)
+
+
 
     # ╔══════════════════════════════════════════════════════════════════╗
     # ║  7. EXPORTACIÓN Y ARCHIVOS (CSV, PDF)                          ║
@@ -1201,9 +1531,11 @@ class App(ctk.CTk):
         btn_close.pack(anchor="e", padx=SPACING["md"], pady=SPACING["md"])
 
     def _bind_global_events(self):
-        """Registra listeners de teclado globales (F5, Escape)."""
+        """Registra listeners de teclado globales (F5, Escape, Ctrl+Z)."""
         self.bind_all("<F5>", lambda e: self.refresh_all())
         self.bind_all("<Escape>", lambda e: self._close_more_options_panel())
+        self.bind_all("<Control-z>", lambda e: self.undo_delete())
+        self.bind_all("<Control-Z>", lambda e: self.undo_delete())
 
 
 if __name__ == "__main__":
