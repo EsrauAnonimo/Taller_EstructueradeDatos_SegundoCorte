@@ -196,10 +196,10 @@ class InvestigadoresTab(ctk.CTkFrame):
         if not app:
             return
 
-        inv = app.inv_crud.read(target_cedula)
+        inv = app.inv_crud.get_by_cedula(target_cedula) if hasattr(app.inv_crud, 'get_by_cedula') else getattr(app.inv_crud, 'read', lambda _: None)(target_cedula)
         if not inv:
-            for item in self._all_investigadores:
-                if str(getattr(item, 'cedula', None) or getattr(item, 'id', None)) == target_cedula:
+            for item in getattr(self, '_all_investigadores', []):
+                if str(getattr(item, 'cedula', None) or getattr(item, 'id', None)) == str(target_cedula):
                     inv = item
                     break
 

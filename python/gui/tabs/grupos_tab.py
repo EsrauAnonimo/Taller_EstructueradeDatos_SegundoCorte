@@ -210,7 +210,12 @@ class GruposTab(ctk.CTkFrame):
         if not app:
             return
 
-        grupo = app.grupo_crud.read(target_id)
+        grupo = app.grupo_crud.get_by_id(target_id) if hasattr(app.grupo_crud, 'get_by_id') else getattr(app.grupo_crud, 'read', lambda _: None)(target_id)
+        if not grupo and hasattr(self, '_all_grupos'):
+            for item in self._all_grupos:
+                if getattr(item, 'id', None) == target_id:
+                    grupo = item
+                    break
         if not grupo:
             messagebox.showerror("Error", "No se encontró el grupo seleccionado.")
             return

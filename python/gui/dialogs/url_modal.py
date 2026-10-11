@@ -39,6 +39,7 @@ class UrlImportModal(ctk.CTkToplevel):
         # Modal behavior
         self.transient(parent)
         self.grab_set()
+        self.bind('<Escape>', lambda e: self.destroy())
 
         # Centrar sobre la ventana padre
         self._center_window()
