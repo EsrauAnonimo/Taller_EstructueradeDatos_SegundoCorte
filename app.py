@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Ventana principal de la aplicaciÃ³n PEA-i (Sistema de GestiÃ³n de InvestigaciÃ³n - Unicesar)."""
+"""Ventana principal de la aplicación PEA-i (Sistema de Gestión de Investigación - Unicesar)."""
 
 import sys
 import threading
@@ -45,75 +45,77 @@ from gui.styles import (
 )
 from scraping import scienti
 
-_TAB_NAMES = ["Grupos", "Investigadores", "Productos", "EstadÃ­sticas"]
+_TAB_NAMES = ["Grupos", "Investigadores", "Productos", "Estadísticas"]
 
 
 class App(ctk.CTk):
-    """AplicaciÃ³n principal de escritorio PEA-i con navegaciÃ³n lateral Ãºnica y diseÃ±o Unicesar."""
+    """Aplicación principal de escritorio PEA-i con navegación lateral única y diseño Unicesar."""
 
     SECTION_METADATA = {
         "Grupos": {
             "icon": ICONS["grupos"],
-            "title": "Grupos de investigaciÃ³n",
-            "subtitle": "GestiÃ³n, clasificaciÃ³n y seguimiento de grupos registrados en MinCiencias",
+            "title": "Grupos de investigación",
+            "subtitle": "Gestión, clasificación y seguimiento de grupos registrados en MinCiencias",
         },
         "Investigadores": {
             "icon": ICONS["investigadores"],
             "title": "Investigadores",
-            "subtitle": "Directorio de integrantes, lÃ­deres y vinculaciÃ³n acadÃ©mica",
+            "subtitle": "Directorio de integrantes, líderes y vinculación académica",
         },
         "Productos": {
             "icon": ICONS["productos"],
-            "title": "Productos de investigaciÃ³n",
-            "subtitle": "ArtÃ­culos, libros, capÃ­tulos, software y producciones cientÃ­ficas",
+            "title": "Productos de investigación",
+            "subtitle": "Artículos, libros, capítulos, software y producciones científicas",
         },
-        "EstadÃ­sticas": {
+        "Estadísticas": {
             "icon": ICONS["estadisticas"],
-            "title": "Panel de estadÃ­sticas",
-            "subtitle": "Indicadores clave, distribuciÃ³n temporal y mÃ©tricas de producciÃ³n",
+            "title": "Panel de estadísticas",
+            "subtitle": "Indicadores clave, distribución temporal y métricas de producción",
         },
     }
 
     def __init__(self):
         super().__init__()
 
-        # ConfiguraciÃ³n del sistema de diseÃ±o institucional
+        # Configuración del sistema de diseño institucional
         setup_app(self)
 
-        self.title("PEA-i Â· Sistema de GestiÃ³n de InvestigaciÃ³n - Unicesar")
+        self.title("PEA-i · Sistema de Gestión de Investigación - Unicesar")
         self.geometry("1280x760")
         self.minsize(1200, 700)
-        self.withdraw()
 
-        # ConfiguraciÃ³n del Ã­cono institucional de la ventana
+        # Configuración del ícono institucional de la ventana
         self._setup_window_icon()
 
-        # InicializaciÃ³n de modelos de datos y CRUDs
+        # Inicialización de modelos de datos y CRUDs
         self.persistencia = None
         self.multilista = Multilist()
         self.grupo_crud = GrupoCRUD(self.multilista)
         self.inv_crud = InvestigadorCRUD(self.multilista)
         self.prod_crud = ProductoCRUD(self.multilista)
 
-        # â”€â”€ Pila de deshacer (Stack propia, no list) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Pila de deshacer (Stack propia, no list) ─────────────────────
         self.undo_stack: Stack = Stack()
 
-        # â”€â”€ Cola de importaciÃ³n (Queue propia, no deque) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Cola de importación (Queue propia, no deque) ────────────────
         self.import_queue: Queue = Queue()
-        # Referencia a la ventana de cola si estÃ¡ abierta
+        # Referencia a la ventana de cola si está abierta
         self._cola_window: Optional[ctk.CTkToplevel] = None
 
         self._last_saved: str = ""
-        self._startup_source: str = "Sin definir"
+        self._startup_source: str = "Arranque: listas vacías"
         self._status_toast_timer = None
 
-        # Variables para el panel flotante "MÃ¡s opciones"
+        # Variables para el panel flotante "Más opciones"
         self._options_panel: Optional[ctk.CTkFrame] = None
         self._options_bind_id: Optional[str] = None
 
         self.init_persistence()
 
-        # â”€â”€ Estructura General â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # Configurar menú superior institucional (Archivo, Datos, Ayuda)
+        self.create_menu()
+
+        # ── Estructura General ──────────────────────────────────────────
         # 1. Barra lateral izquierda (ancho ~259 px, fondo #0F1B3D)
         self._build_sidebar()
 
@@ -126,21 +128,46 @@ class App(ctk.CTk):
         # Atajos de teclado y listeners globales
         self._bind_global_events()
 
-        # Iniciar en la primera secciÃ³n y decidir carga inicial sin autoleer datos.json
-        startup_choice = self._show_startup_data_dialog()
+        # Iniciar directamente con listas vacías y primera pestaña (Grupos)
+        self.start_empty_data()
         self.navigate_to(_TAB_NAMES[0])
-        if startup_choice == "load":
-            self._startup_source = "Arranque: datos cargados"
-            self.load_data()
-        else:
-            self._startup_source = "Arranque: vacÃ­o"
-            self.start_empty_data()
-        self.deiconify()
-        self.lift()
-        self.focus_force()
+
+    def create_menu(self):
+        """Configura la barra de menú superior institucional."""
+        menubar = tk.Menu(self)
+
+        # Menú Archivo
+        archivo_menu = tk.Menu(menubar, tearoff=0)
+        archivo_menu.add_command(label="Guardar datos", command=self.save_data)
+        archivo_menu.add_separator()
+        archivo_menu.add_command(label="Salir", command=self.exit_app)
+        menubar.add_cascade(label="Archivo", menu=archivo_menu)
+
+        # Menú Datos
+        datos_menu = tk.Menu(menubar, tearoff=0)
+        datos_menu.add_command(label="Cargar desde archivo guardado (JSON)", command=self.load_from_json)
+        datos_menu.add_command(label="Importar desde PDF", command=self.import_from_pdf)
+        datos_menu.add_command(label="Importar desde CSV", command=self.import_from_csv)
+        datos_menu.add_command(label="Descargar del SCIENTI (URL por defecto)", command=self.download_scienti_default)
+        datos_menu.add_command(label="Descargar del SCIENTI (otra URL)", command=self.download_scienti_custom)
+        datos_menu.add_separator()
+        datos_menu.add_command(label="Agregar a cola de importación", command=self.queue_add_url_and_show)
+        datos_menu.add_command(label="Cola de importación", command=self.open_cola_importacion)
+        datos_menu.add_separator()
+        datos_menu.add_command(label="Exportar a CSV", command=self.export_to_csv)
+        datos_menu.add_command(label="Limpiar datos", command=self.clear_data)
+        menubar.add_cascade(label="Datos", menu=datos_menu)
+
+        # Menú Ayuda
+        ayuda_menu = tk.Menu(menubar, tearoff=0)
+        ayuda_menu.add_command(label="Guía rápida", command=self.show_quick_guide)
+        ayuda_menu.add_command(label="Acerca de PEA-i", command=self.about)
+        menubar.add_cascade(label="Ayuda", menu=ayuda_menu)
+
+        self.config(menu=menubar)
 
     def _setup_window_icon(self):
-        """Establece el Ã­cono institucional de Unicesar en la ventana."""
+        """Establece el ícono institucional de Unicesar en la ventana."""
         logo_path = Path(__file__).resolve().parent / "assets" / "logo_unicesar.png"
         if logo_path.exists():
             try:
@@ -148,14 +175,14 @@ class App(ctk.CTk):
                 self._app_icon = ImageTk.PhotoImage(pil_icon)
                 self.wm_iconphoto(True, self._app_icon)
             except Exception as e:
-                print("Aviso al configurar Ã­cono de ventana:", e)
+                print("Aviso al configurar ícono de ventana:", e)
 
-    # â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
-    # â•‘  1. BARRA LATERAL IZQUIERDA (Sidebar, 259 px)                   â•‘
-    # â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  1. BARRA LATERAL IZQUIERDA (Sidebar, 259 px)                   ║
+    # ╚══════════════════════════════════════════════════════════════════╝
 
     def _build_sidebar(self):
-        """Construye la barra lateral izquierda como la ÃšNICA navegaciÃ³n de la aplicaciÃ³n."""
+        """Construye la barra lateral izquierda como la ÚNICA navegación de la aplicación."""
         self.sidebar = ctk.CTkFrame(
             self,
             width=259,
@@ -216,7 +243,7 @@ class App(ctk.CTk):
         self.sidebar_sep = ctk.CTkFrame(self.sidebar, height=1, fg_color=COLORS["sidebar_border"])
         self.sidebar_sep.pack(fill="x", padx=16, pady=(0, 16))
 
-        # Ãtems de navegaciÃ³n (Grupos, Investigadores, Productos, EstadÃ­sticas)
+        # Ítems de navegación (Grupos, Investigadores, Productos, Estadísticas)
         self.nav_buttons: Dict[str, ctk.CTkButton] = {}
         for name in _TAB_NAMES:
             meta = self.SECTION_METADATA[name]
@@ -235,22 +262,22 @@ class App(ctk.CTk):
             btn.pack(fill="x", padx=16, pady=4)
             self.nav_buttons[name] = btn
 
-        # Bloque inferior de usuario institucional y botÃ³n "MÃ¡s opciones"
+        # Bloque inferior de usuario institucional y botón "Más opciones"
         self._build_user_block()
 
     def _build_user_block(self):
-        """Construye el bloque de usuario en la base de la barra lateral con botÃ³n de mÃ¡s opciones."""
+        """Construye el bloque de usuario en la base de la barra lateral con botón de más opciones."""
         self.user_block_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         self.user_block_frame.pack(side="bottom", fill="x", padx=16, pady=16)
 
-        # LÃ­nea divisoria superior del bloque de usuario
+        # Línea divisoria superior del bloque de usuario
         self.user_sep = ctk.CTkFrame(self.sidebar, height=1, fg_color=COLORS["sidebar_border"])
         self.user_sep.pack(side="bottom", fill="x", padx=16, pady=(0, 8))
 
         self.user_row = ctk.CTkFrame(self.user_block_frame, fg_color="transparent")
         self.user_row.pack(fill="x")
 
-        # CÃ­rculo de avatar con Ã­cono
+        # Círculo de avatar con ícono
         self.avatar_circle = ctk.CTkLabel(
             self.user_row,
             text=ICONS["usuario"],
@@ -269,7 +296,7 @@ class App(ctk.CTk):
 
         self.user_system_lbl = ctk.CTkLabel(
             self.user_info_frame,
-            text="Sistema de InvestigaciÃ³n",
+            text="Sistema de Investigación",
             font=(FONT_FAMILY, 11, "bold"),
             text_color="#FFFFFF",
             anchor="w",
@@ -285,7 +312,7 @@ class App(ctk.CTk):
         )
         self.user_sub_lbl.pack(fill="x")
 
-        # BotÃ³n "MÃ¡s opciones" (reemplaza el menÃº superior flotante por panel integrado)
+        # Botón "Más opciones" (reemplaza el menú superior flotante por panel integrado)
         self.btn_more_options = ctk.CTkButton(
             self.user_row,
             text=ICONS["acciones"],
@@ -300,12 +327,12 @@ class App(ctk.CTk):
         )
         self.btn_more_options.pack(side="right")
 
-    # â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
-    # â•‘  2. CONTENEDOR PRINCIPAL DERECHO (Header + Tarjeta)              â•‘
-    # â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  2. CONTENEDOR PRINCIPAL DERECHO (Header + Tarjeta)              ║
+    # ╚══════════════════════════════════════════════════════════════════╝
 
     def _build_main_container(self):
-        """Construye el Ã¡rea derecha: encabezado azul dinÃ¡mico y Ã¡rea central."""
+        """Construye el área derecha: encabezado azul dinámico y área central."""
         self.right_container = ctk.CTkFrame(self, fg_color=COLORS["bg"], corner_radius=0)
         self.right_container.pack(side="right", fill="both", expand=True)
 
@@ -319,7 +346,7 @@ class App(ctk.CTk):
         self.header_frame.pack(side="top", fill="x")
         self.header_frame.pack_propagate(False)
 
-        # Contenido izquierdo del encabezado: Ã­cono grande, tÃ­tulo y subtÃ­tulo dinÃ¡micos
+        # Contenido izquierdo del encabezado: ícono grande, título y subtítulo dinámicos
         self.header_left = ctk.CTkFrame(self.header_frame, fg_color="transparent")
         self.header_left.pack(side="left", fill="y", padx=24, pady=16)
 
@@ -336,7 +363,7 @@ class App(ctk.CTk):
 
         self.header_title_lbl = ctk.CTkLabel(
             self.header_text_frame,
-            text="Grupos de investigaciÃ³n",
+            text="Grupos de investigación",
             font=(FONT_FAMILY, 22, "bold"),
             text_color=COLORS["header_text"],
             anchor="w",
@@ -345,7 +372,7 @@ class App(ctk.CTk):
 
         self.header_sub_lbl = ctk.CTkLabel(
             self.header_text_frame,
-            text="GestiÃ³n, clasificaciÃ³n y seguimiento de grupos registrados en MinCiencias",
+            text="Gestión, clasificación y seguimiento de grupos registrados en MinCiencias",
             font=(FONT_FAMILY, 12),
             text_color=COLORS["header_sub"],
             anchor="w",
@@ -367,16 +394,37 @@ class App(ctk.CTk):
 
         self.status_count_lbl = ctk.CTkLabel(
             self.header_right,
-            text="0 grupos Â· 0 inv. Â· 0 prod.",
+            text="Persistencia: JSON | Sin datos cargados",
             font=font("small"),
             text_color=COLORS["header_sub"],
             anchor="e",
         )
         self.status_count_lbl.pack(side="top", anchor="e", pady=(4, 0))
 
-        # Ãrea de contenido con margen de 24 px
+        # Barra de estado inferior institucional
+        self.status_bar_frame = ctk.CTkFrame(
+            self.right_container,
+            height=28,
+            fg_color=COLORS["surface"],
+            corner_radius=0,
+            border_width=1,
+            border_color=COLORS["border"],
+        )
+        self.status_bar_frame.pack(side="bottom", fill="x")
+        self.status_bar_frame.pack_propagate(False)
+
+        self.status_bar_lbl = ctk.CTkLabel(
+            self.status_bar_frame,
+            text="Persistencia: JSON | Sin datos cargados",
+            font=font("small"),
+            text_color=COLORS["muted"],
+            anchor="w",
+        )
+        self.status_bar_lbl.pack(side="left", padx=16, pady=2)
+
+        # Área de contenido con margen de 24 px
         self.content_area = ctk.CTkFrame(self.right_container, fg_color="transparent")
-        self.content_area.pack(fill="both", expand=True, padx=24, pady=24)
+        self.content_area.pack(fill="both", expand=True, padx=24, pady=(16, 12))
 
         # Tarjeta blanca principal (radio 12, borde #E5E7EB)
         self.card_container = tarjeta(self.content_area, corner_radius=RADIUS["card"])
@@ -389,18 +437,18 @@ class App(ctk.CTk):
             frame = ctk.CTkFrame(self.card_container, fg_color="transparent")
             self._tab_frames[name] = frame
 
-        # InyecciÃ³n de dependencias en las pestaÃ±as
+        # Inyección de dependencias en las pestañas
         self.grupos_tab = GruposTab(self._tab_frames["Grupos"], app=self)
         self.investigadores_tab = InvestigadoresTab(self._tab_frames["Investigadores"], app=self)
         self.productos_tab = ProductosTab(self._tab_frames["Productos"], app=self)
-        self.estadisticas_tab = EstadisticasTab(self._tab_frames["EstadÃ­sticas"], app=self)
+        self.estadisticas_tab = EstadisticasTab(self._tab_frames["Estadísticas"], app=self)
 
-    # â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
-    # â•‘  3. NAVEGACIÃ“N Y ENCABEZADO DINÃMICO                           â•‘
-    # â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  3. NAVEGACIÓN Y ENCABEZADO DINÁMICO                           ║
+    # ╚══════════════════════════════════════════════════════════════════╝
 
     def navigate_to(self, section_name: str):
-        """Navega a la secciÃ³n indicada, actualizando la barra lateral y el encabezado."""
+        """Navega a la sección indicada, actualizando la barra lateral y el encabezado."""
         if section_name not in self._tab_frames:
             return
 
@@ -424,9 +472,9 @@ class App(ctk.CTk):
                     font=font("body"),
                 )
 
-        # 2. Actualizar encabezado azul dinÃ¡micamente
+        # 2. Actualizar encabezado azul dinámicamente
         meta = self.SECTION_METADATA.get(section_name, {
-            "icon": ICONS.get(section_name.lower(), "ðŸ“"),
+            "icon": ICONS.get(section_name.lower(), "📁"),
             "title": section_name,
             "subtitle": "",
         })
@@ -441,16 +489,16 @@ class App(ctk.CTk):
             else:
                 frame.pack_forget()
 
-        # Si se navega a EstadÃ­sticas, refrescar los grÃ¡ficos
-        if section_name == "EstadÃ­sticas" and hasattr(self, "estadisticas_tab"):
+        # Si se navega a Estadísticas, refrescar los gráficos
+        if section_name == "Estadísticas" and hasattr(self, "estadisticas_tab"):
             try:
                 self.estadisticas_tab.refresh()
             except Exception:
                 pass
 
-    # â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
-    # â•‘  4. PANEL FLOTANTE "MÃS OPCIONES" (place + lift)               â•‘
-    # â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  4. PANEL FLOTANTE "MÁS OPCIONES" (place + lift)               ║
+    # ╚══════════════════════════════════════════════════════════════════╝
 
     def _toggle_more_options_panel(self):
         """Abre o cierra el panel emergente de opciones sobre el bloque de usuario."""
@@ -459,7 +507,7 @@ class App(ctk.CTk):
             return
 
         try:
-            # Crear panel como CTkFrame hijo directo de la ventana raÃ­z
+            # Crear panel como CTkFrame hijo directo de la ventana raíz
             panel = ctk.CTkFrame(
                 self,
                 fg_color=COLORS["surface"],
@@ -473,19 +521,24 @@ class App(ctk.CTk):
             content.pack(fill="both", expand=True, padx=6, pady=6)
 
             opciones = [
-                ("Cargar datos", "ðŸ“‚", self.load_data, True),
-                ("Guardar datos", "ðŸ’¾", self.save_data, self.has_data),
-                ("Exportar a CSV", "ðŸ“Š", self.export_to_csv, self.has_data),
-                ("Cargar CSV/PDF", "ðŸ“„", self.load_from_csv, True),
-                ("Descargar de otra URL", "ðŸ”—", self.download_from_custom_url, True),
+                ("Cargar desde archivo guardado (JSON)", "📂", self.load_from_json, True),
+                ("Importar desde PDF", "📑", self.import_from_pdf, True),
+                ("Importar desde CSV", "📄", self.import_from_csv, True),
+                ("Descargar del SCIENTI (URL por defecto)", "🌐", self.download_scienti_default, True),
+                ("Descargar del SCIENTI (otra URL)", "🔗", self.download_scienti_custom, True),
                 (None, None, None, None),  # Separador
-                ("Agregar URL a cola", "âž•", self.queue_add_url_and_show, True),
-                ("Cola de importaci\u00f3n", "ðŸ“‹", self.open_cola_importacion, True),
+                ("Guardar datos", "💾", self.save_data, self.has_data),
+                ("Exportar a CSV", "📊", self.export_to_csv, self.has_data),
                 (None, None, None, None),  # Separador
-                ("Limpiar datos", "ðŸ—‘ï¸", self.clear_data, self.has_data),
+                ("Agregar a cola de importación", "➕", self.queue_add_url_and_show, True),
+                ("Cola de importación", "📋", self.open_cola_importacion, True),
                 (None, None, None, None),  # Separador
-                ("Gu\u00eda r\u00e1pida", "ðŸ“–", self.show_quick_guide, True),
-                ("Acerca de PEA-i", "â„¹ï¸", self.about, True),
+                ("Limpiar datos", "🗑️", self.clear_data, self.has_data),
+                (None, None, None, None),  # Separador
+                ("Guía rápida", "📖", self.show_quick_guide, True),
+                ("Acerca de PEA-i", "ℹ️", self.about, True),
+                (None, None, None, None),  # Separador
+                ("Salir", "🚪", self.exit_app, True),
             ]
 
             for label, icon, cmd, enabled_val in opciones:
@@ -541,13 +594,13 @@ class App(ctk.CTk):
             pass
 
     def _exec_option_and_close(self, command: Optional[Callable]):
-        """Ejecuta una acciÃ³n del panel de opciones y lo cierra."""
+        """Ejecuta una acción del panel de opciones y lo cierra."""
         self._close_more_options_panel()
         if command:
             self.after(10, command)
 
     def _close_more_options_panel(self):
-        """Cierra el panel emergente de opciones si estÃ¡ abierto."""
+        """Cierra el panel emergente de opciones si está abierto."""
         if self._options_bind_id:
             try:
                 self.unbind("<Button-1>", self._options_bind_id)
@@ -564,16 +617,16 @@ class App(ctk.CTk):
             self._options_panel = None
 
     def _enable_options_click_outside(self):
-        """Activa la detecciÃ³n de clic fuera cuando el panel estÃ¡ visible."""
+        """Activa la detección de clic fuera cuando el panel está visible."""
         if self._options_panel is not None and self._options_bind_id is None:
             self._options_bind_id = self.bind("<Button-1>", self._on_options_click_outside, add="+")
 
     def _on_options_click_outside(self, event):
-        """Cierra el panel de opciones si se hace clic fuera de Ã©l."""
+        """Cierra el panel de opciones si se hace clic fuera de él."""
         if not self._options_panel:
             return
 
-        # 1. Comprobar si el clic cayÃ³ dentro del panel
+        # 1. Comprobar si el clic cayó dentro del panel
         try:
             px = self._options_panel.winfo_rootx()
             py = self._options_panel.winfo_rooty()
@@ -584,7 +637,7 @@ class App(ctk.CTk):
         except Exception:
             pass
 
-        # 2. Comprobar si cayÃ³ en el botÃ³n activador
+        # 2. Comprobar si cayó en el botón activador
         try:
             bx = self.btn_more_options.winfo_rootx()
             by = self.btn_more_options.winfo_rooty()
@@ -597,9 +650,9 @@ class App(ctk.CTk):
 
         self._close_more_options_panel()
 
-    # â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
-    # â•‘  5. PERSISTENCIA Y OPERACIONES CRUD                            â•‘
-    # â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  5. PERSISTENCIA Y OPERACIONES CRUD                            ║
+    # ╚══════════════════════════════════════════════════════════════════╝
 
     def init_persistence(self):
         """Inicializa la persistencia directa con archivo JSON."""
@@ -610,101 +663,26 @@ class App(ctk.CTk):
         """Indica si existen grupos cargados en la multilista."""
         return len(self.grupo_crud.list_all()) > 0
 
-    def _show_startup_data_dialog(self) -> str:
-        """Pregunta si la sesiÃ³n debe iniciar con persistencia activa o listas vacÃ­as."""
-        choice = {"value": "empty"}
-
-        dialog = ctk.CTkToplevel(self)
-        dialog.title("Inicio de datos")
-        dialog.geometry("460x230")
-        dialog.resizable(False, False)
-        dialog.configure(fg_color=COLORS["bg"])
-        dialog.transient(self)
-        dialog.grab_set()
-
+    def load_from_json(self):
+        """Carga datos desde el archivo de persistencia guardado (JSON) o un archivo seleccionado."""
+        self._close_more_options_panel()
         try:
-            dialog.update_idletasks()
-            x = dialog.winfo_screenwidth() // 2 - 230
-            y = dialog.winfo_screenheight() // 2 - 115
-            dialog.geometry(f"460x230+{x}+{y}")
-        except Exception:
-            pass
+            if not self.persistencia.exists():
+                path = filedialog.askopenfilename(
+                    filetypes=[("Archivos JSON", "*.json"), ("Todos los archivos", "*.*")],
+                    title="Seleccionar archivo guardado (JSON)",
+                )
+                if not path:
+                    return
+                self.persistencia = PersistenciaJSON(filepath=path)
 
-        def finish(value: str):
-            choice["value"] = value
-            try:
-                dialog.grab_release()
-            except Exception:
-                pass
-            dialog.destroy()
-
-        dialog.protocol("WM_DELETE_WINDOW", lambda: finish("empty"))
-
-        content = ctk.CTkFrame(
-            dialog,
-            fg_color=COLORS["surface"],
-            corner_radius=RADIUS["card"],
-            border_width=1,
-            border_color=COLORS["border"],
-        )
-        content.pack(fill="both", expand=True, padx=18, pady=18)
-
-        ctk.CTkLabel(
-            content,
-            text="Â¿CÃ³mo deseas iniciar?",
-            font=font("heading"),
-            text_color=COLORS["ink"],
-            anchor="w",
-        ).pack(fill="x", padx=SPACING["lg"], pady=(SPACING["lg"], SPACING["xs"]))
-
-        ctk.CTkLabel(
-            content,
-            text=(
-                "Puedes cargar la persistencia activa ahora o abrir la aplicaciÃ³n con "
-                "listas vacÃ­as. Los datos nuevos se guardarÃ¡n usando la misma persistencia."
-            ),
-            font=font("body"),
-            text_color=COLORS["muted"],
-            wraplength=380,
-            justify="left",
-            anchor="w",
-        ).pack(fill="x", padx=SPACING["lg"], pady=(0, SPACING["lg"]))
-
-        buttons = ctk.CTkFrame(content, fg_color="transparent")
-        buttons.pack(fill="x", padx=SPACING["lg"], pady=(0, SPACING["lg"]))
-
-        btn_load = ctk.CTkButton(
-            buttons,
-            text="Cargar datos",
-            height=40,
-            corner_radius=RADIUS["control"],
-            fg_color=COLORS["accent"],
-            hover_color=COLORS["accent_hover"],
-            text_color="#FFFFFF",
-            font=font("body_bold"),
-            command=lambda: finish("load"),
-        )
-        btn_load.pack(side="left", fill="x", expand=True, padx=(0, SPACING["sm"]))
-
-        btn_empty = ctk.CTkButton(
-            buttons,
-            text="Iniciar vacÃ­o",
-            height=40,
-            corner_radius=RADIUS["control"],
-            fg_color=COLORS["surface_alt"],
-            hover_color=COLORS["border"],
-            text_color=COLORS["ink"],
-            font=font("body_bold"),
-            command=lambda: finish("empty"),
-        )
-        btn_empty.pack(side="left", fill="x", expand=True)
-
-        dialog.after(100, dialog.focus_force)
-        self.wait_window(dialog)
-        return choice["value"]
+            self.load_data()
+            self.show_toast("Datos cargados desde archivo guardado (JSON)")
+        except Exception as e:
+            self._show_import_error(f"Error al cargar desde JSON: {e}", origen="JSON")
 
     def start_empty_data(self):
-        """Inicia la sesiÃ³n con estructuras vacÃ­as sin borrar la persistencia activa."""
+        """Inicia la sesión con estructuras vacías sin borrar la persistencia activa."""
         self.multilista = Multilist()
         self.grupo_crud = GrupoCRUD(self.multilista)
         self.inv_crud = InvestigadorCRUD(self.multilista)
@@ -714,7 +692,7 @@ class App(ctk.CTk):
         self.load_tabs_data()
 
     def load_data(self):
-        """Carga y sincroniza los datos persistidos en memoria y actualiza pestaÃ±as."""
+        """Carga y sincroniza los datos persistidos en memoria y actualiza pestañas."""
         try:
             datos = self.persistencia.load()
             if isinstance(datos, dict):
@@ -828,10 +806,10 @@ class App(ctk.CTk):
                     self.show_toast("Datos guardados correctamente")
             except Exception as ex:
                 if not silent:
-                    messagebox.showerror("Error", f"No se pudo guardar la informaciÃ³n: {ex}")
+                    messagebox.showerror("Error", f"No se pudo guardar la información: {ex}")
 
     def load_tabs_data(self):
-        """Refresca la informaciÃ³n visible en cada una de las pantallas."""
+        """Refresca la información visible en cada una de las pantallas."""
         try:
             self.grupos_tab.load_data()
         except Exception:
@@ -851,33 +829,42 @@ class App(ctk.CTk):
         self._refresh_status_bar()
 
     def _refresh_status_bar(self):
-        """Actualiza indicadores numÃ©ricos, deshacer y tamaÃ±o de cola en el encabezado."""
+        """Actualiza indicadores numéricos, deshacer y tamaño de cola en el encabezado y barra de estado."""
         try:
             ng = len(self.grupo_crud.list_all())
             ni = len(self.inv_crud.list_all())
             np_ = len(self.prod_crud.list_all())
             nu = len(self.undo_stack) if hasattr(self, 'undo_stack') else 0
             nq = len(self.import_queue) if hasattr(self, 'import_queue') else 0
-            undo_text = f"  Â·  Deshacer: {nu}" if nu > 0 else ""
-            cola_text = f"  Â·  Cola: {nq}" if nq > 0 else ""
-            startup_text = f"  Â·  {self._startup_source}" if getattr(self, "_startup_source", "") else ""
-            self.status_count_lbl.configure(
-                text=f"{ng} grupo{'s' if ng != 1 else ''} Â· {ni} inv. Â· {np_} prod.{undo_text}{cola_text}{startup_text}"
-            )
+            undo_text = f"  ·  Deshacer: {nu}" if nu > 0 else ""
+            cola_text = f"  ·  Cola: {nq}" if nq > 0 else ""
+
+            if ng == 0 and ni == 0 and np_ == 0:
+                base_text = "Persistencia: JSON | Sin datos cargados"
+            else:
+                base_text = f"Persistencia: JSON | {ng} grupo{'s' if ng != 1 else ''} · {ni} inv. · {np_} prod."
+
+            full_status = f"{base_text}{undo_text}{cola_text}"
+
+            if hasattr(self, "status_bar_lbl") and self.status_bar_lbl:
+                self.status_bar_lbl.configure(text=full_status)
+
+            if hasattr(self, "status_count_lbl") and self.status_count_lbl:
+                self.status_count_lbl.configure(text=full_status)
         except Exception:
             pass
 
-    # â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
-    # â•‘  PILA DE DESHACER ELIMINACIÃ“N (Stack propia)                   â•‘
-    # â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  PILA DE DESHACER ELIMINACIÓN (Stack propia)                   ║
+    # ╚══════════════════════════════════════════════════════════════════╝
 
     def push_undo(self, tipo: str, objeto, posicion: dict):
-        """Apila una operaciÃ³n de eliminaciÃ³n para poder deshacerla.
+        """Apila una operación de eliminación para poder deshacerla.
 
         Args:
             tipo: 'grupo', 'investigador' o 'producto'
             objeto: instancia completa del objeto eliminado
-            posicion: dict con metadatos de posiciÃ³n y relaciones necesarias
+            posicion: dict con metadatos de posición y relaciones necesarias
                       para reinsertar en la multilista exactamente.
         """
         self.undo_stack.push({'tipo': tipo, 'objeto': objeto, 'posicion': posicion})
@@ -885,7 +872,7 @@ class App(ctk.CTk):
         self._sync_undo_buttons()
 
     def undo_delete(self):
-        """Extrae el tope de la pila y reinserta el objeto eliminado en su posiciÃ³n."""
+        """Extrae el tope de la pila y reinserta el objeto eliminado en su posición."""
         if self.undo_stack.is_empty():
             return
 
@@ -909,10 +896,10 @@ class App(ctk.CTk):
         self.load_tabs_data()
         self._refresh_status_bar()
         self._sync_undo_buttons()
-        self.show_toast(f"EliminaciÃ³n de {tipo} deshecha correctamente")
+        self.show_toast(f"Eliminación de {tipo} deshecha correctamente")
 
     def _undo_grupo(self, grupo, pos: dict):
-        """Reinserta un grupo en la multilista en su posiciÃ³n original."""
+        """Reinserta un grupo en la multilista en su posición original."""
         # Restaurar todos los investigadores y productos del grupo
         # (almacenados en pos['investigadores'])
         grupo.activo = True
@@ -959,7 +946,7 @@ class App(ctk.CTk):
             pass
 
     def _sync_undo_buttons(self):
-        """Habilita o deshabilita todos los botones 'Deshacer' segÃºn el estado de la pila."""
+        """Habilita o deshabilita todos los botones 'Deshacer' según el estado de la pila."""
         tiene_acciones = not self.undo_stack.is_empty()
         tabs = [
             getattr(self, 'grupos_tab', None),
@@ -983,7 +970,7 @@ class App(ctk.CTk):
                 pass
 
         toast_color = color or "#86EFAC"
-        self.toast_lbl.configure(text=f"âœ“ {message}", text_color=toast_color)
+        self.toast_lbl.configure(text=f"✓ {message}", text_color=toast_color)
         self._status_toast_timer = self.after(duration_ms, self._clear_toast)
 
     def _clear_toast(self):
@@ -994,18 +981,23 @@ class App(ctk.CTk):
             pass
         self._status_toast_timer = None
 
-    # â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
-    # â•‘  6. DESCARGA Y WEB SCRAPING SCIENTI                            â•‘
-    # â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  6. DESCARGA Y WEB SCRAPING SCIENTI                            ║
+    # ╚══════════════════════════════════════════════════════════════════╝
 
     def download_scienti(self):
         """Descarga directa del SCIENTI con la URL oficial por defecto."""
+        self.download_scienti_default()
+
+    def download_scienti_default(self):
+        """Descarga del SCIENTI (URL por defecto de GrupLAC de la UPC)."""
+        self._close_more_options_panel()
         self.download_from_url(DEFAULT_SCIENTI_URL)
 
     def download_from_url(self, url: str):
-        """Descarga e integra la informaciÃ³n de un grupo desde la URL en hilo secundario."""
+        """Descarga e integra la información de un grupo desde la URL en hilo secundario."""
         if not url or not (url.startswith("http://") or url.startswith("https://")):
-            messagebox.showerror("Error", "URL invÃ¡lida.")
+            self._show_import_error("La URL ingresada no es válida o está vacía.", origen="SCIENTI")
             return
 
         self.show_toast("Descargando desde SCIENTI...", duration_ms=30000, color="#FDE047")
@@ -1015,7 +1007,7 @@ class App(ctk.CTk):
             try:
                 datos = scienti.download_group(url)
             except Exception as e:
-                datos = {"error": f"Error de conexiÃ³n: {e}"}
+                datos = {"error": f"Error de conexión: {e}"}
             self.after(0, lambda: self._on_download_complete(datos, url))
 
         thread = threading.Thread(target=_worker, daemon=True)
@@ -1024,16 +1016,9 @@ class App(ctk.CTk):
     def _on_download_complete(self, datos, url: str):
         """Callback al terminar la descarga."""
         if not datos or (isinstance(datos, dict) and "error" in datos):
-            error_msg = datos.get("error", "Error al descargar.") if isinstance(datos, dict) else "Error al descargar."
+            error_msg = datos.get("error", "Error al descargar desde SCIENTI.") if isinstance(datos, dict) else "Error al descargar desde SCIENTI."
             self.show_toast("Error al descargar", color="#FCA5A5")
-            messagebox.showerror("Error", error_msg)
-            if messagebox.askyesno("Cargar CSV", "Â¿Desea cargar los datos desde un archivo CSV?"):
-                path = filedialog.askopenfilename(
-                    filetypes=[("Archivos CSV", "*.csv"), ("Todos los archivos", "*.*")],
-                    title="Seleccionar archivo CSV",
-                )
-                if path:
-                    self.load_from_csv(path)
+            self._show_import_error(error_msg, origen="SCIENTI")
             return
 
         self.process_downloaded_data(datos)
@@ -1109,7 +1094,7 @@ class App(ctk.CTk):
                     if not self.inv_crud.get_by_cedula(inv_obj.cedula):
                         self.inv_crud.create(inv_obj)
 
-                # Si no habÃ­a investigadores pero hay productos, asegurar investigador receptor
+                # Si no había investigadores pero hay productos, asegurar investigador receptor
                 prod_list = datos.get("productos", [])
                 if not primary_cedula and prod_list:
                     existing_invs = self.inv_crud.list_by_group(gid)
@@ -1178,37 +1163,95 @@ class App(ctk.CTk):
 
             resumen_info = datos.get("resumen", "")
             secciones_vacias = datos.get("secciones_vacias", [])
-            msg_vacias = f"\n\nSecciones vacÃ­as: {', '.join(secciones_vacias[:5])}" if secciones_vacias else ""
+            msg_vacias = f"\n\nSecciones vacías: {', '.join(secciones_vacias[:5])}" if secciones_vacias else ""
 
             messagebox.showinfo(
-                "Ã‰xito",
+                "Éxito",
                 f"Grupo descargado: {nombre_grupo}.\nInvestigadores en sistema: {num_inv}.\nProductos en sistema: {num_prod}.{msg_vacias}",
             )
-            self.show_toast(f"Descarga completada ({num_inv} inv. Â· {num_prod} prod.)")
+            self.show_toast(f"Descarga completada ({num_inv} inv. · {num_prod} prod.)")
         except Exception as e:
             messagebox.showerror("Error", f"Error al procesar los datos descargados: {e}")
 
-    def download_from_custom_url(self):
-        """Abre el modal para ingresar una URL personalizada."""
+    def download_scienti_custom(self):
+        """Descarga del SCIENTI (otra URL): pide la URL en un cuadro de diálogo."""
         self._close_more_options_panel()
-        UrlImportModal(
-            parent=self,
-            on_success=self._on_url_modal_success,
-            initial_url="",
-        )
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Descargar del SCIENTI (otra URL)")
+        dialog.geometry("540x220")
+        dialog.resizable(False, False)
+        dialog.configure(fg_color=COLORS["bg"])
+        dialog.transient(self)
+        dialog.grab_set()
+
+        try:
+            dialog.update_idletasks()
+            x = self.winfo_x() + max(0, (self.winfo_width() - 540) // 2)
+            y = self.winfo_y() + max(0, (self.winfo_height() - 220) // 2)
+            dialog.geometry(f"540x220+{x}+{y}")
+        except Exception:
+            pass
+
+        card = tarjeta(dialog, corner_radius=RADIUS["card"])
+        card.pack(fill="both", expand=True, padx=SPACING["md"], pady=SPACING["md"])
+
+        ctk.CTkLabel(
+            card,
+            text="Descargar grupo desde SCIENTI / GrupLAC",
+            font=font("heading"),
+            text_color=COLORS["ink"],
+            anchor="w",
+        ).pack(fill="x", padx=SPACING["lg"], pady=(SPACING["md"], SPACING["xs"]))
+
+        ctk.CTkLabel(
+            card,
+            text="Ingresa la URL del grupo de investigación en MinCiencias:",
+            font=font("body"),
+            text_color=COLORS["muted"],
+            anchor="w",
+        ).pack(fill="x", padx=SPACING["lg"], pady=(0, SPACING["sm"]))
+
+        from gui.styles import entry as _entry
+        url_entry = _entry(card, placeholder_text="https://scienti.minciencias.gov.co/gruplac/jsp/visualiza/...", width=480)
+        url_entry.pack(fill="x", padx=SPACING["lg"], pady=(0, SPACING["xs"]))
+
+        err_lbl = ctk.CTkLabel(card, text="", font=font("small"), text_color=COLORS["danger"], anchor="w")
+        err_lbl.pack(fill="x", padx=SPACING["lg"])
+
+        def _do_download():
+            url = url_entry.get().strip()
+            if not url or not (url.startswith("http://") or url.startswith("https://")):
+                err_lbl.configure(text="Por favor ingresa una URL válida (http:// o https://)")
+                return
+            dialog.destroy()
+            self.download_from_url(url)
+
+        btns = ctk.CTkFrame(card, fg_color="transparent")
+        btns.pack(fill="x", padx=SPACING["lg"], pady=(SPACING["xs"], SPACING["md"]))
+
+        from gui.styles import boton_primario, boton_secundario
+        boton_primario(btns, text="Descargar", command=_do_download, height=36).pack(side="right", padx=(SPACING["sm"], 0))
+        boton_secundario(btns, text="Cancelar", command=dialog.destroy, height=36).pack(side="right")
+
+        url_entry.bind("<Return>", lambda e: _do_download())
+        dialog.after(100, url_entry.focus_set)
+
+    def download_from_custom_url(self):
+        """Alias compatible para download_scienti_custom."""
+        self.download_scienti_custom()
 
     def _on_url_modal_success(self, datos: dict):
         """Callback al descargar exitosamente desde UrlImportModal."""
         self.process_downloaded_data(datos)
 
-    # â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
-    # â•‘  COLA DE IMPORTACIÃ“N (Queue propia)                            â•‘
-    # â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  COLA DE IMPORTACIÓN (Queue propia)                            ║
+    # ╚══════════════════════════════════════════════════════════════════╝
 
     def open_cola_importacion(self):
-        """Abre (o trae al frente) la ventana de Cola de ImportaciÃ³n."""
+        """Abre (o trae al frente) la ventana de Cola de Importación."""
         self._close_more_options_panel()
-        # Reutilizar la ventana si ya estÃ¡ abierta
+        # Reutilizar la ventana si ya está abierta
         if self._cola_window is not None:
             try:
                 self._cola_window.lift()
@@ -1225,9 +1268,9 @@ class App(ctk.CTk):
         )
 
     def queue_add_url_and_show(self):
-        """Abre un mini-diÃ¡logo para encolar una URL SCIENTI y luego muestra la cola."""
+        """Abre un mini-diálogo para encolar una URL SCIENTI y luego muestra la cola."""
         self._close_more_options_panel()
-        # DiÃ¡logo simple de entrada
+        # Diálogo simple de entrada
         dialog = ctk.CTkToplevel(self)
         dialog.title("Agregar URL a la cola")
         dialog.geometry("520x180")
@@ -1266,7 +1309,7 @@ class App(ctk.CTk):
         def _do_enqueue():
             url = url_field.get().strip()
             if not url or not (url.startswith("http://") or url.startswith("https://")):
-                err_lbl.configure(text="Ingresa una URL vÃ¡lida (http:// o https://)")
+                err_lbl.configure(text="Ingresa una URL válida (http:// o https://)")
                 return
             self.import_queue.enqueue({"tipo": "url", "valor": url, "etiqueta": url[:60]})
             self._refresh_status_bar()
@@ -1285,38 +1328,29 @@ class App(ctk.CTk):
 
 
 
-    # â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
-    # â•‘  7. EXPORTACIÃ“N Y ARCHIVOS (CSV, PDF)                          â•‘
-    # â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  7. EXPORTACIÓN Y ARCHIVOS (CSV, PDF)                          ║
+    # ╚══════════════════════════════════════════════════════════════════╝
 
-    def load_from_csv(self, path: str = None):
-        """Carga datos de grupos, investigadores y productos desde un archivo CSV o PDF."""
+    def import_from_csv(self, path: Optional[str] = None):
+        """Importa datos desde un archivo CSV y actualiza las pestañas."""
         self._close_more_options_panel()
         try:
             if not path:
                 path = filedialog.askopenfilename(
                     filetypes=[
-                        ("Archivos compatibles", "*.csv;*.pdf"),
                         ("Archivos CSV", "*.csv"),
-                        ("Archivos PDF", "*.pdf"),
                         ("Todos los archivos", "*.*"),
                     ],
-                    title="Seleccionar archivo CSV o PDF",
+                    title="Seleccionar archivo CSV para importar",
                 )
             if not path:
                 return
 
-            ext = Path(path).suffix.lower()
-            if ext == ".csv":
-                datos = scienti.load_from_csv(path)
-            elif ext == ".pdf":
-                datos = scienti.load_from_pdf(path)
-            else:
-                messagebox.showerror("Error", "Formato de archivo no soportado.")
-                return
-
-            if "error" in datos:
-                messagebox.showerror("Error", datos["error"])
+            datos = scienti.load_from_csv(path)
+            if not datos or (isinstance(datos, dict) and "error" in datos):
+                err = datos.get("error", "Error al leer el archivo CSV.") if isinstance(datos, dict) else "Error al leer CSV."
+                self._show_import_error(err, origen="CSV")
                 return
 
             if "grupos" in datos and datos["grupos"]:
@@ -1326,12 +1360,170 @@ class App(ctk.CTk):
                     self.grupo_crud = GrupoCRUD(self.multilista)
                     self.inv_crud = InvestigadorCRUD(self.multilista)
                     self.prod_crud = ProductoCRUD(self.multilista)
+                    self.save_data(silent=True)
+                    self.load_tabs_data()
+                    self.show_toast("Datos importados desde CSV exitosamente")
+                    return
 
-            self.save_data(silent=True)
-            self.load_tabs_data()
-            self.show_toast("Datos cargados correctamente")
+            self._show_import_error("El archivo CSV no contiene registros de grupos válidos.", origen="CSV")
         except Exception as e:
-            messagebox.showerror("Error", f"Error al cargar el archivo: {e}")
+            self._show_import_error(f"Error inesperado al importar CSV: {e}", origen="CSV")
+
+    def import_from_pdf(self, path: Optional[str] = None):
+        """Importa datos desde un archivo PDF y actualiza las pestañas."""
+        self._close_more_options_panel()
+        try:
+            if not path:
+                path = filedialog.askopenfilename(
+                    filetypes=[
+                        ("Archivos PDF", "*.pdf"),
+                        ("Todos los archivos", "*.*"),
+                    ],
+                    title="Seleccionar archivo PDF para importar",
+                )
+            if not path:
+                return
+
+            datos = scienti.load_from_pdf(path)
+            if not datos or (isinstance(datos, dict) and "error" in datos):
+                err = datos.get("error", "No se pudo extraer información del archivo PDF.") if isinstance(datos, dict) else "Error al leer PDF."
+                self._show_import_error(err, origen="PDF")
+                return
+
+            if "grupos" in datos and datos["grupos"]:
+                new_multilist = PersistenciaJSON.to_multilist(datos)
+                if new_multilist and not new_multilist.is_empty():
+                    self.multilista = new_multilist
+                    self.grupo_crud = GrupoCRUD(self.multilista)
+                    self.inv_crud = InvestigadorCRUD(self.multilista)
+                    self.prod_crud = ProductoCRUD(self.multilista)
+                    self.save_data(silent=True)
+                    self.load_tabs_data()
+                    self.show_toast("Datos importados desde PDF exitosamente")
+                    return
+
+            self._show_import_error(
+                "El archivo PDF no contiene tablas de grupos estructuradas compatibles.",
+                origen="PDF"
+            )
+        except Exception as e:
+            self._show_import_error(f"Error inesperado al importar PDF: {e}", origen="PDF")
+
+    def load_from_csv(self, path: str = None):
+        """Alias compatible para importar desde CSV o PDF."""
+        if path and str(path).lower().endswith(".pdf"):
+            self.import_from_pdf(path)
+        else:
+            self.import_from_csv(path)
+
+    def _show_import_error(self, error_msg: str, origen: str = ""):
+        """Muestra ventana modal con el error de importación y ofrece alternativas (CSV o PDF) sin cerrar la app."""
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Error de importación")
+        dialog.geometry("540x320")
+        dialog.resizable(False, False)
+        dialog.configure(fg_color=COLORS["bg"])
+        dialog.transient(self)
+        dialog.grab_set()
+
+        try:
+            dialog.update_idletasks()
+            x = self.winfo_x() + max(0, (self.winfo_width() - 540) // 2)
+            y = self.winfo_y() + max(0, (self.winfo_height() - 320) // 2)
+            dialog.geometry(f"540x320+{x}+{y}")
+        except Exception:
+            pass
+
+        content = ctk.CTkFrame(
+            dialog,
+            fg_color=COLORS["surface"],
+            corner_radius=RADIUS["card"],
+            border_width=1,
+            border_color=COLORS["border"],
+        )
+        content.pack(fill="both", expand=True, padx=SPACING["md"], pady=SPACING["md"])
+
+        origen_txt = f" ({origen})" if origen else ""
+        ctk.CTkLabel(
+            content,
+            text=f"⚠️  Error al importar datos{origen_txt}",
+            font=font("heading"),
+            text_color=COLORS["danger"],
+            anchor="w",
+        ).pack(fill="x", padx=SPACING["lg"], pady=(SPACING["md"], SPACING["xs"]))
+
+        err_box = ctk.CTkTextbox(
+            content,
+            height=75,
+            font=font("small"),
+            text_color=COLORS["ink"],
+            fg_color=COLORS["surface_alt"],
+            border_width=1,
+            border_color=COLORS["border"],
+        )
+        err_box.pack(fill="x", padx=SPACING["lg"], pady=(0, SPACING["sm"]))
+        err_box.insert("1.0", str(error_msg))
+        err_box.configure(state="disabled")
+
+        ctk.CTkLabel(
+            content,
+            text="La operación no pudo completarse. Puedes intentar con alguna de estas fuentes alternativas:",
+            font=font("body"),
+            text_color=COLORS["ink_soft"],
+            anchor="w",
+            wraplength=460,
+            justify="left",
+        ).pack(fill="x", padx=SPACING["lg"], pady=(0, SPACING["sm"]))
+
+        btn_row = ctk.CTkFrame(content, fg_color="transparent")
+        btn_row.pack(fill="x", padx=SPACING["lg"], pady=(SPACING["xs"], SPACING["md"]))
+
+        def _try_csv():
+            dialog.destroy()
+            self.after(60, self.import_from_csv)
+
+        def _try_pdf():
+            dialog.destroy()
+            self.after(60, self.import_from_pdf)
+
+        btn_csv = ctk.CTkButton(
+            btn_row,
+            text="Importar desde CSV",
+            height=36,
+            corner_radius=RADIUS["control"],
+            fg_color=COLORS["primary"],
+            hover_color=COLORS["primary_hover"],
+            text_color="#FFFFFF",
+            font=font("body_bold"),
+            command=_try_csv,
+        )
+        btn_csv.pack(side="left", padx=(0, SPACING["sm"]))
+
+        btn_pdf = ctk.CTkButton(
+            btn_row,
+            text="Importar desde PDF",
+            height=36,
+            corner_radius=RADIUS["control"],
+            fg_color=COLORS["primary"],
+            hover_color=COLORS["primary_hover"],
+            text_color="#FFFFFF",
+            font=font("body_bold"),
+            command=_try_pdf,
+        )
+        btn_pdf.pack(side="left", padx=(0, SPACING["sm"]))
+
+        btn_cerrar = ctk.CTkButton(
+            btn_row,
+            text="Cerrar",
+            height=36,
+            corner_radius=RADIUS["control"],
+            fg_color=COLORS["surface_alt"],
+            hover_color=COLORS["border"],
+            text_color=COLORS["ink"],
+            font=font("body"),
+            command=dialog.destroy,
+        )
+        btn_cerrar.pack(side="right")
 
     def export_to_csv(self):
         """Exporta los datos actuales a un archivo CSV."""
@@ -1379,7 +1571,7 @@ class App(ctk.CTk):
     def clear_data(self):
         """Limpia todos los datos cargados en memoria y persistencia."""
         self._close_more_options_panel()
-        if messagebox.askyesno("Confirmar", "Â¿EstÃ¡ seguro de eliminar todos los datos de investigaciÃ³n cargados?"):
+        if messagebox.askyesno("Confirmar", "¿Está seguro de eliminar todos los datos de investigación cargados?"):
             self.multilista = Multilist()
             self.grupo_crud = GrupoCRUD(self.multilista)
             self.inv_crud = InvestigadorCRUD(self.multilista)
@@ -1389,19 +1581,19 @@ class App(ctk.CTk):
             self.show_toast("Datos eliminados")
 
     def refresh_all(self):
-        """Recarga los datos de todas las pestaÃ±as."""
+        """Recarga los datos de todas las pestañas."""
         self.load_tabs_data()
         self.show_toast("Datos actualizados")
 
-    # â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
-    # â•‘  8. MODALES DE AYUDA Y ACERCA DE                               â•‘
-    # â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  8. MODALES DE AYUDA Y ACERCA DE                               ║
+    # ╚══════════════════════════════════════════════════════════════════╝
 
     def show_quick_guide(self):
-        """Muestra ventana modal con la guÃ­a rÃ¡pida institucional."""
+        """Muestra ventana modal con la guía rápida institucional."""
         self._close_more_options_panel()
         modal = ctk.CTkToplevel(self)
-        modal.title("GuÃ­a rÃ¡pida - PEA-i")
+        modal.title("Guía rápida - PEA-i")
         modal.geometry("540x480")
         modal.resizable(False, False)
         modal.configure(fg_color=COLORS["bg"])
@@ -1421,7 +1613,7 @@ class App(ctk.CTk):
 
         title_lbl = ctk.CTkLabel(
             card_box,
-            text="ðŸ“–  GuÃ­a RÃ¡pida de Uso",
+            text="📖  Guía Rápida de Uso",
             font=font("heading"),
             text_color=COLORS["ink"],
             anchor="w",
@@ -1432,15 +1624,15 @@ class App(ctk.CTk):
             card_box,
             text=(
                 "Funciones principales del sistema PEA-i:\n\n"
-                "â€¢ Barra lateral: NavegaciÃ³n directa entre Grupos, Investigadores, "
-                "Productos y el panel de EstadÃ­sticas.\n\n"
-                "â€¢ Descargar del SCIENTI: Extrae automÃ¡ticamente el grupo, integrantes "
+                "• Barra lateral: Navegación directa entre Grupos, Investigadores, "
+                "Productos y el panel de Estadísticas.\n\n"
+                "• Descargar del SCIENTI: Extrae automáticamente el grupo, integrantes "
                 "y productos clasificados desde el portal GrupLAC de MinCiencias.\n\n"
-                "â€¢ BÃºsqueda y Filtros: BÃºsqueda dinÃ¡mica en tiempo real por cÃ³digo, "
-                "nombre o lÃ­der.\n\n"
-                "â€¢ Barra de SelecciÃ³n: Permite editar, activar/desactivar o eliminar "
+                "• Búsqueda y Filtros: Búsqueda dinámica en tiempo real por código, "
+                "nombre o líder.\n\n"
+                "• Barra de Selección: Permite editar, activar/desactivar o eliminar "
                 "registros individualmente o por lotes.\n\n"
-                "â€¢ MÃ¡s opciones (âš™): Cargar/guardar JSON, exportar a CSV o importar archivos."
+                "• Más opciones (⚙): Cargar/guardar JSON, exportar a CSV o importar archivos."
             ),
             font=font("body"),
             text_color=COLORS["ink_soft"],
@@ -1463,7 +1655,7 @@ class App(ctk.CTk):
         btn_close.pack(anchor="e", padx=SPACING["md"], pady=SPACING["md"])
 
     def about(self):
-        """Muestra ventana modal con informaciÃ³n del sistema institucional."""
+        """Muestra ventana modal con información del sistema institucional."""
         self._close_more_options_panel()
         modal = ctk.CTkToplevel(self)
         modal.title("Acerca de PEA-i")
@@ -1486,7 +1678,7 @@ class App(ctk.CTk):
 
         title_lbl = ctk.CTkLabel(
             card_box,
-            text="PEA-i Â· Sistema de InvestigaciÃ³n",
+            text="PEA-i · Sistema de Investigación",
             font=font("heading"),
             text_color=COLORS["ink"],
             anchor="w",
@@ -1495,7 +1687,7 @@ class App(ctk.CTk):
 
         sub_lbl = ctk.CTkLabel(
             card_box,
-            text="Universidad Popular del Cesar Â· VersiÃ³n 2.0",
+            text="Universidad Popular del Cesar · Versión 2.0",
             font=font("small_bold"),
             text_color=COLORS["primary"],
             anchor="w",
@@ -1505,8 +1697,8 @@ class App(ctk.CTk):
         info_lbl = ctk.CTkLabel(
             card_box,
             text=(
-                "Plataforma para la gestiÃ³n y anÃ¡lisis estadÃ­stico de grupos de investigaciÃ³n, "
-                "investigadores y productos acadÃ©micos clasificados por MinCiencias.\n\n"
+                "Plataforma para la gestión y análisis estadístico de grupos de investigación, "
+                "investigadores y productos académicos clasificados por MinCiencias.\n\n"
                 "Desarrollado en Python con CustomTkinter, multilista ortogonal en memoria "
                 "y persistencia JSON."
             ),
@@ -1529,6 +1721,10 @@ class App(ctk.CTk):
             font=font("body_bold"),
         )
         btn_close.pack(anchor="e", padx=SPACING["md"], pady=SPACING["md"])
+
+    def exit_app(self):
+        """Cierra la aplicación de manera limpia exclusivamente desde Archivo > Salir."""
+        self.quit()
 
     def _bind_global_events(self):
         """Registra listeners de teclado globales (F5, Escape, Ctrl+Z)."""

@@ -83,7 +83,6 @@ class App(ctk.CTk):
         self.title("PEA-i · Sistema de Gestión de Investigación - Unicesar")
         self.geometry("1280x760")
         self.minsize(1200, 700)
-        self.withdraw()
 
         # Configuración del ícono institucional de la ventana
         self._setup_window_icon()
@@ -104,7 +103,7 @@ class App(ctk.CTk):
         self._cola_window: Optional[ctk.CTkToplevel] = None
 
         self._last_saved: str = ""
-        self._startup_source: str = "Sin definir"
+        self._startup_source: str = "Arranque: listas vacías"
         self._status_toast_timer = None
 
         # Variables para el panel flotante "Más opciones"
@@ -112,6 +111,9 @@ class App(ctk.CTk):
         self._options_bind_id: Optional[str] = None
 
         self.init_persistence()
+
+        # Configurar menú superior institucional (Archivo, Datos, Ayuda)
+        self.create_menu()
 
         # ── Estructura General ──────────────────────────────────────────
         # 1. Barra lateral izquierda (ancho ~259 px, fondo #0F1B3D)
@@ -126,18 +128,43 @@ class App(ctk.CTk):
         # Atajos de teclado y listeners globales
         self._bind_global_events()
 
-        # Iniciar en la primera sección y decidir carga inicial sin autoleer datos.json
-        startup_choice = self._show_startup_data_dialog()
+        # Iniciar directamente con listas vacías y primera pestaña (Grupos)
+        self.start_empty_data()
         self.navigate_to(_TAB_NAMES[0])
-        if startup_choice == "load":
-            self._startup_source = "Arranque: datos cargados"
-            self.load_data()
-        else:
-            self._startup_source = "Arranque: vacío"
-            self.start_empty_data()
-        self.deiconify()
-        self.lift()
-        self.focus_force()
+
+    def create_menu(self):
+        """Configura la barra de menú superior institucional."""
+        menubar = tk.Menu(self)
+
+        # Menú Archivo
+        archivo_menu = tk.Menu(menubar, tearoff=0)
+        archivo_menu.add_command(label="Guardar datos", command=self.save_data)
+        archivo_menu.add_separator()
+        archivo_menu.add_command(label="Salir", command=self.exit_app)
+        menubar.add_cascade(label="Archivo", menu=archivo_menu)
+
+        # Menú Datos
+        datos_menu = tk.Menu(menubar, tearoff=0)
+        datos_menu.add_command(label="Cargar desde archivo guardado (JSON)", command=self.load_from_json)
+        datos_menu.add_command(label="Importar desde PDF", command=self.import_from_pdf)
+        datos_menu.add_command(label="Importar desde CSV", command=self.import_from_csv)
+        datos_menu.add_command(label="Descargar del SCIENTI (URL por defecto)", command=self.download_scienti_default)
+        datos_menu.add_command(label="Descargar del SCIENTI (otra URL)", command=self.download_scienti_custom)
+        datos_menu.add_separator()
+        datos_menu.add_command(label="Agregar a cola de importación", command=self.queue_add_url_and_show)
+        datos_menu.add_command(label="Cola de importación", command=self.open_cola_importacion)
+        datos_menu.add_separator()
+        datos_menu.add_command(label="Exportar a CSV", command=self.export_to_csv)
+        datos_menu.add_command(label="Limpiar datos", command=self.clear_data)
+        menubar.add_cascade(label="Datos", menu=datos_menu)
+
+        # Menú Ayuda
+        ayuda_menu = tk.Menu(menubar, tearoff=0)
+        ayuda_menu.add_command(label="Guía rápida", command=self.show_quick_guide)
+        ayuda_menu.add_command(label="Acerca de PEA-i", command=self.about)
+        menubar.add_cascade(label="Ayuda", menu=ayuda_menu)
+
+        self.config(menu=menubar)
 
     def _setup_window_icon(self):
         """Establece el ícono institucional de Unicesar en la ventana."""
@@ -367,16 +394,37 @@ class App(ctk.CTk):
 
         self.status_count_lbl = ctk.CTkLabel(
             self.header_right,
-            text="0 grupos · 0 inv. · 0 prod.",
+            text="Persistencia: JSON | Sin datos cargados",
             font=font("small"),
             text_color=COLORS["header_sub"],
             anchor="e",
         )
         self.status_count_lbl.pack(side="top", anchor="e", pady=(4, 0))
 
+        # Barra de estado inferior institucional
+        self.status_bar_frame = ctk.CTkFrame(
+            self.right_container,
+            height=28,
+            fg_color=COLORS["surface"],
+            corner_radius=0,
+            border_width=1,
+            border_color=COLORS["border"],
+        )
+        self.status_bar_frame.pack(side="bottom", fill="x")
+        self.status_bar_frame.pack_propagate(False)
+
+        self.status_bar_lbl = ctk.CTkLabel(
+            self.status_bar_frame,
+            text="Persistencia: JSON | Sin datos cargados",
+            font=font("small"),
+            text_color=COLORS["muted"],
+            anchor="w",
+        )
+        self.status_bar_lbl.pack(side="left", padx=16, pady=2)
+
         # Área de contenido con margen de 24 px
         self.content_area = ctk.CTkFrame(self.right_container, fg_color="transparent")
-        self.content_area.pack(fill="both", expand=True, padx=24, pady=24)
+        self.content_area.pack(fill="both", expand=True, padx=24, pady=(16, 12))
 
         # Tarjeta blanca principal (radio 12, borde #E5E7EB)
         self.card_container = tarjeta(self.content_area, corner_radius=RADIUS["card"])
@@ -473,19 +521,24 @@ class App(ctk.CTk):
             content.pack(fill="both", expand=True, padx=6, pady=6)
 
             opciones = [
-                ("Cargar datos", "📂", self.load_data, True),
+                ("Cargar desde archivo guardado (JSON)", "📂", self.load_from_json, True),
+                ("Importar desde PDF", "📑", self.import_from_pdf, True),
+                ("Importar desde CSV", "📄", self.import_from_csv, True),
+                ("Descargar del SCIENTI (URL por defecto)", "🌐", self.download_scienti_default, True),
+                ("Descargar del SCIENTI (otra URL)", "🔗", self.download_scienti_custom, True),
+                (None, None, None, None),  # Separador
                 ("Guardar datos", "💾", self.save_data, self.has_data),
                 ("Exportar a CSV", "📊", self.export_to_csv, self.has_data),
-                ("Cargar CSV/PDF", "📄", self.load_from_csv, True),
-                ("Descargar de otra URL", "🔗", self.download_from_custom_url, True),
                 (None, None, None, None),  # Separador
-                ("Agregar URL a cola", "➕", self.queue_add_url_and_show, True),
-                ("Cola de importaci\u00f3n", "📋", self.open_cola_importacion, True),
+                ("Agregar a cola de importación", "➕", self.queue_add_url_and_show, True),
+                ("Cola de importación", "📋", self.open_cola_importacion, True),
                 (None, None, None, None),  # Separador
                 ("Limpiar datos", "🗑️", self.clear_data, self.has_data),
                 (None, None, None, None),  # Separador
-                ("Gu\u00eda r\u00e1pida", "📖", self.show_quick_guide, True),
+                ("Guía rápida", "📖", self.show_quick_guide, True),
                 ("Acerca de PEA-i", "ℹ️", self.about, True),
+                (None, None, None, None),  # Separador
+                ("Salir", "🚪", self.exit_app, True),
             ]
 
             for label, icon, cmd, enabled_val in opciones:
@@ -610,98 +663,23 @@ class App(ctk.CTk):
         """Indica si existen grupos cargados en la multilista."""
         return len(self.grupo_crud.list_all()) > 0
 
-    def _show_startup_data_dialog(self) -> str:
-        """Pregunta si la sesión debe iniciar con persistencia activa o listas vacías."""
-        choice = {"value": "empty"}
-
-        dialog = ctk.CTkToplevel(self)
-        dialog.title("Inicio de datos")
-        dialog.geometry("460x230")
-        dialog.resizable(False, False)
-        dialog.configure(fg_color=COLORS["bg"])
-        dialog.transient(self)
-        dialog.grab_set()
-
+    def load_from_json(self):
+        """Carga datos desde el archivo de persistencia guardado (JSON) o un archivo seleccionado."""
+        self._close_more_options_panel()
         try:
-            dialog.update_idletasks()
-            x = dialog.winfo_screenwidth() // 2 - 230
-            y = dialog.winfo_screenheight() // 2 - 115
-            dialog.geometry(f"460x230+{x}+{y}")
-        except Exception:
-            pass
+            if not self.persistencia.exists():
+                path = filedialog.askopenfilename(
+                    filetypes=[("Archivos JSON", "*.json"), ("Todos los archivos", "*.*")],
+                    title="Seleccionar archivo guardado (JSON)",
+                )
+                if not path:
+                    return
+                self.persistencia = PersistenciaJSON(filepath=path)
 
-        def finish(value: str):
-            choice["value"] = value
-            try:
-                dialog.grab_release()
-            except Exception:
-                pass
-            dialog.destroy()
-
-        dialog.protocol("WM_DELETE_WINDOW", lambda: finish("empty"))
-
-        content = ctk.CTkFrame(
-            dialog,
-            fg_color=COLORS["surface"],
-            corner_radius=RADIUS["card"],
-            border_width=1,
-            border_color=COLORS["border"],
-        )
-        content.pack(fill="both", expand=True, padx=18, pady=18)
-
-        ctk.CTkLabel(
-            content,
-            text="¿Cómo deseas iniciar?",
-            font=font("heading"),
-            text_color=COLORS["ink"],
-            anchor="w",
-        ).pack(fill="x", padx=SPACING["lg"], pady=(SPACING["lg"], SPACING["xs"]))
-
-        ctk.CTkLabel(
-            content,
-            text=(
-                "Puedes cargar la persistencia activa ahora o abrir la aplicación con "
-                "listas vacías. Los datos nuevos se guardarán usando la misma persistencia."
-            ),
-            font=font("body"),
-            text_color=COLORS["muted"],
-            wraplength=380,
-            justify="left",
-            anchor="w",
-        ).pack(fill="x", padx=SPACING["lg"], pady=(0, SPACING["lg"]))
-
-        buttons = ctk.CTkFrame(content, fg_color="transparent")
-        buttons.pack(fill="x", padx=SPACING["lg"], pady=(0, SPACING["lg"]))
-
-        btn_load = ctk.CTkButton(
-            buttons,
-            text="Cargar datos",
-            height=40,
-            corner_radius=RADIUS["control"],
-            fg_color=COLORS["accent"],
-            hover_color=COLORS["accent_hover"],
-            text_color="#FFFFFF",
-            font=font("body_bold"),
-            command=lambda: finish("load"),
-        )
-        btn_load.pack(side="left", fill="x", expand=True, padx=(0, SPACING["sm"]))
-
-        btn_empty = ctk.CTkButton(
-            buttons,
-            text="Iniciar vacío",
-            height=40,
-            corner_radius=RADIUS["control"],
-            fg_color=COLORS["surface_alt"],
-            hover_color=COLORS["border"],
-            text_color=COLORS["ink"],
-            font=font("body_bold"),
-            command=lambda: finish("empty"),
-        )
-        btn_empty.pack(side="left", fill="x", expand=True)
-
-        dialog.after(100, dialog.focus_force)
-        self.wait_window(dialog)
-        return choice["value"]
+            self.load_data()
+            self.show_toast("Datos cargados desde archivo guardado (JSON)")
+        except Exception as e:
+            self._show_import_error(f"Error al cargar desde JSON: {e}", origen="JSON")
 
     def start_empty_data(self):
         """Inicia la sesión con estructuras vacías sin borrar la persistencia activa."""
@@ -851,7 +829,7 @@ class App(ctk.CTk):
         self._refresh_status_bar()
 
     def _refresh_status_bar(self):
-        """Actualiza indicadores numéricos, deshacer y tamaño de cola en el encabezado."""
+        """Actualiza indicadores numéricos, deshacer y tamaño de cola en el encabezado y barra de estado."""
         try:
             ng = len(self.grupo_crud.list_all())
             ni = len(self.inv_crud.list_all())
@@ -860,10 +838,19 @@ class App(ctk.CTk):
             nq = len(self.import_queue) if hasattr(self, 'import_queue') else 0
             undo_text = f"  ·  Deshacer: {nu}" if nu > 0 else ""
             cola_text = f"  ·  Cola: {nq}" if nq > 0 else ""
-            startup_text = f"  ·  {self._startup_source}" if getattr(self, "_startup_source", "") else ""
-            self.status_count_lbl.configure(
-                text=f"{ng} grupo{'s' if ng != 1 else ''} · {ni} inv. · {np_} prod.{undo_text}{cola_text}{startup_text}"
-            )
+
+            if ng == 0 and ni == 0 and np_ == 0:
+                base_text = "Persistencia: JSON | Sin datos cargados"
+            else:
+                base_text = f"Persistencia: JSON | {ng} grupo{'s' if ng != 1 else ''} · {ni} inv. · {np_} prod."
+
+            full_status = f"{base_text}{undo_text}{cola_text}"
+
+            if hasattr(self, "status_bar_lbl") and self.status_bar_lbl:
+                self.status_bar_lbl.configure(text=full_status)
+
+            if hasattr(self, "status_count_lbl") and self.status_count_lbl:
+                self.status_count_lbl.configure(text=full_status)
         except Exception:
             pass
 
@@ -1000,12 +987,17 @@ class App(ctk.CTk):
 
     def download_scienti(self):
         """Descarga directa del SCIENTI con la URL oficial por defecto."""
+        self.download_scienti_default()
+
+    def download_scienti_default(self):
+        """Descarga del SCIENTI (URL por defecto de GrupLAC de la UPC)."""
+        self._close_more_options_panel()
         self.download_from_url(DEFAULT_SCIENTI_URL)
 
     def download_from_url(self, url: str):
         """Descarga e integra la información de un grupo desde la URL en hilo secundario."""
         if not url or not (url.startswith("http://") or url.startswith("https://")):
-            messagebox.showerror("Error", "URL inválida.")
+            self._show_import_error("La URL ingresada no es válida o está vacía.", origen="SCIENTI")
             return
 
         self.show_toast("Descargando desde SCIENTI...", duration_ms=30000, color="#FDE047")
@@ -1024,16 +1016,9 @@ class App(ctk.CTk):
     def _on_download_complete(self, datos, url: str):
         """Callback al terminar la descarga."""
         if not datos or (isinstance(datos, dict) and "error" in datos):
-            error_msg = datos.get("error", "Error al descargar.") if isinstance(datos, dict) else "Error al descargar."
+            error_msg = datos.get("error", "Error al descargar desde SCIENTI.") if isinstance(datos, dict) else "Error al descargar desde SCIENTI."
             self.show_toast("Error al descargar", color="#FCA5A5")
-            messagebox.showerror("Error", error_msg)
-            if messagebox.askyesno("Cargar CSV", "¿Desea cargar los datos desde un archivo CSV?"):
-                path = filedialog.askopenfilename(
-                    filetypes=[("Archivos CSV", "*.csv"), ("Todos los archivos", "*.*")],
-                    title="Seleccionar archivo CSV",
-                )
-                if path:
-                    self.load_from_csv(path)
+            self._show_import_error(error_msg, origen="SCIENTI")
             return
 
         self.process_downloaded_data(datos)
@@ -1188,14 +1173,72 @@ class App(ctk.CTk):
         except Exception as e:
             messagebox.showerror("Error", f"Error al procesar los datos descargados: {e}")
 
-    def download_from_custom_url(self):
-        """Abre el modal para ingresar una URL personalizada."""
+    def download_scienti_custom(self):
+        """Descarga del SCIENTI (otra URL): pide la URL en un cuadro de diálogo."""
         self._close_more_options_panel()
-        UrlImportModal(
-            parent=self,
-            on_success=self._on_url_modal_success,
-            initial_url="",
-        )
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Descargar del SCIENTI (otra URL)")
+        dialog.geometry("540x220")
+        dialog.resizable(False, False)
+        dialog.configure(fg_color=COLORS["bg"])
+        dialog.transient(self)
+        dialog.grab_set()
+
+        try:
+            dialog.update_idletasks()
+            x = self.winfo_x() + max(0, (self.winfo_width() - 540) // 2)
+            y = self.winfo_y() + max(0, (self.winfo_height() - 220) // 2)
+            dialog.geometry(f"540x220+{x}+{y}")
+        except Exception:
+            pass
+
+        card = tarjeta(dialog, corner_radius=RADIUS["card"])
+        card.pack(fill="both", expand=True, padx=SPACING["md"], pady=SPACING["md"])
+
+        ctk.CTkLabel(
+            card,
+            text="Descargar grupo desde SCIENTI / GrupLAC",
+            font=font("heading"),
+            text_color=COLORS["ink"],
+            anchor="w",
+        ).pack(fill="x", padx=SPACING["lg"], pady=(SPACING["md"], SPACING["xs"]))
+
+        ctk.CTkLabel(
+            card,
+            text="Ingresa la URL del grupo de investigación en MinCiencias:",
+            font=font("body"),
+            text_color=COLORS["muted"],
+            anchor="w",
+        ).pack(fill="x", padx=SPACING["lg"], pady=(0, SPACING["sm"]))
+
+        from gui.styles import entry as _entry
+        url_entry = _entry(card, placeholder_text="https://scienti.minciencias.gov.co/gruplac/jsp/visualiza/...", width=480)
+        url_entry.pack(fill="x", padx=SPACING["lg"], pady=(0, SPACING["xs"]))
+
+        err_lbl = ctk.CTkLabel(card, text="", font=font("small"), text_color=COLORS["danger"], anchor="w")
+        err_lbl.pack(fill="x", padx=SPACING["lg"])
+
+        def _do_download():
+            url = url_entry.get().strip()
+            if not url or not (url.startswith("http://") or url.startswith("https://")):
+                err_lbl.configure(text="Por favor ingresa una URL válida (http:// o https://)")
+                return
+            dialog.destroy()
+            self.download_from_url(url)
+
+        btns = ctk.CTkFrame(card, fg_color="transparent")
+        btns.pack(fill="x", padx=SPACING["lg"], pady=(SPACING["xs"], SPACING["md"]))
+
+        from gui.styles import boton_primario, boton_secundario
+        boton_primario(btns, text="Descargar", command=_do_download, height=36).pack(side="right", padx=(SPACING["sm"], 0))
+        boton_secundario(btns, text="Cancelar", command=dialog.destroy, height=36).pack(side="right")
+
+        url_entry.bind("<Return>", lambda e: _do_download())
+        dialog.after(100, url_entry.focus_set)
+
+    def download_from_custom_url(self):
+        """Alias compatible para download_scienti_custom."""
+        self.download_scienti_custom()
 
     def _on_url_modal_success(self, datos: dict):
         """Callback al descargar exitosamente desde UrlImportModal."""
@@ -1289,34 +1332,25 @@ class App(ctk.CTk):
     # ║  7. EXPORTACIÓN Y ARCHIVOS (CSV, PDF)                          ║
     # ╚══════════════════════════════════════════════════════════════════╝
 
-    def load_from_csv(self, path: str = None):
-        """Carga datos de grupos, investigadores y productos desde un archivo CSV o PDF."""
+    def import_from_csv(self, path: Optional[str] = None):
+        """Importa datos desde un archivo CSV y actualiza las pestañas."""
         self._close_more_options_panel()
         try:
             if not path:
                 path = filedialog.askopenfilename(
                     filetypes=[
-                        ("Archivos compatibles", "*.csv;*.pdf"),
                         ("Archivos CSV", "*.csv"),
-                        ("Archivos PDF", "*.pdf"),
                         ("Todos los archivos", "*.*"),
                     ],
-                    title="Seleccionar archivo CSV o PDF",
+                    title="Seleccionar archivo CSV para importar",
                 )
             if not path:
                 return
 
-            ext = Path(path).suffix.lower()
-            if ext == ".csv":
-                datos = scienti.load_from_csv(path)
-            elif ext == ".pdf":
-                datos = scienti.load_from_pdf(path)
-            else:
-                messagebox.showerror("Error", "Formato de archivo no soportado.")
-                return
-
-            if "error" in datos:
-                messagebox.showerror("Error", datos["error"])
+            datos = scienti.load_from_csv(path)
+            if not datos or (isinstance(datos, dict) and "error" in datos):
+                err = datos.get("error", "Error al leer el archivo CSV.") if isinstance(datos, dict) else "Error al leer CSV."
+                self._show_import_error(err, origen="CSV")
                 return
 
             if "grupos" in datos and datos["grupos"]:
@@ -1326,12 +1360,170 @@ class App(ctk.CTk):
                     self.grupo_crud = GrupoCRUD(self.multilista)
                     self.inv_crud = InvestigadorCRUD(self.multilista)
                     self.prod_crud = ProductoCRUD(self.multilista)
+                    self.save_data(silent=True)
+                    self.load_tabs_data()
+                    self.show_toast("Datos importados desde CSV exitosamente")
+                    return
 
-            self.save_data(silent=True)
-            self.load_tabs_data()
-            self.show_toast("Datos cargados correctamente")
+            self._show_import_error("El archivo CSV no contiene registros de grupos válidos.", origen="CSV")
         except Exception as e:
-            messagebox.showerror("Error", f"Error al cargar el archivo: {e}")
+            self._show_import_error(f"Error inesperado al importar CSV: {e}", origen="CSV")
+
+    def import_from_pdf(self, path: Optional[str] = None):
+        """Importa datos desde un archivo PDF y actualiza las pestañas."""
+        self._close_more_options_panel()
+        try:
+            if not path:
+                path = filedialog.askopenfilename(
+                    filetypes=[
+                        ("Archivos PDF", "*.pdf"),
+                        ("Todos los archivos", "*.*"),
+                    ],
+                    title="Seleccionar archivo PDF para importar",
+                )
+            if not path:
+                return
+
+            datos = scienti.load_from_pdf(path)
+            if not datos or (isinstance(datos, dict) and "error" in datos):
+                err = datos.get("error", "No se pudo extraer información del archivo PDF.") if isinstance(datos, dict) else "Error al leer PDF."
+                self._show_import_error(err, origen="PDF")
+                return
+
+            if "grupos" in datos and datos["grupos"]:
+                new_multilist = PersistenciaJSON.to_multilist(datos)
+                if new_multilist and not new_multilist.is_empty():
+                    self.multilista = new_multilist
+                    self.grupo_crud = GrupoCRUD(self.multilista)
+                    self.inv_crud = InvestigadorCRUD(self.multilista)
+                    self.prod_crud = ProductoCRUD(self.multilista)
+                    self.save_data(silent=True)
+                    self.load_tabs_data()
+                    self.show_toast("Datos importados desde PDF exitosamente")
+                    return
+
+            self._show_import_error(
+                "El archivo PDF no contiene tablas de grupos estructuradas compatibles.",
+                origen="PDF"
+            )
+        except Exception as e:
+            self._show_import_error(f"Error inesperado al importar PDF: {e}", origen="PDF")
+
+    def load_from_csv(self, path: str = None):
+        """Alias compatible para importar desde CSV o PDF."""
+        if path and str(path).lower().endswith(".pdf"):
+            self.import_from_pdf(path)
+        else:
+            self.import_from_csv(path)
+
+    def _show_import_error(self, error_msg: str, origen: str = ""):
+        """Muestra ventana modal con el error de importación y ofrece alternativas (CSV o PDF) sin cerrar la app."""
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Error de importación")
+        dialog.geometry("540x320")
+        dialog.resizable(False, False)
+        dialog.configure(fg_color=COLORS["bg"])
+        dialog.transient(self)
+        dialog.grab_set()
+
+        try:
+            dialog.update_idletasks()
+            x = self.winfo_x() + max(0, (self.winfo_width() - 540) // 2)
+            y = self.winfo_y() + max(0, (self.winfo_height() - 320) // 2)
+            dialog.geometry(f"540x320+{x}+{y}")
+        except Exception:
+            pass
+
+        content = ctk.CTkFrame(
+            dialog,
+            fg_color=COLORS["surface"],
+            corner_radius=RADIUS["card"],
+            border_width=1,
+            border_color=COLORS["border"],
+        )
+        content.pack(fill="both", expand=True, padx=SPACING["md"], pady=SPACING["md"])
+
+        origen_txt = f" ({origen})" if origen else ""
+        ctk.CTkLabel(
+            content,
+            text=f"⚠️  Error al importar datos{origen_txt}",
+            font=font("heading"),
+            text_color=COLORS["danger"],
+            anchor="w",
+        ).pack(fill="x", padx=SPACING["lg"], pady=(SPACING["md"], SPACING["xs"]))
+
+        err_box = ctk.CTkTextbox(
+            content,
+            height=75,
+            font=font("small"),
+            text_color=COLORS["ink"],
+            fg_color=COLORS["surface_alt"],
+            border_width=1,
+            border_color=COLORS["border"],
+        )
+        err_box.pack(fill="x", padx=SPACING["lg"], pady=(0, SPACING["sm"]))
+        err_box.insert("1.0", str(error_msg))
+        err_box.configure(state="disabled")
+
+        ctk.CTkLabel(
+            content,
+            text="La operación no pudo completarse. Puedes intentar con alguna de estas fuentes alternativas:",
+            font=font("body"),
+            text_color=COLORS["ink_soft"],
+            anchor="w",
+            wraplength=460,
+            justify="left",
+        ).pack(fill="x", padx=SPACING["lg"], pady=(0, SPACING["sm"]))
+
+        btn_row = ctk.CTkFrame(content, fg_color="transparent")
+        btn_row.pack(fill="x", padx=SPACING["lg"], pady=(SPACING["xs"], SPACING["md"]))
+
+        def _try_csv():
+            dialog.destroy()
+            self.after(60, self.import_from_csv)
+
+        def _try_pdf():
+            dialog.destroy()
+            self.after(60, self.import_from_pdf)
+
+        btn_csv = ctk.CTkButton(
+            btn_row,
+            text="Importar desde CSV",
+            height=36,
+            corner_radius=RADIUS["control"],
+            fg_color=COLORS["primary"],
+            hover_color=COLORS["primary_hover"],
+            text_color="#FFFFFF",
+            font=font("body_bold"),
+            command=_try_csv,
+        )
+        btn_csv.pack(side="left", padx=(0, SPACING["sm"]))
+
+        btn_pdf = ctk.CTkButton(
+            btn_row,
+            text="Importar desde PDF",
+            height=36,
+            corner_radius=RADIUS["control"],
+            fg_color=COLORS["primary"],
+            hover_color=COLORS["primary_hover"],
+            text_color="#FFFFFF",
+            font=font("body_bold"),
+            command=_try_pdf,
+        )
+        btn_pdf.pack(side="left", padx=(0, SPACING["sm"]))
+
+        btn_cerrar = ctk.CTkButton(
+            btn_row,
+            text="Cerrar",
+            height=36,
+            corner_radius=RADIUS["control"],
+            fg_color=COLORS["surface_alt"],
+            hover_color=COLORS["border"],
+            text_color=COLORS["ink"],
+            font=font("body"),
+            command=dialog.destroy,
+        )
+        btn_cerrar.pack(side="right")
 
     def export_to_csv(self):
         """Exporta los datos actuales a un archivo CSV."""
@@ -1529,6 +1721,10 @@ class App(ctk.CTk):
             font=font("body_bold"),
         )
         btn_close.pack(anchor="e", padx=SPACING["md"], pady=SPACING["md"])
+
+    def exit_app(self):
+        """Cierra la aplicación de manera limpia exclusivamente desde Archivo > Salir."""
+        self.quit()
 
     def _bind_global_events(self):
         """Registra listeners de teclado globales (F5, Escape, Ctrl+Z)."""
