@@ -6,6 +6,7 @@ Incluye soporte para fallback desde archivos CSV y PDF.
 """
 
 import csv
+import datetime
 import logging
 import os
 import re
@@ -523,9 +524,14 @@ def parse_products_html(soup: BeautifulSoup, investigadores: Optional[list] = No
                     body = clean[: autores_match.start()].strip()
                     autores = [a.strip() for a in autores_str.split(",") if a.strip()]
 
-                # 2. Extraer Año
+                # 2. Extraer Año y sanitizar valores anómalos (typos de la fuente)
+                _current_year = datetime.datetime.now().year
                 years = re.findall(r"\b(19\d\d|20\d\d)\b", clean)
-                anio = int(years[0]) if years else 0
+                if years:
+                    _raw_year = int(years[0])
+                    anio = _raw_year if 1900 <= _raw_year <= _current_year else None
+                else:
+                    anio = None
 
                 # 3. Subtipo y Título
                 prod_type = matched_cat

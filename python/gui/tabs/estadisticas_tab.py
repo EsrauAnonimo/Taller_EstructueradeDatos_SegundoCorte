@@ -122,11 +122,18 @@ def _product_investigator_id(producto) -> str:
     )
 
 
-def _product_year(producto) -> int:
+def _product_year(producto) -> Optional[int]:
+    """Devuelve el año del producto como entero, o None si no es válido."""
+    raw = getattr(producto, "anio", None)
+    if raw is None:
+        raw = getattr(producto, "year", None)
+    if raw is None:
+        return None
     try:
-        return int(getattr(producto, "anio", 0) or getattr(producto, "year", 0))
+        y = int(raw)
+        return y if y > 0 else None
     except (ValueError, TypeError):
-        return 0
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -777,12 +784,11 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
     def _plot_chart1_years(self, prods):
         years_cnt = Counter()
         for p in prods:
-            try:
-                y = int(getattr(p, "anio", 0) or getattr(p, "year", 0))
-                if y > 1900:
-                    years_cnt[y] += 1
-            except Exception:
-                pass
+            y = _product_year(p)
+            # Skip products with None or anomalous year (<=1900 or >current_year)
+            if y is None or y <= 1900:
+                continue
+            years_cnt[y] += 1
 
         if years_cnt:
             sorted_y = sorted(years_cnt.keys())

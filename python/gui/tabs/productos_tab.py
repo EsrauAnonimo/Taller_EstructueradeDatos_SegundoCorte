@@ -239,17 +239,23 @@ class ProductosTab(ctk.CTkFrame):
 
         # 2. Filtro por año
         current_year = datetime.datetime.now().year
+        raw_year = getattr(raw_prod, 'anio', None)
+        if raw_year is None:
+            raw_year = getattr(raw_prod, 'year', None)
         try:
-            pyear = int(getattr(raw_prod, 'anio', 0) or getattr(raw_prod, 'year', 0))
-        except Exception:
-            pyear = 0
+            pyear = int(raw_year) if raw_year is not None else None
+            if pyear is not None and pyear <= 0:
+                pyear = None
+        except (TypeError, ValueError):
+            pyear = None
 
         year_mode = self.year_segmented.get()
         if year_mode == "Últimos 2 años":
-            if pyear < (current_year - 2):
+            # Products with unknown year are excluded from time-bounded views
+            if pyear is None or pyear < (current_year - 2):
                 return False
         elif year_mode == "Últimos 5 años":
-            if pyear < (current_year - 5):
+            if pyear is None or pyear < (current_year - 5):
                 return False
         elif year_mode == "Personalizado":
             from_str = self.from_entry.get().strip()
@@ -265,10 +271,14 @@ class ProductosTab(ctk.CTkFrame):
             except ValueError:
                 to_val = None
 
-            if from_val is not None and pyear < from_val:
-                return False
-            if to_val is not None and pyear > to_val:
-                return False
+            if from_val is not None or to_val is not None:
+                # Products with no year are excluded when a range is specified
+                if pyear is None:
+                    return False
+                if from_val is not None and pyear < from_val:
+                    return False
+                if to_val is not None and pyear > to_val:
+                    return False
 
         return True
 
@@ -335,7 +345,15 @@ class ProductosTab(ctk.CTkFrame):
             gran_cat = getattr(p, 'gran_categoria', None) or "Sin clasificar"
             codigo = getattr(p, 'codigo_minciencias', None) or ""
             ptype = getattr(p, 'tipo', '') or getattr(p, 'type', '')
-            year = getattr(p, 'anio', '') or getattr(p, 'year', '')
+            year_raw = getattr(p, 'anio', None)
+            if year_raw is None:
+                year_raw = getattr(p, 'year', None)
+            try:
+                year = int(year_raw) if year_raw is not None else None
+                if year is not None and year <= 0:
+                    year = None
+            except (TypeError, ValueError):
+                year = None
             gid = getattr(p, 'grupo_id', getattr(p, 'group', ''))
             active = getattr(p, 'validado', getattr(p, 'active', True))
             cat_prod = getattr(p, 'categoria', getattr(p, 'categoria_producto', 'Nuevo conocimiento')) or 'Nuevo conocimiento'
@@ -350,7 +368,7 @@ class ProductosTab(ctk.CTkFrame):
                     str(codigo),
                     str(ptype),
                     str(cat_prod),
-                    str(year),
+                    str(year) if year is not None else '',
                     str(val_estado),
                     "● Activo" if active else "● Inactivo",
                 ),
