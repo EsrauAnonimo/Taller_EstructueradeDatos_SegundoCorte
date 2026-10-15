@@ -38,7 +38,8 @@ class Multilist:
         """Retorna el nodo que contiene el grupo con el id dado."""
         current = self.head_group
         while current is not None:
-            if current.active and getattr(current.data, 'id', None) == group_id:
+            gid = getattr(current.data, 'id', None)
+            if current.active and (gid == group_id or (gid is not None and str(gid) == str(group_id))):
                 return current
             current = current.next
         return None

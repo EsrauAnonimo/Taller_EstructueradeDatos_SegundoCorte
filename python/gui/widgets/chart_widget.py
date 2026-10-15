@@ -57,7 +57,7 @@ class ChartWidget(ctk.CTkFrame):
     degradacion de rendimiento y latencia en tkinter.
     """
 
-    def __init__(self, master, title: Optional[str] = None, figsize=(4.0, 2.6), **kwargs):
+    def __init__(self, master, title: Optional[str] = None, figsize=(5.2, 3.4), **kwargs):
         base_kwargs = {
             "fg_color": COLORS["surface"],
             "corner_radius": 0,
@@ -66,8 +66,8 @@ class ChartWidget(ctk.CTkFrame):
         super().__init__(master, **merged_kwargs)
 
         self._default_title = title
-        # 1. Crear figura y canvas una sola vez
-        self.fig = Figure(figsize=figsize, dpi=100)
+        # 1. Crear figura con constrained_layout y canvas
+        self.fig = Figure(figsize=figsize, dpi=100, constrained_layout=True)
         self.fig.patch.set_facecolor(COLORS["surface"])
 
         self.ax = self.fig.add_subplot(111)
@@ -82,18 +82,20 @@ class ChartWidget(ctk.CTkFrame):
 
     # ------------------------------------------------------------------
     def _reset(self):
-        """Limpia los ejes sin recrear la figura ni el canvas."""
+        """Limpia los ejes y cierra referencias previas de figura sin recrear el canvas."""
+        if self.fig is not None:
+            try:
+                import matplotlib.pyplot as plt
+                plt.close(self.fig)
+            except Exception:
+                pass
         self.ax.clear()
         self.ax.set_facecolor(COLORS["surface"])
         if self.fig:
             self.fig.patch.set_facecolor(COLORS["surface"])
 
     def _finish(self):
-        """Ajusta margenes y redibuja de forma eficiente con draw_idle()."""
-        try:
-            self.fig.tight_layout()
-        except Exception:
-            pass
+        """Redibuja de forma eficiente con draw_idle()."""
         self.canvas.draw_idle()
 
     # ------------------------------------------------------------------
@@ -104,6 +106,7 @@ class ChartWidget(ctk.CTkFrame):
         title: Optional[str] = None,
         color: Optional[str] = None,
         add_value_labels: bool = True,
+        display_labels: Optional[List[str]] = None,
     ):
         """Grafico de barras verticales con estilo limpio y valores sobre cada barra."""
         self._reset()
@@ -113,17 +116,26 @@ class ChartWidget(ctk.CTkFrame):
 
         if has_data:
             self.ax.axis("on")
-            str_labels = [str(l) for l in labels]
+            x_indices = list(range(len(labels)))
             bars = self.ax.bar(
-                str_labels, values,
+                x_indices, values,
                 width=BAR_WIDTH,
                 color=bar_color,
                 edgecolor="none",
                 zorder=3,
             )
 
+            self.ax.set_xticks(x_indices)
+            if display_labels is not None and len(display_labels) == len(labels):
+                self.ax.set_xticklabels(display_labels)
+                non_empty = [s for s in display_labels if s]
+            else:
+                str_labels = [str(l) for l in labels]
+                self.ax.set_xticklabels(str_labels)
+                non_empty = str_labels
+
             # Rotar etiquetas si son muchas o muy largas
-            if len(str_labels) > 4 or any(len(s) > 6 for s in str_labels):
+            if len(non_empty) > 6 or any(len(s) > 5 for s in non_empty):
                 self.ax.tick_params(axis="x", rotation=25)
             else:
                 self.ax.tick_params(axis="x", rotation=0)
@@ -133,18 +145,26 @@ class ChartWidget(ctk.CTkFrame):
 
             # Valores sobre las barras
             if add_value_labels:
-                for bar, v in zip(bars, values):
+                show_all = len(values) <= 15
+                for idx, (bar, v) in enumerate(zip(bars, values)):
                     if v > 0:
-                        lbl_text = str(int(v)) if float(v) == int(v) else f"{v:.1f}"
-                        self.ax.text(
-                            bar.get_x() + bar.get_width() / 2,
-                            bar.get_height() + max_val * 0.02,
-                            lbl_text,
-                            ha="center", va="bottom",
-                            fontsize=8, fontweight="bold",
-                            color=COLORS["ink_soft"],
-                        )
-            style_bar_axes(self.ax, chart_title)
+                        if show_all or (display_labels and display_labels[idx] != ""):
+                            lbl_text = str(int(v)) if float(v) == int(v) else f"{v:.1f}"
+                            self.ax.text(
+                                bar.get_x() + bar.get_width() / 2,
+                                bar.get_height() + max_val * 0.02,
+                                lbl_text,
+                                ha="center", va="bottom",
+                                fontsize=8, fontweight="bold",
+                                color=COLORS["ink_soft"],
+                            )
+            style_bar_axes(self.ax, self.fig)
+            if chart_title:
+                self.ax.set_title(
+                    chart_title, loc="left",
+                    fontsize=11, fontweight="bold",
+                    color=COLORS["ink"], pad=10,
+                )
         else:
             _draw_empty(self.ax, chart_title)
 
@@ -237,7 +257,7 @@ class ChartWidget(ctk.CTkFrame):
         self._reset()
         bar_color = color or CHART_COLORS[3]
         chart_title = title or self._default_title
-        filtered = [v for v in values if v is not None and v > 0]
+        filtered = [v for v in values if v is not None and v >= 0]
         has_data = len(filtered) > 0
 
         if has_data:
@@ -265,7 +285,13 @@ class ChartWidget(ctk.CTkFrame):
                         fontsize=8, fontweight="bold",
                         color=COLORS["ink_soft"],
                     )
-            style_bar_axes(self.ax, chart_title)
+            style_bar_axes(self.ax, self.fig)
+            if chart_title:
+                self.ax.set_title(
+                    chart_title, loc="left",
+                    fontsize=11, fontweight="bold",
+                    color=COLORS["ink"], pad=10,
+                )
         else:
             _draw_empty(self.ax, chart_title)
 

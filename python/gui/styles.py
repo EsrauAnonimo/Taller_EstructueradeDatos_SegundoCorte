@@ -480,7 +480,7 @@ def apply_treeview_tags(tree: ttk.Treeview):
 
 def style_bar_axes(ax, fig=None):
     """Estiliza los ejes de matplotlib con estilo moderno, limpio y profesional."""
-    if fig is not None:
+    if fig is not None and hasattr(fig, 'patch'):
         fig.patch.set_facecolor('#FFFFFF')
     ax.set_facecolor('#FFFFFF')
     ax.spines['top'].set_visible(False)

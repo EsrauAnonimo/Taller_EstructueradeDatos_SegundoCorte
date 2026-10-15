@@ -197,8 +197,19 @@ def download_group(url: str, timeout: int = 35, max_retries: int = 3) -> dict:
     try:
         soup = BeautifulSoup(html_content, "html.parser")
         grupo = parse_group_html(soup, url=url)
-        investigadores = parse_investigators_html(soup)
-        productos, secciones_vacias = parse_products_html(soup, investigadores=investigadores)
+        gid = grupo.get("id") or grupo.get("codigo_gruplac") or extract_group_code(url)
+        investigadores = parse_investigators_html(soup, grupo_id=gid)
+        productos, secciones_vacias = parse_products_html(soup, investigadores=investigadores, grupo_id=gid)
+
+        # Garantizar enlace formal de grupo_id e investigador_id
+        for inv in investigadores:
+            if not inv.get("grupo_id") and gid:
+                inv["grupo_id"] = gid
+        for p in productos:
+            if not p.get("grupo_id") and gid:
+                p["grupo_id"] = gid
+            if not p.get("investigador_id") and p.get("investigador_cedula"):
+                p["investigador_id"] = p["investigador_cedula"]
 
         nombre_grupo = grupo.get("nombre") or "Grupo Desconocido"
         resumen = f"Grupo '{nombre_grupo}': {len(investigadores)} integrantes, {len(productos)} productos"
@@ -383,7 +394,7 @@ def _extract_plan_estrategico(soup: BeautifulSoup) -> str:
 
 
 
-def parse_investigators_html(soup: BeautifulSoup) -> list:
+def parse_investigators_html(soup: BeautifulSoup, grupo_id: Optional[Any] = None) -> list:
     """Extrae la lista de investigadores integrantes del grupo."""
     investigadores = []
     try:
@@ -448,6 +459,7 @@ def parse_investigators_html(soup: BeautifulSoup) -> list:
                 "periodo": periodo,
                 "activo": activo,
                 "email": "",
+                "grupo_id": grupo_id,
             }
             investigadores.append(inv)
 
@@ -457,7 +469,7 @@ def parse_investigators_html(soup: BeautifulSoup) -> list:
     return investigadores
 
 
-def parse_products_html(soup: BeautifulSoup, investigadores: Optional[list] = None) -> Tuple[list, list]:
+def parse_products_html(soup: BeautifulSoup, investigadores: Optional[list] = None, grupo_id: Optional[Any] = None) -> Tuple[list, list]:
     """Extrae productos por tipología asociándolos al grupo y a su investigador autor."""
     productos = []
     secciones_vacias = []
@@ -587,7 +599,9 @@ def parse_products_html(soup: BeautifulSoup, investigadores: Optional[list] = No
                     "gran_categoria": gran_cat,
                     "codigo_minciencias": cod_minc,
                     "anio": anio,
+                    "investigador_id": assigned_cedula,
                     "investigador_cedula": assigned_cedula,
+                    "grupo_id": grupo_id,
                     "autores": autores,
                     "validado": True,
                 }

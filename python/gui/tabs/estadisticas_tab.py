@@ -122,18 +122,54 @@ def _product_investigator_id(producto) -> str:
     )
 
 
+def _get_field(obj, *keys, default=None):
+    """Obtiene el primer valor no nulo ni vacio buscando en atributos o claves si es dict."""
+    if obj is None:
+        return default
+    is_dict = isinstance(obj, dict)
+    for k in keys:
+        if is_dict:
+            val = obj.get(k)
+        else:
+            val = getattr(obj, k, None)
+        if val is not None and str(val).strip() != "":
+            return val
+    return default
+
+
 def _product_year(producto) -> Optional[int]:
-    """Devuelve el año del producto como entero, o None si no es válido."""
-    raw = getattr(producto, "anio", None)
-    if raw is None:
-        raw = getattr(producto, "year", None)
+    """Devuelve el año del producto como entero en rango valido (1900..actual), o None si no es válido."""
+    raw = _get_field(producto, "anio", "year")
     if raw is None:
         return None
     try:
         y = int(raw)
-        return y if y > 0 else None
+        return y if 1900 <= y <= datetime.datetime.now().year else None
     except (ValueError, TypeError):
         return None
+
+
+def _normalize_gran_categoria(gc_raw: Any, tipo_raw: str = "") -> Optional[str]:
+    """Normaliza las grandes categorías MinCiencias a sus siglas canónicas: GNC, DTI, ASC, FRH."""
+    if not gc_raw and tipo_raw:
+        sub = get_by_nombre(str(tipo_raw))
+        if sub and sub.get("gran_categoria"):
+            gc_raw = sub["gran_categoria"]
+    if not gc_raw:
+        return None
+    s = str(gc_raw).strip().upper()
+    if s in ("GNC", "NUEVO CONOCIMIENTO", "GENERACIÓN DE NUEVO CONOCIMIENTO", "GENERACION DE NUEVO CONOCIMIENTO"):
+        return "GNC"
+    if s in ("DTI", "DESARROLLO TECNOLÓGICO", "DESARROLLO TECNOLOGICO", "DESARROLLO TECNOLÓGICO E INNOVACIÓN", "DESARROLLO TECNOLOGICO E INNOVACION"):
+        return "DTI"
+    if s in ("ASC", "APROPIACIÓN SOCIAL", "APROPIACION SOCIAL", "APROPIACIÓN SOCIAL DEL CONOCIMIENTO", "APROPIACION SOCIAL DEL CONOCIMIENTO"):
+        return "ASC"
+    if s in ("FRH", "FORMACIÓN DE RECURSO HUMANO", "FORMACION DE RECURSO HUMANO", "FORMACIÓN DE TALENTO HUMANO", "RECURSO HUMANO"):
+        return "FRH"
+    for code, full in [("GNC", "CONOCIMIENTO"), ("DTI", "TECNOL"), ("ASC", "APROPIA"), ("FRH", "HUMANO")]:
+        if full in s:
+            return code
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -143,13 +179,14 @@ def _product_year(producto) -> Optional[int]:
 class ChartCard(ctk.CTkFrame):
     """Tarjeta contenedora con borde sutil para envolver un ChartWidget."""
 
-    def __init__(self, master, title: str, **kwargs):
+    def __init__(self, master, title: str, height: int = 340, **kwargs):
         super().__init__(
             master,
             corner_radius=RADIUS["card"],
             fg_color=COLORS["surface"],
             border_width=1,
             border_color=COLORS["border"],
+            height=height,
             **kwargs,
         )
         self.chart = ChartWidget(self, title=title)
@@ -463,16 +500,14 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
 
         self.card_chart1 = ChartCard(self._charts_container, title="Productos por año")
         self.card_chart2 = ChartCard(self._charts_container, title="Productos por gran categoría")
-        self.card_chart3 = ChartCard(self._charts_container, title="Productos por subcategoría (top 10)")
-        self.card_chart4 = ChartCard(self._charts_container, title="Productos por categoría")
-        self.card_chart5 = ChartCard(self._charts_container, title="Histograma: productos por investigador")
+        self.card_chart3 = ChartCard(self._charts_container, title="Productos por tipo (top 10)")
+        self.card_chart4 = ChartCard(self._charts_container, title="Histograma: productos por investigador")
 
         self._all_chart_cards = [
             self.card_chart1,
             self.card_chart2,
             self.card_chart3,
             self.card_chart4,
-            self.card_chart5,
         ]
 
         self._empty_stats_msg = ctk.CTkLabel(
@@ -484,14 +519,14 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
         )
 
     def _on_container_resize(self, event):
-        """Ajusta reactivamente el numero de columnas segun el ancho del frame."""
+        """Ajusta reactivamente el numero de columnas segun el ancho del frame garantizando igual alto."""
         width = event.width
         if width <= 10:
             return
 
-        # 3 columnas si width >= 1150; 2 columnas si >= 750; 1 si es menor
-        if width >= 1150:
-            cols = 3
+        # 4 columnas si width >= 1500; 2 columnas si >= 750; 1 si es menor
+        if width >= 1500:
+            cols = 4
         elif width >= 750:
             cols = 2
         else:
@@ -503,11 +538,16 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
         self._current_cols = cols
 
         # Limpiar configuracion previa
-        for i in range(len(self._all_chart_cards)):
+        for i in range(len(self._all_chart_cards) + 2):
             self._charts_container.grid_columnconfigure(i, weight=0)
+            self._charts_container.grid_rowconfigure(i, weight=0)
 
         for i in range(cols):
             self._charts_container.grid_columnconfigure(i, weight=1, uniform="chart_col")
+
+        num_rows = (len(self._all_chart_cards) + cols - 1) // cols
+        for r in range(num_rows):
+            self._charts_container.grid_rowconfigure(r, weight=1, uniform="chart_row")
 
         pad = SPACING["sm"]
         for idx, card_w in enumerate(self._all_chart_cards):
@@ -604,7 +644,18 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
         app = self.get_app()
         if not app:
             return
-        plt.close("all")
+
+        # Cierra las figuras anteriores con plt.close(fig) al redibujar
+        for card in getattr(self, "_all_chart_cards", []):
+            if hasattr(card, "chart") and hasattr(card.chart, "fig") and card.chart.fig is not None:
+                try:
+                    plt.close(card.chart.fig)
+                except Exception:
+                    pass
+        try:
+            plt.close("all")
+        except Exception:
+            pass
 
         all_grupos = list(_iter_grupos(app))
         all_investigadores = list(_iter_investigadores(app))
@@ -642,20 +693,17 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
         # 3. Resumen Descriptivo con pandas
         self._update_descriptive_summary(scoped_grupos, scoped_investigadores, filtered_prods)
 
-        # 4. Grafico 1: Productos por ano (barras)
+        # 4. Grafico 1: Productos por año (etiquetas cada 2 o 5 años)
         self._plot_chart1_years(filtered_prods)
 
-        # 5. Grafico 2: Productos por gran categoría (4 barras)
+        # 5. Grafico 2: Productos por gran categoría (GNC, DTI, ASC, FRH)
         self._plot_chart2_gran_categoria(filtered_prods)
 
-        # 6. Grafico 3: Productos por subcategoría (top 10)
-        self._plot_chart3_subcategorias(filtered_prods)
+        # 6. Grafico 3: Productos por tipo (top 10 barras horizontales)
+        self._plot_chart3_tipo(filtered_prods)
 
-        # 7. Grafico 4: Productos por categoría (barras)
-        self._plot_chart4_categorias(filtered_prods)
-
-        # 8. Grafico 5: Histograma real de productos por investigador
-        self._plot_chart5_histogram_investigadores(filtered_prods)
+        # 7. Grafico 4: Histograma real con ax.hist de productos por investigador
+        self._plot_chart4_histogram_investigadores(scoped_investigadores, filtered_prods)
 
         self._toggle_empty_message(bool(filtered_prods))
 
@@ -685,14 +733,16 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
             pyear = _product_year(p)
 
             if year_mode == "Últimos 2":
-                if pyear < (cur_year - 2):
+                if pyear is None or pyear < (cur_year - 2):
                     continue
             elif year_mode == "Últimos 5":
-                if pyear < (cur_year - 5):
+                if pyear is None or pyear < (cur_year - 5):
                     continue
             elif year_mode == "Personalizado":
                 f_txt = self._from_entry.get().strip()
                 t_txt = self._to_entry.get().strip()
+                if (f_txt or t_txt) and pyear is None:
+                    continue
                 try:
                     if f_txt and pyear < int(f_txt):
                         continue
@@ -785,18 +835,31 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
         years_cnt = Counter()
         for p in prods:
             y = _product_year(p)
-            # Skip products with None or anomalous year (<=1900 or >current_year)
             if y is None or y <= 1900:
                 continue
             years_cnt[y] += 1
 
+        print(f"[DEBUG _plot_chart1_years] Recibidos: {len(prods)} productos | Campo leído: 'anio' | Años distintos: {len(years_cnt)} | Total productos graficados: {sum(years_cnt.values())}")
+
         if years_cnt:
             sorted_y = sorted(years_cnt.keys())
+            span = sorted_y[-1] - sorted_y[0] if len(sorted_y) > 1 else 0
+            # Muestra una etiqueta cada 2 o 5 años (o 1 si hay pocos) para legibilidad en eje X
+            step = 5 if span >= 15 else (2 if span >= 6 else 1)
+
+            display_labels = []
+            for idx, y in enumerate(sorted_y):
+                if y % step == 0 or idx == 0 or idx == len(sorted_y) - 1:
+                    display_labels.append(str(y))
+                else:
+                    display_labels.append("")
+
             self.card_chart1.chart.plot_bar(
                 [str(y) for y in sorted_y],
                 [years_cnt[y] for y in sorted_y],
-                title="Productos por ano",
+                title="Productos por año",
                 color=CHART_COLORS[0],
+                display_labels=display_labels,
             )
         else:
             self.card_chart1.chart.clear()
@@ -807,88 +870,86 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
         cat_cnt = {c: 0 for c in categories}
 
         for p in prods:
-            gc = getattr(p, "gran_categoria", None) or getattr(p, "gran_cat", None)
-            if gc in cat_cnt:
-                cat_cnt[gc] += 1
-            else:
-                sub = get_by_nombre(getattr(p, "tipo", "") or getattr(p, "type", ""))
-                if sub and sub.get("gran_categoria") in cat_cnt:
-                    cat_cnt[sub["gran_categoria"]] += 1
+            gc = _get_field(p, "gran_categoria", "gran_cat", "categoria_producto", "categoria")
+            tipo = _get_field(p, "tipo", "type", default="")
+            code = _normalize_gran_categoria(gc, tipo)
+            if code in cat_cnt:
+                cat_cnt[code] += 1
+
+        print(f"[DEBUG _plot_chart2_gran_categoria] Recibidos: {len(prods)} productos | Campo leído: 'gran_categoria' | Conteo: {cat_cnt}")
 
         lbls = categories
         vals = [cat_cnt[c] for c in lbls]
-        self.card_chart2.chart.plot_bar(
-            lbls,
-            vals,
-            title="Productos por gran categoría",
-            color=CHART_COLORS[1],
-        )
+        if any(v > 0 for v in vals):
+            self.card_chart2.chart.plot_bar(
+                lbls,
+                vals,
+                title="Productos por gran categoría",
+                color=CHART_COLORS[1],
+            )
+        else:
+            self.card_chart2.chart.clear()
 
-    def _plot_chart3_subcategorias(self, prods):
-        """Grafica productos por subcategoría (top 10 barras horizontales)."""
-        sub_cnt = Counter()
+    def _plot_chart3_tipo(self, prods):
+        """Grafica productos por tipo (top 10 barras horizontales)."""
+        tipo_cnt = Counter()
         for p in prods:
-            t = getattr(p, "tipo", "") or getattr(p, "type", "")
+            t = _get_field(p, "tipo", "type")
             if t:
-                sub_cnt[str(t).strip()] += 1
+                clean_t = str(t).strip()
+                if clean_t and clean_t.lower() not in ("", "sin tipo", "none", "null"):
+                    tipo_cnt[clean_t] += 1
 
-        if sub_cnt:
-            top10 = sub_cnt.most_common(10)
+        top10 = tipo_cnt.most_common(10)
+        print(f"[DEBUG _plot_chart3_tipo] Recibidos: {len(prods)} productos | Campo leído: 'tipo' | Tipos distintos: {len(tipo_cnt)} | Top 10: {top10}")
+
+        if top10:
             lbls = [item[0] for item in top10]
             vals = [item[1] for item in top10]
             self.card_chart3.chart.plot_barh(
                 lbls,
                 vals,
-                title="Productos por subcategoría (top 10)",
+                title="Productos por tipo (top 10)",
                 color=CHART_COLORS[2],
                 max_items=10,
             )
         else:
             self.card_chart3.chart.clear()
 
-    def _plot_chart4_categorias(self, prods):
-        """Grafica productos por categoría o indexación (A1, A2, B, C, D...)."""
-        cat_cnt = Counter()
+    # Alias de compatibilidad
+    _plot_chart3_subcategorias = _plot_chart3_tipo
+
+    def _plot_chart4_histogram_investigadores(self, scoped_investigadores, prods):
+        """Histograma real con ax.hist de productos por investigador respetando Vista y Periodo."""
+        inv_cnt = Counter()
         for p in prods:
-            c = getattr(p, "categoria", "") or getattr(p, "category", "")
-            if c:
-                c_clean = str(c).strip()
-                if c_clean.lower() not in ["", "sin categoría", "sin categoria", "ninguna"]:
-                    cat_cnt[c_clean] += 1
+            iid = _product_investigator_id(p) or "Sin investigador"
+            inv_cnt[str(iid)] += 1
 
-        if cat_cnt:
-            standard_cats = ["A1", "A2", "B", "C", "D"]
-            ordered_lbls = [c for c in standard_cats if c in cat_cnt]
-            other_lbls = [c for c in sorted(cat_cnt.keys()) if c not in standard_cats]
-            all_lbls = ordered_lbls + other_lbls
-            vals = [cat_cnt[c] for c in all_lbls]
+        # Respetar el alcance de entidades según Vista y Periodo
+        if self._view_mode == "Por investigador" and self._selected_target_id:
+            target_id = str(self._selected_target_id)
+            values = [inv_cnt.get(target_id, 0)]
+        elif scoped_investigadores:
+            values = [inv_cnt.get(str(_investigator_id(inv)), 0) for inv in scoped_investigadores]
+        else:
+            values = list(inv_cnt.values())
 
-            self.card_chart4.chart.plot_bar(
-                all_lbls,
-                vals,
-                title="Productos por categoría",
-                color=CHART_COLORS[3],
+        print(f"[DEBUG _plot_chart4_histogram_investigadores] Investigadores evaluados: {len(values)} | Min: {min(values) if values else 0} | Max: {max(values) if values else 0} | Total productos: {sum(values)}")
+
+        if values:
+            bins = min(8, max(1, len(set(values))))
+            self.card_chart4.chart.plot_histogram(
+                values,
+                bins=bins,
+                title="Histograma: productos por investigador",
+                color=CHART_COLORS[3 % len(CHART_COLORS)],
             )
         else:
             self.card_chart4.chart.clear()
 
-    def _plot_chart5_histogram_investigadores(self, prods):
-        """Histograma real de la cantidad de productos acumulados por investigador."""
-        inv_cnt = Counter()
-        for p in prods:
-            iid = _product_investigator_id(p) or "Sin investigador"
-            inv_cnt[iid] += 1
-
-        values = list(inv_cnt.values())
-        if values:
-            self.card_chart5.chart.plot_histogram(
-                values,
-                bins=min(8, max(1, len(set(values)))),
-                title="Histograma: productos por investigador",
-                color=CHART_COLORS[4 % len(CHART_COLORS)],
-            )
-        else:
-            self.card_chart5.chart.clear()
+    # Alias de compatibilidad
+    _plot_chart5_histogram_investigadores = lambda self, prods: self._plot_chart4_histogram_investigadores(None, prods)
 
     # -----------------------------------------------------------------------
     # 7. Exportacion de graficas a archivo PNG
@@ -909,26 +970,29 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
             from matplotlib.figure import Figure
             from matplotlib.backends.backend_agg import FigureCanvasAgg
 
-            export_fig = Figure(figsize=(12, 11), dpi=200, facecolor=COLORS["surface"])
-            axes = export_fig.subplots(3, 2)
+            export_fig = Figure(figsize=(12, 8.5), dpi=200, facecolor=COLORS["surface"])
+            axes = export_fig.subplots(2, 2)
+
+            app = self.get_app()
+            prods = self._filter_products(list(_iter_productos(app))) if app else []
 
             # Grafico 1: Barras verticales de anos
             ax1 = axes[0, 0]
             ax1.set_facecolor(COLORS["surface"])
             years_cnt = Counter()
-            app = self.get_app()
-            prods = self._filter_products(list(_iter_productos(app))) if app else []
             for p in prods:
-                try:
-                    y = int(getattr(p, "anio", 0) or getattr(p, "year", 0))
-                    if y > 1900:
-                        years_cnt[y] += 1
-                except Exception:
-                    pass
+                y = _product_year(p)
+                if y is not None and y > 1900:
+                    years_cnt[y] += 1
             if years_cnt:
                 sy = sorted(years_cnt.keys())
-                ax1.bar([str(y) for y in sy], [years_cnt[y] for y in sy], color=CHART_COLORS[0])
-                ax1.set_title("Productos por ano", fontweight="bold", fontsize=11, loc="left")
+                span = sy[-1] - sy[0] if len(sy) > 1 else 0
+                step = 5 if span >= 15 else (2 if span >= 6 else 1)
+                labels = [str(y) if (y % step == 0 or idx == 0 or idx == len(sy) - 1) else "" for idx, y in enumerate(sy)]
+                ax1.bar(range(len(sy)), [years_cnt[y] for y in sy], color=CHART_COLORS[0])
+                ax1.set_xticks(range(len(sy)))
+                ax1.set_xticklabels(labels, rotation=25 if len([l for l in labels if l]) > 6 else 0)
+                ax1.set_title("Productos por año", fontweight="bold", fontsize=11, loc="left")
             else:
                 ax1.axis("off")
                 ax1.text(0.5, 0.5, "Sin datos para graficar", ha="center", va="center")
@@ -939,79 +1003,61 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
             gc_order = ["GNC", "DTI", "ASC", "FRH"]
             gc_cnt = {c: 0 for c in gc_order}
             for p in prods:
-                gc = getattr(p, "gran_categoria", None) or getattr(p, "gran_cat", None)
-                if gc in gc_cnt:
-                    gc_cnt[gc] += 1
-                else:
-                    sub = get_by_nombre(getattr(p, "tipo", "") or getattr(p, "type", ""))
-                    if sub and sub.get("gran_categoria") in gc_cnt:
-                        gc_cnt[sub["gran_categoria"]] += 1
-            ax2.bar(gc_order, [gc_cnt[c] for c in gc_order], color=CHART_COLORS[1])
-            ax2.set_title("Productos por gran categoría", fontweight="bold", fontsize=11, loc="left")
+                gc = _get_field(p, "gran_categoria", "gran_cat", "categoria_producto", "categoria")
+                tipo = _get_field(p, "tipo", "type", default="")
+                code = _normalize_gran_categoria(gc, tipo)
+                if code in gc_cnt:
+                    gc_cnt[code] += 1
+            if any(v > 0 for v in gc_cnt.values()):
+                ax2.bar(gc_order, [gc_cnt[c] for c in gc_order], color=CHART_COLORS[1])
+                ax2.set_title("Productos por gran categoría", fontweight="bold", fontsize=11, loc="left")
+            else:
+                ax2.axis("off")
+                ax2.text(0.5, 0.5, "Sin datos para graficar", ha="center", va="center")
 
-            # Grafico 3: Subcategorías (top 10)
+            # Grafico 3: Productos por tipo (top 10)
             ax3 = axes[1, 0]
             ax3.set_facecolor(COLORS["surface"])
-            sub_cnt = Counter()
+            tipo_cnt = Counter()
             for p in prods:
-                t = getattr(p, "tipo", "") or getattr(p, "type", "")
+                t = _get_field(p, "tipo", "type")
                 if t:
-                    sub_cnt[str(t).strip()] += 1
-            if sub_cnt:
-                top10 = sub_cnt.most_common(10)
+                    clean_t = str(t).strip()
+                    if clean_t and clean_t.lower() not in ("", "sin tipo", "none", "null"):
+                        tipo_cnt[clean_t] += 1
+            if tipo_cnt:
+                top10 = tipo_cnt.most_common(10)
                 pairs = list(reversed(top10))
                 ax3.barh([p[0][:30] for p in pairs], [p[1] for p in pairs], color=CHART_COLORS[2])
-                ax3.set_title("Productos por subcategoría (top 10)", fontweight="bold", fontsize=11, loc="left")
+                ax3.set_title("Productos por tipo (top 10)", fontweight="bold", fontsize=11, loc="left")
             else:
                 ax3.axis("off")
                 ax3.text(0.5, 0.5, "Sin datos para graficar", ha="center", va="center")
 
-            # Grafico 4: Categoría (A1, A2...)
+            # Grafico 4: Histograma real de productos por investigador
             ax4 = axes[1, 1]
             ax4.set_facecolor(COLORS["surface"])
-            cat_cnt = Counter()
-            for p in prods:
-                c = getattr(p, "categoria", "") or getattr(p, "category", "")
-                if c:
-                    c_clean = str(c).strip()
-                    if c_clean.lower() not in ["", "sin categoría", "sin categoria", "ninguna"]:
-                        cat_cnt[c_clean] += 1
-            if cat_cnt:
-                std_cats = ["A1", "A2", "B", "C", "D"]
-                ordered_lbls = [c for c in std_cats if c in cat_cnt] + [c for c in sorted(cat_cnt.keys()) if c not in std_cats]
-                ax4.bar(ordered_lbls, [cat_cnt[c] for c in ordered_lbls], color=CHART_COLORS[3])
-                ax4.set_title("Productos por categoría", fontweight="bold", fontsize=11, loc="left")
-            else:
-                ax4.axis("off")
-                ax4.text(0.5, 0.5, "Sin datos para graficar", ha="center", va="center")
-
-            # Grafico 5: Histograma real de productos por investigador
-            ax5 = axes[2, 0]
-            ax5.set_facecolor(COLORS["surface"])
             inv_cnt = Counter()
             for p in prods:
                 iid = _product_investigator_id(p) or "Sin investigador"
-                inv_cnt[iid] += 1
+                inv_cnt[str(iid)] += 1
             hist_vals = list(inv_cnt.values())
             if hist_vals:
                 bins = min(8, max(1, len(set(hist_vals))))
-                ax5.hist(
+                ax4.hist(
                     hist_vals,
                     bins=bins,
-                    color=CHART_COLORS[4 % len(CHART_COLORS)],
+                    color=CHART_COLORS[3 % len(CHART_COLORS)],
                     edgecolor=COLORS["surface"],
                     linewidth=1.2,
                     rwidth=0.88,
                 )
-                ax5.set_title("Histograma: productos por investigador", fontweight="bold", fontsize=11, loc="left")
+                ax4.set_title("Histograma: productos por investigador", fontweight="bold", fontsize=11, loc="left")
             else:
-                ax5.axis("off")
-                ax5.text(0.5, 0.5, "Sin datos para graficar", ha="center", va="center")
+                ax4.axis("off")
+                ax4.text(0.5, 0.5, "Sin datos para graficar", ha="center", va="center")
 
-            ax6 = axes[2, 1]
-            ax6.axis("off")
-
-            for ax in (ax1, ax2, ax3, ax4, ax5):
+            for ax in (ax1, ax2, ax3, ax4):
                 if ax.axison:
                     ax.spines["top"].set_visible(False)
                     ax.spines["right"].set_visible(False)
