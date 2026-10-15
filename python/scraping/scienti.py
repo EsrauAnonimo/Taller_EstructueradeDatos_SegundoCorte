@@ -55,6 +55,32 @@ EXPECTED_PRODUCT_SECTIONS = [
     ("Otra publicación divulgativa", "Publicación divulgativa"),
 ]
 
+# Mapeo de sección GrupLAC → (gran_categoria, codigo_minciencias, nombre_oficial)
+# Usado para clasificar automáticamente los productos con la taxonomía MinCiencias.
+_SECTION_TAXONOMY: Dict[str, Tuple[str, str, str]] = {
+    # GNC — Generación de Nuevo Conocimiento
+    "articulos publicados":                          ("GNC", "2.2.1.1", "Artículos de investigación (A1, A2, B y C)"),
+    "otros articulos publicados":                    ("GNC", "2.2.1.1", "Artículos de investigación (D)"),
+    "libros publicados":                             ("GNC", "2.2.1.3", "Libros resultados de investigación"),
+    "libros de formacion":                           ("GNC", "2.2.3.4.3.1", "Libros de Formación Q1"),
+    "otros libros publicados":                       ("GNC", "2.2.1.3", "Libros resultados de investigación"),
+    "capitulos de libro publicados":                 ("GNC", "2.2.1.4", "Capítulos en libro resultado de investigación"),
+    # DTI — Desarrollo Tecnológico e Innovación
+    "softwares":                                     ("DTI", "2.2.2.1", "Productos tecnológicos certificados o validados"),
+    "otros productos tecnologicos":                  ("DTI", "2.2.2.1", "Productos tecnológicos certificados o validados"),
+    "consultorias cientifico-tecnologicas":          ("DTI", "2.2.2.4", "Conceptos técnicos"),
+    # ASC — Apropiación Social del Conocimiento
+    "documentos de trabajo":                         ("ASC", "2.2.3.4.1", "Circulación de conocimiento especializado"),
+    "otra publicacion divulgativa":                  ("ASC", "2.2.3.4.2", "Divulgación Pública de la CTeI (Transmedia, Web)"),
+    "eventos cientificos":                           ("ASC", "2.2.3.3.1", "Procesos de Apropiación Social del Conocimiento"),
+    "demas trabajos":                                ("ASC", "2.2.3.4.2", "Divulgación Pública de la CTeI (Transmedia, Web)"),
+    # FRH — Formación de Recurso Humano
+    "trabajos dirigidos/tutorias":                   ("FRH", "2.2.4.1", "Direcciones de Tesis de doctorado"),
+    "trabajos dirigidos/turorias":                   ("FRH", "2.2.4.1", "Direcciones de Tesis de doctorado"),
+    "trabajos dirigidos":                            ("FRH", "2.2.4.3", "Direcciones de Trabajo de grado de pregrado"),
+    "jurado/comisiones evaluadoras de trabajo de grado": ("FRH", "2.2.4.3", "Direcciones de Trabajo de grado de pregrado"),
+}
+
 
 def _normalize(text: str) -> str:
     """Normaliza texto eliminando diacríticos, mayúsculas y espacios sobrantes."""
@@ -540,10 +566,20 @@ def parse_products_html(soup: BeautifulSoup, investigadores: Optional[list] = No
                     if assigned_cedula:
                         break
 
+                # 5. Clasificar con taxonomía MinCiencias a partir del nombre de sección
+                norm_sec = _normalize(matched_sec_name)
+                tax_entry = _SECTION_TAXONOMY.get(norm_sec)
+                if tax_entry:
+                    gran_cat, cod_minc, nombre_oficial = tax_entry
+                else:
+                    gran_cat, cod_minc, nombre_oficial = "Sin clasificar", "", prod_type
+
                 prod = {
                     "titulo": titulo_clean,
-                    "tipo": prod_type,
+                    "tipo": nombre_oficial,
                     "categoria": matched_cat,
+                    "gran_categoria": gran_cat,
+                    "codigo_minciencias": cod_minc,
                     "anio": anio,
                     "investigador_cedula": assigned_cedula,
                     "autores": autores,
