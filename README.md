@@ -24,19 +24,13 @@ pip install -r python/requirements.txt
 
 ## Cómo ejecutar
 
-### 1. Interfaz Gráfica (Recomendada)
+### Interfaz Gráfica
 - **Desde VS Code:** Presionar **F5** y seleccionar la configuración **"PEA-i GUI"**.
 - **Desde la Terminal:**
   ```bash
   python python/gui/app.py
   ```
   *(o ingresar a la carpeta `cd python` y ejecutar `python gui/app.py`)*
-
-### 2. Versión Consola
-- **Desde la Terminal:**
-  ```bash
-  python main.py
-  ```
 
 ## Funcionalidades Principales
 - **Estructura Multilista:** Gestión jerárquica en memoria (Grupos $\rightarrow$ Investigadores $\rightarrow$ Productos) con pilas y colas de apoyo.
@@ -48,7 +42,6 @@ pip install -r python/requirements.txt
 - **Estadísticas y Análisis:** Visualización de métricas, productos por categoría y distribución temporal.
 
 ## Estructura del proyecto
-- `main.py` — Menú interactivo por consola.
 - `python/` — Código fuente del proyecto:
   - `entidades/` — Modelos de datos (`Grupo`, `Investigador`, `Producto`).
   - `modelos/` — Estructura `Multilist`, `Lista`, `Pila`, `Cola`, `Nodo`.

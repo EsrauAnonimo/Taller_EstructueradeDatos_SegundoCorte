@@ -221,3 +221,13 @@ __marimo__/
 # Datos locales de prueba
 python/datos/*.json
 !python/datos/.gitkeep
+
+# Limpieza de raíz del proyecto
+__pycache__/
+*.pyc
+.venv/
+venv/
+python/datos/datos.json
+*.bak
+*.clean
+test_scraper.py
