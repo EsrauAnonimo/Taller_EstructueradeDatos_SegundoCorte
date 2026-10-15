@@ -9,10 +9,31 @@ class GrupoCRUD:
         """Inicializa el CRUD con una multilista compartida."""
         self.multilist = multilist
 
+    def _next_id(self) -> int:
+        """Genera el siguiente ID entero secuencial disponible para un grupo."""
+        max_id = 0
+        current = self.multilist.head_group
+        while current is not None:
+            gid = getattr(current.data, 'id', None)
+            try:
+                gid_int = int(gid)
+                if gid_int > max_id:
+                    max_id = gid_int
+            except (TypeError, ValueError):
+                pass
+            current = current.next
+        return max_id + 1
+
     def create(self, grupo: Grupo):
-        """Inserta un nuevo grupo. Retorna False si hay duplicado de codigo_gruplac."""
+        """Inserta un nuevo grupo. Auto-genera un id entero secuencial si el grupo no trae id.
+        Retorna False si ya existe un grupo con el mismo codigo_gruplac."""
         if grupo.codigo_gruplac and self.get_by_code(grupo.codigo_gruplac) is not None:
             return False
+        # Auto-asignar ID entero secuencial si no viene uno numérico válido
+        try:
+            int(grupo.id)
+        except (TypeError, ValueError):
+            grupo.id = self._next_id()
         self.multilist.add_group(grupo)
         return True
 

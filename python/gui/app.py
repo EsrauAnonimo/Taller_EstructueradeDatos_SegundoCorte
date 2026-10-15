@@ -1038,25 +1038,24 @@ class App(ctk.CTk):
                 # 1. Insertar Grupo
                 grupo_raw = datos.get("grupo")
                 if isinstance(grupo_raw, dict):
-                    gid = grupo_raw.get("id") or grupo_raw.get("codigo_gruplac") or f"GRP-{len(self.grupo_crud.list_all()) + 1}"
-                    codigo_g = grupo_raw.get("codigo_gruplac") or str(gid)
-                    existing = self.grupo_crud.get_by_id(gid)
-                    if not existing and codigo_g:
-                        existing = self.grupo_crud.get_by_code(codigo_g)
+                    # El codigo_gruplac es el código SCIENTI; el id lo genera el CRUD
+                    codigo_g = grupo_raw.get("codigo_gruplac") or grupo_raw.get("id", "")
+                    existing = self.grupo_crud.get_by_code(codigo_g) if codigo_g else None
                     if not existing:
                         grupo_obj = Grupo(
-                            id=gid,
+                            id=None,
                             codigo_gruplac=codigo_g,
                             nombre=grupo_raw.get("nombre") or grupo_raw.get("name") or "Grupo SCIENTI",
                             categoria=grupo_raw.get("categoria", ""),
                             lider=grupo_raw.get("lider", ""),
                             activo=True,
                             fecha_creacion=grupo_raw.get("fecha_creacion", ""),
+                            plan=grupo_raw.get("plan", ""),
                         )
                         self.grupo_crud.create(grupo_obj)
                     else:
                         grupo_obj = existing
-                        gid = getattr(existing, "id", gid)
+                    gid = getattr(grupo_obj, "id", None)
                 elif isinstance(grupo_raw, Grupo):
                     grupo_obj = grupo_raw
                     gid = grupo_obj.id
