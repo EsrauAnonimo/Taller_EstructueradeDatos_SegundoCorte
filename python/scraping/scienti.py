@@ -590,7 +590,6 @@ def parse_products_html(soup: BeautifulSoup, investigadores: Optional[list] = No
                     "investigador_cedula": assigned_cedula,
                     "autores": autores,
                     "validado": True,
-                    "raw": clean[:300],
                 }
                 productos.append(prod)
                 section_prod_count += 1
