@@ -12,7 +12,7 @@ from PIL import Image, ImageTk
 
 import customtkinter as ctk
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent / 'python'))
 
 # URL oficial de MinCiencias por defecto para descarga directa en un clic
 DEFAULT_SCIENTI_URL = "https://scienti.minciencias.gov.co/gruplac/jsp/visualiza/visualizagr.jsp?nro=00000000002099"

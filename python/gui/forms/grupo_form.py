@@ -115,13 +115,13 @@ class GrupoForm(FormularioBase):
             initial_value=str(leader_val),
         )
 
-        plan_val = d.get('plan', '')
+        plan_val = d.get('plan', '') or ''
         self.add_textarea_field(
             key='plan',
-            label_text="Plan del grupo (multilínea)",
+            label_text="Plan del grupo (líneas de investigación / objetivos)",
             placeholder="Objetivos, metas estratégicas y plan de desarrollo del grupo...",
             initial_value=str(plan_val),
-            height=80,
+            height=90,
             required=False,
         )
 
