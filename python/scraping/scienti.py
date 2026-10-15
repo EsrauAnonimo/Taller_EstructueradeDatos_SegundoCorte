@@ -205,13 +205,19 @@ def download_group(url: str, timeout: int = 35, max_retries: int = 3) -> dict:
 
 
 def parse_group_html(soup: BeautifulSoup, url: str = "") -> dict:
-    """Extrae información básica del grupo de investigación desde el HTML."""
+    """Extrae información básica del grupo de investigación desde el HTML.
+
+    Campos extraídos:
+    - nombre, categoria, lider, fecha_creacion, codigo_gruplac
+    - plan: concatenación de Plan de trabajo, Objetivos y Visión del grupo.
+    """
     grupo = {
         "codigo_gruplac": extract_group_code(url),
         "nombre": "",
         "categoria": "",
         "lider": "",
         "fecha_creacion": "",
+        "plan": "",
     }
     try:
         # 1. Nombre del grupo desde celdaEncabezado o título
@@ -246,10 +252,108 @@ def parse_group_html(soup: BeautifulSoup, url: str = "") -> dict:
                 elif "codigo del grupo" in label and not grupo["codigo_gruplac"]:
                     grupo["codigo_gruplac"] = val
 
+        # 3. Extracción del Plan Estratégico (Plan de trabajo, Objetivos, Visión)
+        grupo["plan"] = _extract_plan_estrategico(soup)
+
     except Exception as e:
         logger.warning("Error extrayendo datos del grupo: %s", e)
 
     return grupo
+
+
+def _extract_plan_estrategico(soup: BeautifulSoup) -> str:
+    """Extrae y formatea el bloque 'Plan Estratégico' de la página GrupLAC.
+
+    Busca la sección con encabezado 'Plan Estratégico' y extrae de la siguiente
+    fila las sub-secciones: 'Plan de trabajo:', 'Objetivos:' y 'Visión:'.
+    Devuelve un string formateado con separadores o cadena vacía si no se encuentra.
+    """
+    try:
+        for header_td in soup.find_all("td", class_="celdaEncabezado"):
+            norm = _normalize(header_td.get_text(strip=True))
+            if "plan" not in norm or "estrateg" not in norm:
+                continue
+
+            tr = header_td.parent
+            if not tr:
+                continue
+            content_tr = tr.find_next_sibling("tr")
+            if not content_tr:
+                continue
+            content_td = content_tr.find("td")
+            if not content_td:
+                continue
+
+            # Obtener texto limpio manteniendo saltos de línea
+            raw = content_td.get_text(separator="\n", strip=False)
+            # Normalizar saltos de línea Windows y colapsar líneas en blanco excesivas
+            raw = re.sub(r"\r\n|\r", "\n", raw)
+            raw = re.sub(r"\n{3,}", "\n\n", raw).strip()
+
+            if not raw:
+                return ""
+
+            # Dividir por las etiquetas de sub-sección conocidas
+            _LABEL_PATTERN = re.compile(
+                r"(Plan\s+de\s+trabajo\s*:"
+                r"|Objetivos?\s*:"
+                r"|Visi\u00f3n\s*:"
+                r"|Vision\s*:"
+                r"|Misi\u00f3n\s*:"
+                r"|Mision\s*:"
+                r"|Estado\s+del\s+arte\s*:)",
+                re.IGNORECASE,
+            )
+            parts = _LABEL_PATTERN.split(raw)
+            # parts = [prefix, label1, content1, label2, content2, ...]
+
+            # Construir el campo plan a partir de las sub-secciones de interés
+            _WANTED = {"plan de trabajo", "objetivo", "objetivos", "vision", "visión"}
+            sections_found = {}
+            i = 1
+            while i < len(parts) - 1:
+                label_raw = parts[i].strip().rstrip(":")
+                content = parts[i + 1].strip()
+                label_key = _normalize(label_raw)
+
+                # Solo incluir las secciones deseadas (excluir 'Estado del arte', etc.)
+                if any(w in label_key for w in _WANTED):
+                    # Normalizar la etiqueta para el encabezado
+                    if "plan" in label_key:
+                        header = "PLAN DE TRABAJO"
+                    elif "objetivo" in label_key:
+                        header = "OBJETIVOS"
+                    elif "vision" in label_key or "visión" in label_key:
+                        header = "VISIÓN"
+                    elif "mision" in label_key or "misión" in label_key:
+                        header = "MISIÓN"
+                    else:
+                        header = label_raw.upper()
+                    sections_found[header] = content
+                i += 2
+
+            # Si no hubo divisiones claras, usar el texto completo como plan
+            if not sections_found:
+                # Quitar posibles prefijos de otras secciones no deseadas
+                fallback = re.sub(
+                    r"(Estado\s+del\s+arte\s*:.*)",
+                    "",
+                    raw,
+                    flags=re.IGNORECASE | re.DOTALL,
+                ).strip()
+                return fallback
+
+            # Ensamblar el resultado final con separadores
+            result_parts = []
+            for header, content in sections_found.items():
+                result_parts.append(f"{header}:\n{content}")
+            return "\n\n".join(result_parts)
+
+    except Exception as e:
+        logger.warning("Error extrayendo Plan Estratégico: %s", e)
+
+    return ""
+
 
 
 def parse_investigators_html(soup: BeautifulSoup) -> list:
