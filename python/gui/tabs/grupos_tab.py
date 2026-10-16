@@ -191,33 +191,33 @@ class GruposTab(ctk.CTkFrame):
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        # --- 1. Encabezado ---
+        # --- 1. Encabezado compacto institucional ---
         self.header_frame = ctk.CTkFrame(self, fg_color='transparent')
         self.header_frame.grid(
             row=0,
             column=0,
             sticky='ew',
             padx=SPACING['lg'],
-            pady=(SPACING['lg'], SPACING['md']),
+            pady=(SPACING['sm'], SPACING['xs']),
         )
 
         self.title_label = ctk.CTkLabel(
             self.header_frame,
             text="Grupos de investigación",
-            font=font('display'),
+            font=font('heading'),
             text_color=COLORS['ink'],
             anchor='w',
         )
-        self.title_label.pack(fill='x', anchor='w')
+        self.title_label.pack(side='left', anchor='w')
 
         self.subtitle_label = ctk.CTkLabel(
             self.header_frame,
-            text="Administración de grupos académicos registrados en el sistema",
-            font=font('body'),
+            text=" · Administración académica y categorización MinCiencias",
+            font=font('small'),
             text_color=COLORS['muted'],
             anchor='w',
         )
-        self.subtitle_label.pack(fill='x', anchor='w', pady=(SPACING['xs'], 0))
+        self.subtitle_label.pack(side='left', anchor='w', padx=(4, 0))
 
         # --- 2. Tabla CRUD Reutilizable ---
         columns = [
@@ -276,32 +276,26 @@ class GruposTab(ctk.CTkFrame):
 
     def _build_undo_button(self):
         """Crea el botón '↶ Deshacer' en la zona derecha del toolbar de TablaCRUD."""
-        from gui.styles import COLORS, RADIUS, font, SPACING
-        # right_tools es el contenedor del toolbar donde viven 'Crear' y 'Actualizar'
+        from gui.styles import COLORS, RADIUS, font, SPACING, boton_advertencia
         parent = getattr(self.table, 'right_tools', None) or self.header_frame
 
-        self.btn_undo = ctk.CTkButton(
+        self.btn_undo = boton_advertencia(
             parent,
             text="↶ Deshacer",
             width=110,
             height=32,
-            corner_radius=RADIUS['control'],
-            fg_color=COLORS.get('warning', '#F59E0B'),
-            hover_color=COLORS.get('warning_hover', '#D97706'),
-            text_color='#FFFFFF',
-            font=font('body_bold'),
-            state='disabled',
             command=self._on_undo,
         )
+        self.btn_undo.configure(state='disabled')
         self.btn_undo.pack(side='right', padx=(SPACING['sm'], 0))
 
     def _build_detail_button(self):
-        """Crea el botón 'Ver detalle' en la barra contextual de TablaCRUD."""
+        """Crea el botón '👁 Ver detalle' en la barra contextual de TablaCRUD."""
         parent = getattr(self.table, 'ctx_right', None)
         if parent:
             self.btn_detail = boton_secundario(
                 parent,
-                text="Ver detalle",
+                text="👁 Ver detalle",
                 command=self.show_detail,
                 height=30,
             )

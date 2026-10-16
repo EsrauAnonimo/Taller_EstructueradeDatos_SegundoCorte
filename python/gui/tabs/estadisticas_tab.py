@@ -231,26 +231,26 @@ class EstadisticasTab(ctk.CTkScrollableFrame):
 
     def _build_header(self):
         self._header = ctk.CTkFrame(self, fg_color="transparent")
-        self._header.pack(fill="x", padx=SPACING["lg"], pady=(SPACING["lg"], SPACING["sm"]))
+        self._header.pack(fill="x", padx=SPACING["lg"], pady=(SPACING["sm"], SPACING["xs"]))
 
         left = ctk.CTkFrame(self._header, fg_color="transparent")
         left.pack(side="left", fill="x", expand=True)
 
         ctk.CTkLabel(
             left,
-            text="Estadisticas de investigacion",
-            font=font("display"),
+            text="Estadísticas de investigación",
+            font=font("heading"),
             text_color=COLORS["ink"],
             anchor="w",
-        ).pack(fill="x", anchor="w")
+        ).pack(side="left", anchor="w")
 
         ctk.CTkLabel(
             left,
-            text="Analitica de productividad cientifica, distribucion de investigadores y grupos",
-            font=font("body"),
+            text=" · Analítica de productividad científica, distribución y métricas",
+            font=font("small"),
             text_color=COLORS["muted"],
             anchor="w",
-        ).pack(fill="x", anchor="w", pady=(SPACING["xs"], 0))
+        ).pack(side="left", anchor="w", padx=(4, 0))
 
         # Botones a la derecha
         right = ctk.CTkFrame(self._header, fg_color="transparent")

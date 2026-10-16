@@ -3,6 +3,7 @@
 
 import sys
 import threading
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Callable
@@ -80,7 +81,7 @@ class App(ctk.CTk):
         # Configuración del sistema de diseño institucional
         setup_app(self)
 
-        self.title("PEA-i · Sistema de Gestión de Investigación - Unicesar")
+        self.title("PEA-i · Gestión de Investigación UPC")
         self.geometry("1280x760")
         self.minsize(1200, 700)
 
@@ -106,14 +107,18 @@ class App(ctk.CTk):
         self._startup_source: str = "Arranque: listas vacías"
         self._status_toast_timer = None
 
-        # Variables para el panel flotante "Más opciones"
+        # Variables para el popup moderno de opciones (CTkToplevel sobre la tuerca)
+        self._gear_popup: Optional[ctk.CTkToplevel] = None
+        self._last_gear_popup_closed: float = 0.0
+        self._popup_click_bind_id: Optional[str] = None
+        self._menu_icons: Dict[str, ctk.CTkImage] = {}
         self._options_panel: Optional[ctk.CTkFrame] = None
         self._options_bind_id: Optional[str] = None
+        self._gear_menu = None
 
         self.init_persistence()
 
-        # Configurar menú superior institucional (Archivo, Datos, Ayuda)
-        self.create_menu()
+        # Barra de menú superior eliminada (funciones reubicadas en la tuerca del sidebar)
 
         # ── Estructura General ──────────────────────────────────────────
         # 1. Barra lateral izquierda (ancho ~259 px, fondo #0F1B3D)
@@ -133,38 +138,8 @@ class App(ctk.CTk):
         self.navigate_to(_TAB_NAMES[0])
 
     def create_menu(self):
-        """Configura la barra de menú superior institucional."""
-        menubar = tk.Menu(self)
-
-        # Menú Archivo
-        archivo_menu = tk.Menu(menubar, tearoff=0)
-        archivo_menu.add_command(label="Guardar datos", command=self.save_data)
-        archivo_menu.add_separator()
-        archivo_menu.add_command(label="Salir", command=self.exit_app)
-        menubar.add_cascade(label="Archivo", menu=archivo_menu)
-
-        # Menú Datos
-        datos_menu = tk.Menu(menubar, tearoff=0)
-        datos_menu.add_command(label="Cargar desde archivo guardado (JSON)", command=self.load_from_json)
-        datos_menu.add_command(label="Importar desde PDF", command=self.import_from_pdf)
-        datos_menu.add_command(label="Importar desde CSV", command=self.import_from_csv)
-        datos_menu.add_command(label="Descargar del SCIENTI (URL por defecto)", command=self.download_scienti_default)
-        datos_menu.add_command(label="Descargar del SCIENTI (otra URL)", command=self.download_scienti_custom)
-        datos_menu.add_separator()
-        datos_menu.add_command(label="Agregar a cola de importación", command=self.queue_add_url_and_show)
-        datos_menu.add_command(label="Cola de importación", command=self.open_cola_importacion)
-        datos_menu.add_separator()
-        datos_menu.add_command(label="Exportar a CSV", command=self.export_to_csv)
-        datos_menu.add_command(label="Limpiar datos", command=self.clear_data)
-        menubar.add_cascade(label="Datos", menu=datos_menu)
-
-        # Menú Ayuda
-        ayuda_menu = tk.Menu(menubar, tearoff=0)
-        ayuda_menu.add_command(label="Guía rápida", command=self.show_quick_guide)
-        ayuda_menu.add_command(label="Acerca de PEA-i", command=self.about)
-        menubar.add_cascade(label="Ayuda", menu=ayuda_menu)
-
-        self.config(menu=menubar)
+        """Compatibilidad: la barra de menú nativa fue reubicada en la tuerca del pie del sidebar."""
+        pass
 
     def _setup_window_icon(self):
         """Establece el ícono institucional de Unicesar en la ventana."""
@@ -266,66 +241,75 @@ class App(ctk.CTk):
         self._build_user_block()
 
     def _build_user_block(self):
-        """Construye el bloque de usuario en la base de la barra lateral con botón de más opciones."""
-        self.user_block_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        self.user_block_frame.pack(side="bottom", fill="x", padx=16, pady=16)
+        """Construye el pie de la barra lateral con tarjeta sobria, versión y botón de engranaje."""
+        # Cargar ícono de tuerca en alta resolución (PNG institucional)
+        self.gear_image = None
+        gear_path = Path(__file__).resolve().parent / "assets" / "gear.png"
+        if gear_path.exists():
+            try:
+                pil_gear = Image.open(gear_path)
+                self.gear_image = ctk.CTkImage(
+                    light_image=pil_gear,
+                    dark_image=pil_gear,
+                    size=(18, 18),
+                )
+            except Exception as e:
+                print("Aviso al cargar ícono de engranaje:", e)
 
-        # Línea divisoria superior del bloque de usuario
-        self.user_sep = ctk.CTkFrame(self.sidebar, height=1, fg_color=COLORS["sidebar_border"])
-        self.user_sep.pack(side="bottom", fill="x", padx=16, pady=(0, 8))
+        # Contenedor inferior en el sidebar
+        self.footer_container = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        self.footer_container.pack(side="bottom", fill="x", padx=14, pady=14)
 
-        self.user_row = ctk.CTkFrame(self.user_block_frame, fg_color="transparent")
-        self.user_row.pack(fill="x")
-
-        # Círculo de avatar con ícono
-        self.avatar_circle = ctk.CTkLabel(
-            self.user_row,
-            text=ICONS["usuario"],
-            width=36,
-            height=36,
-            corner_radius=18,
-            fg_color="#1E293B",
-            text_color="#FFFFFF",
-            font=(FONT_FAMILY, 15),
+        # Tarjeta sobria con fondo ligeramente más claro que el sidebar (#16223F) y bordes redondeados
+        self.footer_card = ctk.CTkFrame(
+            self.footer_container,
+            fg_color="#16223F",
+            corner_radius=10,
+            border_width=1,
+            border_color="#1E293B",
         )
-        self.avatar_circle.pack(side="left", padx=(0, 10))
+        self.footer_card.pack(fill="x", ipady=4)
 
-        # Textos de usuario
-        self.user_info_frame = ctk.CTkFrame(self.user_row, fg_color="transparent")
-        self.user_info_frame.pack(side="left", fill="both", expand=True)
+        # Fila interna
+        self.footer_row = ctk.CTkFrame(self.footer_card, fg_color="transparent")
+        self.footer_row.pack(fill="x", padx=12, pady=8)
 
-        self.user_system_lbl = ctk.CTkLabel(
-            self.user_info_frame,
-            text="Sistema de Investigación",
-            font=(FONT_FAMILY, 11, "bold"),
+        # Textos a la izquierda: Título PEA-i en negrita y subtítulo con persistencia
+        self.footer_text_frame = ctk.CTkFrame(self.footer_row, fg_color="transparent")
+        self.footer_text_frame.pack(side="left", fill="both", expand=True)
+
+        self.sidebar_app_title = ctk.CTkLabel(
+            self.footer_text_frame,
+            text="PEA-i",
+            font=(FONT_FAMILY, 13, "bold"),
             text_color="#FFFFFF",
             anchor="w",
         )
-        self.user_system_lbl.pack(fill="x")
+        self.sidebar_app_title.pack(fill="x")
 
-        self.user_sub_lbl = ctk.CTkLabel(
-            self.user_info_frame,
-            text="Unicesar",
-            font=(FONT_FAMILY, 10),
+        self.sidebar_version_lbl = ctk.CTkLabel(
+            self.footer_text_frame,
+            text="v1.0 · Persistencia: JSON",
+            font=(FONT_FAMILY, 9),
             text_color="#94A3B8",
             anchor="w",
         )
-        self.user_sub_lbl.pack(fill="x")
+        self.sidebar_version_lbl.pack(fill="x", pady=(1, 0))
 
-        # Botón "Más opciones" (reemplaza el menú superior flotante por panel integrado)
-        self.btn_more_options = ctk.CTkButton(
-            self.user_row,
-            text=ICONS["acciones"],
+        # Botón con ícono de tuerca (engranaje) a la derecha, sin fondo, con hover
+        self.btn_gear = ctk.CTkButton(
+            self.footer_row,
+            text="",
+            image=self.gear_image,
             width=32,
             height=32,
             corner_radius=6,
             fg_color="transparent",
-            hover_color=COLORS["sidebar_hover"],
-            text_color="#CBD5E1",
-            font=(FONT_FAMILY, 14, "bold"),
-            command=self._toggle_more_options_panel,
+            hover_color="#1E293B",
+            command=self._open_gear_menu,
         )
-        self.btn_more_options.pack(side="right")
+        self.btn_gear.pack(side="right")
+        self.btn_more_options = self.btn_gear
 
     # ╔══════════════════════════════════════════════════════════════════╗
     # ║  2. CONTENEDOR PRINCIPAL DERECHO (Header + Tarjeta)              ║
@@ -392,14 +376,21 @@ class App(ctk.CTk):
         )
         self.toast_lbl.pack(side="top", anchor="e", pady=(2, 0))
 
-        self.status_count_lbl = ctk.CTkLabel(
+        self.status_count_badge = ctk.CTkFrame(
             self.header_right,
+            fg_color=COLORS["header_badge_bg"],
+            corner_radius=RADIUS["pill"],
+        )
+        self.status_count_badge.pack(side="top", anchor="e", pady=(4, 0))
+
+        self.status_count_lbl = ctk.CTkLabel(
+            self.status_count_badge,
             text="Persistencia: JSON | Sin datos cargados",
             font=font("small"),
             text_color=COLORS["header_sub"],
-            anchor="e",
+            anchor="center",
         )
-        self.status_count_lbl.pack(side="top", anchor="e", pady=(4, 0))
+        self.status_count_lbl.pack(padx=12, pady=3)
 
         # Barra de estado inferior institucional
         self.status_bar_frame = ctk.CTkFrame(
@@ -455,7 +446,7 @@ class App(ctk.CTk):
         self._close_more_options_panel()
         self._current_tab = section_name
 
-        # 1. Actualizar apariencia de botones en la barra lateral
+        # 1. Actualizar apariencia de botones en la barra lateral con indicador visual activo
         for name, btn in self.nav_buttons.items():
             if name == section_name:
                 btn.configure(
@@ -463,6 +454,8 @@ class App(ctk.CTk):
                     hover_color=COLORS["sidebar_active"],
                     text_color=COLORS["sidebar_text_active"],
                     font=font("body_bold"),
+                    border_width=1,
+                    border_color=COLORS["sidebar_indicator"],
                 )
             else:
                 btn.configure(
@@ -470,6 +463,7 @@ class App(ctk.CTk):
                     hover_color=COLORS["sidebar_hover"],
                     text_color=COLORS["sidebar_text"],
                     font=font("body"),
+                    border_width=0,
                 )
 
         # 2. Actualizar encabezado azul dinámicamente
@@ -497,158 +491,276 @@ class App(ctk.CTk):
                 pass
 
     # ╔══════════════════════════════════════════════════════════════════╗
-    # ║  4. PANEL FLOTANTE "MÁS OPCIONES" (place + lift)               ║
+    # ║  4. MENÚ CONTEXTUAL DE CONFIGURACIÓN (Tuerca / Gear Popup)      ║
     # ╚══════════════════════════════════════════════════════════════════╝
 
-    def _toggle_more_options_panel(self):
-        """Abre o cierra el panel emergente de opciones sobre el bloque de usuario."""
-        if self._options_panel is not None:
-            self._close_more_options_panel()
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  4. POPUP MODERNO DE OPCIONES (CTkToplevel sobre Tuerca)         ║
+    # ╚══════════════════════════════════════════════════════════════════╝
+
+    def _load_menu_icons(self) -> Dict[str, ctk.CTkImage]:
+        """Carga en caché los íconos PNG institucionales para el popup moderno."""
+        if hasattr(self, "_menu_icons") and self._menu_icons:
+            return self._menu_icons
+
+        self._menu_icons = {}
+        icons_dir = Path(__file__).resolve().parent / "assets" / "icons"
+        icon_names = ["folder_open", "save", "download", "csv", "queue", "info", "logout"]
+        for name in icon_names:
+            p = icons_dir / f"{name}.png"
+            if p.exists():
+                try:
+                    pil_img = Image.open(p)
+                    self._menu_icons[name] = ctk.CTkImage(
+                        light_image=pil_img,
+                        dark_image=pil_img,
+                        size=(16, 16),
+                    )
+                except Exception as e:
+                    print(f"Aviso al cargar ícono {name}:", e)
+        return self._menu_icons
+
+    def _open_gear_menu(self):
+        """Abre o cierra (toggle) el popup moderno con CTkToplevel posicionado sobre la tuerca."""
+        now = time.time()
+        # Evitar reapertura accidental si se acaba de cerrar mediante clic en la tuerca
+        if hasattr(self, "_last_gear_popup_closed") and (now - self._last_gear_popup_closed < 0.22):
             return
 
+        # Si ya está abierto, cerrarlo (comportamiento toggle)
+        if hasattr(self, "_gear_popup") and self._gear_popup is not None:
+            try:
+                if self._gear_popup.winfo_exists():
+                    self._close_gear_popup()
+                    return
+            except Exception:
+                pass
+
+        self._load_menu_icons()
+
+        # Ventana emergente moderna sin bordes nativos
+        popup = ctk.CTkToplevel(self)
+        self._gear_popup = popup
+
+        popup.overrideredirect(True)
+        popup.attributes("-topmost", True)
+        popup.transient(self)
+
+        # Transparencia de esquinas en Windows si está soportada
         try:
-            # Crear panel como CTkFrame hijo directo de la ventana raíz
-            panel = ctk.CTkFrame(
-                self,
-                fg_color=COLORS["surface"],
-                border_width=1,
-                border_color=COLORS["border"],
-                corner_radius=RADIUS["card"],
-            )
-            self._options_panel = panel
+            popup.attributes("-transparentcolor", "#000001")
+            popup.configure(fg_color="#000001")
+        except Exception:
+            popup.configure(fg_color="#16223F")
 
-            content = ctk.CTkFrame(panel, fg_color="transparent")
-            content.pack(fill="both", expand=True, padx=6, pady=6)
-
-            opciones = [
-                ("Cargar desde archivo guardado (JSON)", "📂", self.load_from_json, True),
-                ("Importar desde PDF", "📑", self.import_from_pdf, True),
-                ("Importar desde CSV", "📄", self.import_from_csv, True),
-                ("Descargar del SCIENTI (URL por defecto)", "🌐", self.download_scienti_default, True),
-                ("Descargar del SCIENTI (otra URL)", "🔗", self.download_scienti_custom, True),
-                (None, None, None, None),  # Separador
-                ("Guardar datos", "💾", self.save_data, self.has_data),
-                ("Exportar a CSV", "📊", self.export_to_csv, self.has_data),
-                (None, None, None, None),  # Separador
-                ("Agregar a cola de importación", "➕", self.queue_add_url_and_show, True),
-                ("Cola de importación", "📋", self.open_cola_importacion, True),
-                (None, None, None, None),  # Separador
-                ("Limpiar datos", "🗑️", self.clear_data, self.has_data),
-                (None, None, None, None),  # Separador
-                ("Guía rápida", "📖", self.show_quick_guide, True),
-                ("Acerca de PEA-i", "ℹ️", self.about, True),
-                (None, None, None, None),  # Separador
-                ("Salir", "🚪", self.exit_app, True),
-            ]
-
-            for label, icon, cmd, enabled_val in opciones:
-                if label is None:
-                    sep = ctk.CTkFrame(content, height=1, fg_color=COLORS["border"], corner_radius=0)
-                    sep.pack(fill="x", padx=4, pady=4)
-                    continue
-
-                is_enabled = enabled_val() if callable(enabled_val) else bool(enabled_val)
-                row = ctk.CTkFrame(content, height=32, corner_radius=6, fg_color="transparent")
-                row.pack(fill="x", pady=1)
-
-                icon_lbl = ctk.CTkLabel(
-                    row,
-                    text=icon,
-                    width=26,
-                    font=("Segoe UI Emoji", 12),
-                    text_color=COLORS["ink"] if is_enabled else COLORS["muted_light"],
-                    anchor="center",
-                )
-                icon_lbl.pack(side="left", padx=(6, 4))
-
-                text_lbl = ctk.CTkLabel(
-                    row,
-                    text=label,
-                    font=font("body"),
-                    text_color=COLORS["ink"] if is_enabled else COLORS["muted_light"],
-                    anchor="w",
-                )
-                text_lbl.pack(side="left", padx=(4, 16), fill="x", expand=True)
-
-                if is_enabled:
-                    for w in (row, icon_lbl, text_lbl):
-                        w.bind("<Enter>", lambda e, r=row: r.configure(fg_color=COLORS["surface_alt"]))
-                        w.bind("<Leave>", lambda e, r=row: r.configure(fg_color="transparent"))
-                        w.bind("<Button-1>", lambda e, c=cmd: self._exec_option_and_close(c))
-
-            panel.update_idletasks()
-            panel_w = max(230, panel.winfo_reqwidth())
-            panel_h = panel.winfo_reqheight()
-
-            # Posicionar sobre el bloque de usuario hacia arriba dentro de la barra lateral
-            px = 16
-            btn_root_y = self.btn_more_options.winfo_rooty() - self.winfo_rooty()
-            py = max(16, btn_root_y - panel_h - 8)
-
-            panel.place(x=px, y=py)
-            panel.lift()
-
-            # Diferir el listener de clic fuera para no capturar el clic actual
-            self.after(50, self._enable_options_click_outside)
+        # Iniciar invisible para animación de fade-in
+        try:
+            popup.attributes("-alpha", 0.0)
         except Exception:
             pass
 
-    def _exec_option_and_close(self, command: Optional[Callable]):
-        """Ejecuta una acción del panel de opciones y lo cierra."""
-        self._close_more_options_panel()
+        # Contenedor CTkFrame con corner_radius=12, borde sutil y tono más claro que el sidebar
+        container = ctk.CTkFrame(
+            popup,
+            width=260,
+            corner_radius=12,
+            fg_color="#16223F",
+            border_width=1,
+            border_color="#2A3B5C",
+        )
+        container.pack(fill="both", expand=True)
+
+        content = ctk.CTkFrame(container, fg_color="transparent")
+        content.pack(fill="both", expand=True, padx=8, pady=8)
+
+        def add_header(title: str, is_first: bool = False):
+            lbl = ctk.CTkLabel(
+                content,
+                text=title,
+                font=(FONT_FAMILY, 10, "bold"),
+                text_color="#64748B",
+                anchor="w",
+            )
+            lbl.pack(fill="x", padx=6, pady=(3 if is_first else 9, 2))
+
+        def add_option(label: str, icon_key: str, command: Optional[Callable], shortcut: Optional[str] = None, is_danger: bool = False):
+            icon_img = self._menu_icons.get(icon_key)
+            text_color = "#F87171" if is_danger else "#F8FAFC"
+            hover_color = "#3B1824" if is_danger else "#1E2D5A"
+
+            btn = ctk.CTkButton(
+                content,
+                text=f"  {label}",
+                image=icon_img,
+                compound="left",
+                anchor="w",
+                height=34,
+                corner_radius=8,
+                fg_color="transparent",
+                hover_color=hover_color,
+                text_color=text_color,
+                font=(FONT_FAMILY, 11),
+                command=lambda c=command: self._exec_gear_option(c),
+            )
+            btn.pack(fill="x", pady=1)
+
+            if shortcut:
+                lbl_shortcut = ctk.CTkLabel(
+                    btn,
+                    text=shortcut,
+                    font=(FONT_FAMILY, 10),
+                    text_color="#94A3B8",
+                    fg_color="transparent",
+                )
+                lbl_shortcut.place(relx=1.0, rely=0.5, anchor="e", x=-10)
+                lbl_shortcut.bind("<Button-1>", lambda e, c=command: self._exec_gear_option(c))
+                lbl_shortcut.bind("<Enter>", lambda e, b=btn: b._on_enter())
+                lbl_shortcut.bind("<Leave>", lambda e, b=btn: b._on_leave())
+
+        # ── Sección ARCHIVO ─────────────────────────────────────────────
+        add_header("ARCHIVO", is_first=True)
+        add_option("Cargar datos", "folder_open", self.load_from_json, shortcut="Ctrl+O")
+        add_option("Guardar datos", "save", self.save_data, shortcut="Ctrl+S")
+
+        # ── Sección DATOS ───────────────────────────────────────────────
+        add_header("DATOS")
+        add_option("Descargar del SCIENTI", "download", self.download_scienti_default)
+        add_option("Cargar desde CSV", "csv", self.import_from_csv)
+        add_option("Cola de importación", "queue", self.open_cola_importacion)
+
+        # ── Sección AYUDA ───────────────────────────────────────────────
+        add_header("AYUDA")
+        add_option("Acerca de", "info", self.about)
+
+        # Separador fino antes de salir
+        sep = ctk.CTkFrame(content, height=1, fg_color="#1E293B")
+        sep.pack(fill="x", padx=4, pady=(6, 4))
+
+        # ── SALIR ──────────────────────────────────────────────────────
+        add_option("Salir", "logout", self.exit_app, is_danger=True)
+
+        popup.update_idletasks()
+
+        # Dimensiones y posicionamiento justo encima y alineado a la derecha de la tuerca
+        popup_w = 260
+        popup_h = container.winfo_reqheight()
+
+        try:
+            btn_x = self.btn_gear.winfo_rootx()
+            btn_y = self.btn_gear.winfo_rooty()
+            btn_w = self.btn_gear.winfo_width()
+
+            # Alinear el borde derecho del popup con el borde derecho de la tuerca
+            pos_x = max(self.winfo_rootx() + 8, (btn_x + btn_w) - popup_w)
+            # Posicionar justo encima de la tuerca con 6 px de separación
+            pos_y = max(10, btn_y - popup_h - 6)
+        except Exception:
+            pos_x = self.winfo_rootx() + 16
+            pos_y = self.winfo_rooty() + 200
+
+        popup.geometry(f"{popup_w}x{popup_h}+{pos_x}+{pos_y}")
+
+        # Pequeña animación de aparición suave (alpha 0 -> 1 en ~120 ms)
+        def _fade_in(step=0):
+            if not self._gear_popup or not self._gear_popup.winfo_exists():
+                return
+            alpha = min(1.0, (step + 1) * 0.18)
+            try:
+                self._gear_popup.attributes("-alpha", alpha)
+            except Exception:
+                return
+            if alpha < 1.0:
+                self.after(20, lambda: _fade_in(step + 1))
+
+        self.after(10, _fade_in)
+
+        # Cierre con Escape
+        popup.bind("<Escape>", lambda e: self._close_gear_popup())
+
+        # Cierre al perder el foco de la ventana emergente
+        def _on_focus_out(e):
+            try:
+                focused = popup.focus_get()
+                if focused and str(focused).startswith(str(popup)):
+                    return
+            except Exception:
+                pass
+            self.after(60, self._close_gear_popup)
+
+        popup.bind("<FocusOut>", _on_focus_out)
+
+        # Cierre al hacer clic fuera dentro de la ventana principal
+        if hasattr(self, "_popup_click_bind_id") and self._popup_click_bind_id:
+            try:
+                self.unbind("<Button-1>", self._popup_click_bind_id)
+            except Exception:
+                pass
+        self._popup_click_bind_id = self.bind("<Button-1>", self._on_window_click_outside_popup, add="+")
+
+        # Establecer foco para capturar eventos de teclado
+        popup.after(30, popup.focus_set)
+
+    def _exec_gear_option(self, command: Optional[Callable]):
+        """Cierra el popup de la tuerca y ejecuta el callback correspondiente."""
+        self._close_gear_popup()
         if command:
-            self.after(10, command)
+            self.after(20, command)
+
+    def _close_gear_popup(self):
+        """Cierra la ventana emergente de la tuerca y limpia bindings auxiliares."""
+        if hasattr(self, "_popup_click_bind_id") and self._popup_click_bind_id:
+            try:
+                self.unbind("<Button-1>", self._popup_click_bind_id)
+            except Exception:
+                pass
+            self._popup_click_bind_id = None
+
+        if hasattr(self, "_gear_popup") and self._gear_popup is not None:
+            self._last_gear_popup_closed = time.time()
+            try:
+                self._gear_popup.destroy()
+            except Exception:
+                pass
+            self._gear_popup = None
+
+        # Devolver el foco a la ventana principal para mantenerla activa
+        try:
+            self.focus_set()
+        except Exception:
+            pass
 
     def _close_more_options_panel(self):
-        """Cierra el panel emergente de opciones si está abierto."""
-        if self._options_bind_id:
-            try:
-                self.unbind("<Button-1>", self._options_bind_id)
-            except Exception:
-                pass
-            self._options_bind_id = None
+        """Alias de compatibilidad para cerrar el popup emergente."""
+        self._close_gear_popup()
 
-        if self._options_panel is not None:
-            try:
-                self._options_panel.place_forget()
-                self._options_panel.destroy()
-            except Exception:
-                pass
-            self._options_panel = None
-
-    def _enable_options_click_outside(self):
-        """Activa la detección de clic fuera cuando el panel está visible."""
-        if self._options_panel is not None and self._options_bind_id is None:
-            self._options_bind_id = self.bind("<Button-1>", self._on_options_click_outside, add="+")
-
-    def _on_options_click_outside(self, event):
-        """Cierra el panel de opciones si se hace clic fuera de él."""
-        if not self._options_panel:
+    def _on_window_click_outside_popup(self, event):
+        """Detecta clics fuera del popup dentro de la ventana principal y lo cierra."""
+        if not hasattr(self, "_gear_popup") or self._gear_popup is None:
             return
 
-        # 1. Comprobar si el clic cayó dentro del panel
+        # Si el clic fue en la tuerca, el toggle se encarga
         try:
-            px = self._options_panel.winfo_rootx()
-            py = self._options_panel.winfo_rooty()
-            pw = self._options_panel.winfo_width()
-            ph = self._options_panel.winfo_height()
-            if px <= event.x_root <= px + pw and py <= event.y_root <= py + ph:
-                return
-        except Exception:
-            pass
-
-        # 2. Comprobar si cayó en el botón activador
-        try:
-            bx = self.btn_more_options.winfo_rootx()
-            by = self.btn_more_options.winfo_rooty()
-            bw = self.btn_more_options.winfo_width()
-            bh = self.btn_more_options.winfo_height()
+            bx = self.btn_gear.winfo_rootx()
+            by = self.btn_gear.winfo_rooty()
+            bw = self.btn_gear.winfo_width()
+            bh = self.btn_gear.winfo_height()
             if bx <= event.x_root <= bx + bw and by <= event.y_root <= by + bh:
                 return
         except Exception:
             pass
 
-        self._close_more_options_panel()
+        # Si el clic fue dentro del popup, mantenerlo
+        try:
+            px = self._gear_popup.winfo_rootx()
+            py = self._gear_popup.winfo_rooty()
+            pw = self._gear_popup.winfo_width()
+            ph = self._gear_popup.winfo_height()
+            if px <= event.x_root <= px + pw and py <= event.y_root <= py + ph:
+                return
+        except Exception:
+            pass
+
+        self._close_gear_popup()
 
     # ╔══════════════════════════════════════════════════════════════════╗
     # ║  5. PERSISTENCIA Y OPERACIONES CRUD                            ║
@@ -851,6 +963,18 @@ class App(ctk.CTk):
 
             if hasattr(self, "status_count_lbl") and self.status_count_lbl:
                 self.status_count_lbl.configure(text=full_status)
+
+            # Actualizar estado de persistencia real en el pie del sidebar
+            pers_name = "JSON"
+            if hasattr(self, "persistencia") and self.persistencia:
+                if hasattr(self.persistencia, "tipo"):
+                    pers_name = str(self.persistencia.tipo)
+                elif hasattr(self.persistencia, "filepath"):
+                    ext = Path(self.persistencia.filepath).suffix.replace(".", "").upper()
+                    if ext:
+                        pers_name = ext
+            if hasattr(self, "sidebar_version_lbl") and self.sidebar_version_lbl:
+                self.sidebar_version_lbl.configure(text=f"v1.0 · Persistencia: {pers_name}")
         except Exception:
             pass
 
@@ -1726,11 +1850,15 @@ class App(ctk.CTk):
         self.quit()
 
     def _bind_global_events(self):
-        """Registra listeners de teclado globales (F5, Escape, Ctrl+Z)."""
+        """Registra listeners de teclado globales (F5, Escape, Ctrl+Z, Ctrl+S, Ctrl+O)."""
         self.bind_all("<F5>", lambda e: self.refresh_all())
         self.bind_all("<Escape>", lambda e: self._close_more_options_panel())
         self.bind_all("<Control-z>", lambda e: self.undo_delete())
         self.bind_all("<Control-Z>", lambda e: self.undo_delete())
+        self.bind_all("<Control-s>", lambda e: self.save_data())
+        self.bind_all("<Control-S>", lambda e: self.save_data())
+        self.bind_all("<Control-o>", lambda e: self.load_from_json())
+        self.bind_all("<Control-O>", lambda e: self.load_from_json())
 
 
 if __name__ == "__main__":

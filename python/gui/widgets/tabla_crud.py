@@ -279,17 +279,33 @@ class TablaCRUD(ctk.CTkFrame):
         self.toolbar = ctk.CTkFrame(self, fg_color='transparent')
         self.toolbar.grid(row=0, column=0, sticky='ew', pady=(0, SPACING['sm']))
 
-        # Zona Izquierda: Buscador + contenedor de filtros propios de la pestaña
+        # Zona Izquierda: Buscador con botón de limpiar + contenedor de filtros propios de la pestaña
         self.left_tools = ctk.CTkFrame(self.toolbar, fg_color='transparent')
         self.left_tools.pack(side='left', fill='y')
 
+        self.search_container = ctk.CTkFrame(self.left_tools, fg_color='transparent')
+        self.search_container.pack(side='left', padx=(0, SPACING['sm']))
+
         self.search_entry = entrada_busqueda(
-            self.left_tools,
+            self.search_container,
             placeholder=self.search_placeholder,
-            width=240,
+            width=260,
         )
-        self.search_entry.pack(side='left', padx=(0, SPACING['sm']))
-        self.search_entry.bind('<KeyRelease>', lambda e: self.apply_filter())
+        self.search_entry.pack(side='left')
+        self.search_entry.bind('<KeyRelease>', lambda e: self._on_search_keyrelease())
+
+        self.btn_clear_search = ctk.CTkButton(
+            self.search_container,
+            text="✕",
+            width=28,
+            height=CONTROL_HEIGHT,
+            corner_radius=RADIUS['control'],
+            fg_color="transparent",
+            hover_color=COLORS['surface_alt'],
+            text_color=COLORS['muted'],
+            font=font('small_bold'),
+            command=self._clear_search,
+        )
 
         # Contenedor para filtros adicionales inyectados por cada pestaña
         self.extra_filters_frame = ctk.CTkFrame(self.left_tools, fg_color='transparent')
@@ -330,6 +346,25 @@ class TablaCRUD(ctk.CTkFrame):
         )
         self.btn_refresh.pack(side='right', padx=(0, 0))
 
+    def _on_search_keyrelease(self):
+        """Gestiona la aparición dinámica del botón para limpiar el buscador y aplica filtro."""
+        text = self.search_entry.get().strip()
+        if text:
+            if not self.btn_clear_search.winfo_ismapped():
+                self.btn_clear_search.pack(side='left', padx=(4, 0))
+        else:
+            if self.btn_clear_search.winfo_ismapped():
+                self.btn_clear_search.pack_forget()
+        self.apply_filter()
+
+    def _clear_search(self):
+        """Limpia el campo de búsqueda y refresca la tabla."""
+        self.search_entry.delete(0, 'end')
+        if self.btn_clear_search.winfo_ismapped():
+            self.btn_clear_search.pack_forget()
+        self.apply_filter()
+        self.search_entry.focus_set()
+
     def _build_context_bar(self):
         """Construye la barra contextual interactiva sobre la tabla."""
         self.context_bar = ctk.CTkFrame(
@@ -350,7 +385,9 @@ class TablaCRUD(ctk.CTkFrame):
         self.chip_badge = ctk.CTkFrame(
             self.ctx_left,
             fg_color=COLORS['surface_subtle'],
-            corner_radius=RADIUS['badge'],
+            corner_radius=RADIUS['pill'],
+            border_width=1,
+            border_color=COLORS['border'],
         )
         self.chip_badge.pack(side='left', padx=(0, SPACING['xs']))
 
@@ -360,16 +397,16 @@ class TablaCRUD(ctk.CTkFrame):
             font=font('badge'),
             text_color=COLORS['muted_light'],
         )
-        self.chip_label.pack(padx=SPACING['sm'], pady=3)
+        self.chip_label.pack(padx=SPACING['sm'], pady=2)
 
         self.btn_clear_sel = button(
             self.ctx_left,
-            text="Deseleccionar",
+            text="✕ Deseleccionar",
             variant='tertiary',
             command=self.clear_selection,
             height=28,
         )
-        self.btn_clear_sel.pack(side='left')
+        self.btn_clear_sel.pack(side='left', padx=(SPACING['xs'], 0))
         self.btn_clear_sel.configure(state='disabled')
 
         # Lado derecho: Acciones contextuales sobre la selección
@@ -379,7 +416,7 @@ class TablaCRUD(ctk.CTkFrame):
         # Botón Editar (activo solo con exactamente 1 seleccionado)
         self.btn_edit = boton_secundario(
             self.ctx_right,
-            text="Editar",
+            text="✎ Editar",
             command=self._handle_editar,
             height=30,
         )
@@ -389,7 +426,7 @@ class TablaCRUD(ctk.CTkFrame):
         # Botón Activar / Desactivar (cambia texto dinámicamente)
         self.btn_toggle = boton_secundario(
             self.ctx_right,
-            text="Desactivar",
+            text="⚡ Desactivar",
             command=self._handle_toggle_estado,
             height=30,
         )
@@ -409,7 +446,7 @@ class TablaCRUD(ctk.CTkFrame):
         # Botón Eliminar en rojo suave
         self.btn_delete = boton_peligro(
             self.ctx_right,
-            text="Eliminar",
+            text="🗑 Eliminar",
             command=self._handle_eliminar_request,
             height=30,
         )
@@ -688,7 +725,11 @@ class TablaCRUD(ctk.CTkFrame):
         visible = len(self._filtered_rows)
         singular = (total == 1)
         name = self.entity_name if singular else self.entity_name_plural
-        self.count_label.configure(text=f"{visible} de {total} {name}")
+        query = self.search_entry.get().strip()
+        if query:
+            self.count_label.configure(text=f"Mostrando {visible} de {total} {name} (filtrados por '{query}')")
+        else:
+            self.count_label.configure(text=f"Total: {visible} de {total} {name}")
 
     def _update_empty_state(self):
         """Muestra u oculta el contenedor centrado de estado vacío, distinguiendo
@@ -736,6 +777,8 @@ class TablaCRUD(ctk.CTkFrame):
     def clear_search_and_filters(self):
         """Restablece el campo de búsqueda y vuelve a aplicar los filtros."""
         self.search_entry.delete(0, 'end')
+        if hasattr(self, 'btn_clear_search') and self.btn_clear_search.winfo_ismapped():
+            self.btn_clear_search.pack_forget()
         self.apply_filter()
 
     # ╔══════════════════════════════════════════════════════════════════╗
@@ -1038,15 +1081,17 @@ class TablaCRUD(ctk.CTkFrame):
                 tearoff=0,
                 bg=COLORS['surface'],
                 fg=COLORS['ink'],
-                activebackground=COLORS['surface_alt'],
-                activeforeground=COLORS['accent'],
-                font=font('body'),
+                activebackground=COLORS['accent_soft'],
+                activeforeground=COLORS['primary'],
+                font=(FONT_FAMILY, 10),
+                relief='solid',
+                borderwidth=1,
             )
             if len(selected_ids) == 1:
-                menu.add_command(label="Editar", command=self._handle_editar)
-            menu.add_command(label=toggle_text, command=self._handle_toggle_estado)
+                menu.add_command(label="✎  Editar", command=self._handle_editar)
+            menu.add_command(label=f"⚡  {toggle_text}", command=self._handle_toggle_estado)
             menu.add_separator()
-            menu.add_command(label="Eliminar", command=self._handle_eliminar_request)
+            menu.add_command(label="🗑  Eliminar", command=self._handle_eliminar_request)
 
             try:
                 menu.tk_popup(event.x_root, event.y_root)

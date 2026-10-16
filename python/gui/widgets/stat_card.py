@@ -110,6 +110,23 @@ class StatCard(ctk.CTkFrame):
             )
             self.lbl_note.pack(fill="x", anchor="w")
 
+        # Efecto hover interactivo sobre la tarjeta
+        for w in (self, body, top, self.lbl_title, self.lbl_value, self.lbl_variation):
+            w.bind("<Enter>", self._on_enter)
+            w.bind("<Leave>", self._on_leave)
+
+    def _on_enter(self, _evt=None):
+        try:
+            self.configure(border_color=self.accent_color)
+        except Exception:
+            pass
+
+    def _on_leave(self, _evt=None):
+        try:
+            self.configure(border_color=COLORS["border"])
+        except Exception:
+            pass
+
     @staticmethod
     def _variation_color(text: Optional[str]) -> str:
         if not text:

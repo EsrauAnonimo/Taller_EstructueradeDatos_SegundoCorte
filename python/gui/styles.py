@@ -2,16 +2,17 @@
 """
 PEA-i  ·  Sistema de diseño central
 =====================================
-Paleta institucional Unicesar:
-- Sidebar: Azul marino oscuro #0F1B3D
-- Header: Azul #1E3A8A
-- Fondo del contenido: #F3F4F6
-- Tarjetas: Blanco #FFFFFF con borde #E5E7EB y radio 12
+Paleta institucional Unicesar refinada:
+- Sidebar: Azul marino slate #0B132B con hover #1C2541 y acento activo
+- Header: Azul institucional #1E3A8A con contraste nítido y texto blanco
+- Fondo del contenido: #F8FAFC (Slate-50)
+- Tarjetas: Blanco #FFFFFF con borde sutil #E2E8F0 y radio 12
 - Primario: Azul #2563EB (hover #1D4ED8)
-- Éxito: #16A34A sobre #DCFCE7
-- Peligro: #DC2626 (borde y texto rojo, fondo blanco, hover #FEE2E2)
-- Tipografía Segoe UI, controles de 36-44 px, radio 8
-- Íconos de texto Unicode sin archivos de imagen externos
+- Éxito: Esmeralda #10B981 (soft #ECFDF5)
+- Advertencia: Ámbar #F59E0B (soft #FFFBEB)
+- Peligro: Rojo #EF4444 (hover #FEE2E2, soft #FEF2F2)
+- Tipografía Segoe UI, controles de 36-40 px, radio 8
+- Íconos de texto Unicode integrados sin archivos externos
 """
 
 from typing import Dict, Any, Optional, List, Callable
@@ -25,73 +26,79 @@ import customtkinter as ctk
 
 COLORS: Dict[str, str] = {
     # — Estructura principal —
-    'sidebar':          '#0F1B3D',       # Azul marino oscuro sidebar
-    'sidebar_hover':    '#1E293B',       # Hover elementos sidebar
-    'sidebar_active':   '#1D4ED8',       # Fondo elemento activo sidebar
-    'sidebar_text':     '#94A3B8',       # Texto inactivo sidebar
-    'sidebar_text_active':'#FFFFFF',     # Texto activo sidebar
-    'sidebar_border':   '#1E293B',       # Divisor sidebar
+    'sidebar':            '#0B132B',       # Azul marino slate profundo
+    'sidebar_hover':      '#1C2541',       # Hover elementos sidebar
+    'sidebar_active':     '#1D4ED8',       # Fondo elemento activo sidebar
+    'sidebar_indicator':  '#38BDF8',       # Barra de acento celeste brillante
+    'sidebar_text':       '#94A3B8',       # Texto inactivo sidebar (Slate-400)
+    'sidebar_text_active':'#FFFFFF',       # Texto activo sidebar
+    'sidebar_border':     '#1E293B',       # Divisor sidebar (Slate-800)
 
-    'header':           '#1E3A8A',       # Azul header
-    'header_text':      '#FFFFFF',       # Título header blanco bold
-    'header_sub':       '#BFDBFE',       # Subtítulo header celeste suave
+    'header':             '#1E3A8A',       # Azul institucional Unicesar
+    'header_text':        '#FFFFFF',       # Título header blanco bold
+    'header_sub':         '#BFDBFE',       # Subtítulo header celeste suave
+    'header_badge_bg':    '#172554',       # Fondo badge en header
 
     # — Superficies y fondos —
-    'bg':               '#F3F4F6',       # Fondo general de la aplicación
-    'surface':          '#FFFFFF',       # Fondo tarjetas y contenedores
-    'surface_alt':      '#F9FAFB',       # Fondo alterno / hover suave
-    'surface_subtle':   '#F3F4F6',
-    'border':           '#E5E7EB',       # Bordes principales
-    'border_subtle':    '#F3F4F6',
+    'bg':                 '#F8FAFC',       # Fondo general de la aplicación (Slate-50)
+    'surface':            '#FFFFFF',       # Fondo tarjetas y contenedores
+    'surface_alt':        '#F1F5F9',       # Fondo alterno / hover suave (Slate-100)
+    'surface_subtle':     '#F8FAFC',       # Fondo muy suave
+    'border':             '#E2E8F0',       # Bordes principales (Slate-200)
+    'border_subtle':      '#F1F5F9',       # Borde sutil
 
     # — Jerarquía tipográfica (Ink) —
-    'ink':              '#111827',       # Texto principal oscuro
-    'ink_soft':         '#374151',       # Texto intermedio
-    'muted':            '#6B7280',       # Texto secundario / gris
-    'muted_light':      '#9CA3AF',       # Texto deshabilitado / placeholder
+    'ink':                '#0F172A',       # Texto principal oscuro (Slate-900)
+    'ink_soft':           '#334155',       # Texto intermedio (Slate-700)
+    'muted':              '#64748B',       # Texto secundario (Slate-500)
+    'muted_light':        '#94A3B8',       # Texto deshabilitado / placeholder (Slate-400)
 
     # — Colores primarios y acentos —
-    'primary':          '#2563EB',       # Azul primario
-    'primary_hover':    '#1D4ED8',       # Hover azul primario
-    'accent':           '#2563EB',       # Alias primario
-    'accent_hover':     '#1D4ED8',
-    'accent_soft':      '#EFF6FF',       # Fondo azul muy suave para selección
-    'accent_border':    '#BFDBFE',
+    'primary':            '#2563EB',       # Azul primario (Blue-600)
+    'primary_hover':      '#1D4ED8',       # Hover azul primario (Blue-700)
+    'accent':             '#2563EB',       # Alias primario
+    'accent_hover':       '#1D4ED8',
+    'accent_soft':        '#EFF6FF',       # Fondo azul muy suave para selección (Blue-50)
+    'accent_border':      '#BFDBFE',       # Borde acento suave (Blue-200)
 
     # — Estados semánticos —
-    'success':          '#16A34A',       # Verde éxito
-    'success_soft':     '#DCFCE7',       # Fondo badge activo
-    'success_border':   '#BBF7D0',
-    'warning':          '#D97706',       # Ámbar alerta
-    'warning_soft':     '#FFFBEB',
-    'warning_border':   '#FDE68A',
-    'danger':           '#DC2626',       # Rojo peligro
-    'danger_hover':     '#FEE2E2',       # Hover botón peligro
-    'danger_soft':      '#FEE2E2',
-    'danger_border':    '#DC2626',
+    'success':            '#10B981',       # Verde esmeralda (Emerald-500)
+    'success_hover':      '#059669',       # Emerald-600
+    'success_soft':       '#ECFDF5',       # Fondo badge activo (Emerald-50)
+    'success_border':     '#A7F3D0',       # Borde éxito suave (Emerald-200)
+
+    'warning':            '#F59E0B',       # Ámbar alerta (Amber-500)
+    'warning_hover':      '#D97706',       # Amber-600
+    'warning_soft':       '#FFFBEB',       # Fondo badge alerta (Amber-50)
+    'warning_border':     '#FDE68A',       # Borde alerta suave (Amber-200)
+
+    'danger':             '#EF4444',       # Rojo peligro (Rose-500)
+    'danger_hover':       '#FEE2E2',       # Hover botón peligro
+    'danger_soft':        '#FEF2F2',       # Fondo peligro suave (Rose-50)
+    'danger_border':      '#FCA5A5',       # Borde peligro suave (Rose-300)
 
     # — Badges de estado —
-    'badge_active_bg':  '#DCFCE7',
-    'badge_active_text':'#16A34A',
-    'badge_inactive_bg':'#F3F4F6',
-    'badge_inactive_text':'#6B7280',
+    'badge_active_bg':    '#ECFDF5',
+    'badge_active_text':  '#059669',
+    'badge_inactive_bg':  '#F1F5F9',
+    'badge_inactive_text':'#64748B',
 
     # — Pestañas / selectores —
-    'segment_bg':       '#E5E7EB',
+    'segment_bg':         '#E2E8F0',
 
     # — Utilidades —
-    'white':            '#FFFFFF',
-    'transparent':      'transparent',
+    'white':              '#FFFFFF',
+    'transparent':        'transparent',
 
     # — Alias de retrocompatibilidad —
-    'fg':               '#111827',
-    'accent_text':      '#FFFFFF',
+    'fg':                 '#0F172A',
+    'accent_text':        '#FFFFFF',
 }
 
 COLOR_PALETTE = COLORS
 
-# Paleta curada para gráficos estadísticos (azul, teal, ámbar, púrpura, gris)
-CHART_COLORS: List[str] = ['#2563EB', '#0D9488', '#F59E0B', '#8B5CF6', '#6B7280']
+# Paleta curada para gráficos estadísticos (azul, esmeralda, ámbar, violeta, pizarra)
+CHART_COLORS: List[str] = ['#2563EB', '#10B981', '#F59E0B', '#8B5CF6', '#64748B', '#06B6D4', '#EC4899']
 BAR_WIDTH: float = 0.52
 
 # ╔══════════════════════════════════════════════════════════════════════╗
@@ -119,6 +126,11 @@ ICONS: Dict[str, str] = {
     'asc':              '▲',
     'desc':             '▼',
     'filtro':           '⚡',
+    'undo':             '↶',
+    'info':             'ℹ',
+    'alerta':           '⚠️',
+    'limpiar':          '✕',
+    'carpeta':          '📁',
 }
 
 # ╔══════════════════════════════════════════════════════════════════════╗
@@ -133,17 +145,17 @@ TEXTO       = (FONT_FAMILY, 12, 'normal')
 PEQUEÑO     = (FONT_FAMILY, 11, 'normal')
 
 FONT_SPECS: Dict[str, Dict[str, Any]] = {
-    'display':  {'size': 24, 'weight': 'bold'},
-    'title':    {'size': 18, 'weight': 'bold'},
-    'heading':  {'size': 14, 'weight': 'bold'},
-    'body':     {'size': 13, 'weight': 'normal'},
-    'body_bold':{'size': 13, 'weight': 'bold'},
-    'texto':    {'size': 12, 'weight': 'normal'},
-    'small':    {'size': 11, 'weight': 'normal'},
-    'small_bold':{'size': 11, 'weight': 'bold'},
-    'badge':    {'size': 11, 'weight': 'bold'},
-    'stat':     {'size': 28, 'weight': 'bold'},
-    'icon_lg':  {'size': 28, 'weight': 'bold'},
+    'display':    {'size': 22, 'weight': 'bold'},
+    'title':      {'size': 18, 'weight': 'bold'},
+    'heading':    {'size': 14, 'weight': 'bold'},
+    'body':       {'size': 13, 'weight': 'normal'},
+    'body_bold':  {'size': 13, 'weight': 'bold'},
+    'texto':      {'size': 12, 'weight': 'normal'},
+    'small':      {'size': 11, 'weight': 'normal'},
+    'small_bold': {'size': 11, 'weight': 'bold'},
+    'badge':      {'size': 11, 'weight': 'bold'},
+    'stat':       {'size': 26, 'weight': 'bold'},
+    'icon_lg':    {'size': 26, 'weight': 'bold'},
 }
 
 _FONT_CACHE: Dict[str, ctk.CTkFont] = {}
@@ -168,18 +180,18 @@ def font(role: str) -> ctk.CTkFont:
 RADIUS: Dict[str, int] = {
     'card':    12,       # Tarjetas con radio 12
     'control': 8,        # Botones e inputs con radio 8
-    'badge':   6,
-    'pill':    100,
+    'badge':   6,        # Badges pequeños con radio 6
+    'pill':    100,      # Píldoras redondas
 }
 
-CONTROL_HEIGHT: int = 38  # Rango 36-44 px
+CONTROL_HEIGHT: int = 38  # Altura estándar de controles (36-40 px)
 
 SPACING: Dict[str, int] = {
     'xs': 4,
     'sm': 8,
     'md': 16,
-    'lg': 24,
-    'xl': 32,
+    'lg': 20,
+    'xl': 28,
 }
 
 SPACING_BASE: int = 8
@@ -207,7 +219,7 @@ def boton_primario(master, text: str = '', command=None, **kwargs) -> ctk.CTkBut
 
 
 def boton_secundario(master, text: str = '', command=None, **kwargs) -> ctk.CTkButton:
-    """Botón blanco con borde sutil #E5E7EB y texto oscuro."""
+    """Botón blanco con borde sutil #E2E8F0 y texto oscuro."""
     kwargs.pop('variant', None)
     base: Dict[str, Any] = {
         'height':               CONTROL_HEIGHT,
@@ -224,8 +236,25 @@ def boton_secundario(master, text: str = '', command=None, **kwargs) -> ctk.CTkB
     return ctk.CTkButton(master, text=text, **{**base, **kwargs})
 
 
+def boton_advertencia(master, text: str = '', command=None, **kwargs) -> ctk.CTkButton:
+    """Botón ámbar/advertencia (hover #D97706), texto blanco."""
+    kwargs.pop('variant', None)
+    base: Dict[str, Any] = {
+        'height':               CONTROL_HEIGHT,
+        'corner_radius':        RADIUS['control'],
+        'font':                 font('body_bold'),
+        'command':              command,
+        'fg_color':             COLORS['warning'],
+        'hover_color':          COLORS['warning_hover'],
+        'text_color':           COLORS['white'],
+        'text_color_disabled':  COLORS['muted_light'],
+        'border_width':         0,
+    }
+    return ctk.CTkButton(master, text=text, **{**base, **kwargs})
+
+
 def boton_peligro(master, text: str = '', command=None, **kwargs) -> ctk.CTkButton:
-    """Botón destructivo: borde y texto rojo #DC2626, fondo blanco, hover #FEE2E2."""
+    """Botón destructivo: borde y texto rojo #EF4444, fondo blanco, hover #FEE2E2."""
     kwargs.pop('variant', None)
     base: Dict[str, Any] = {
         'height':               CONTROL_HEIGHT,
@@ -245,9 +274,11 @@ def boton_peligro(master, text: str = '', command=None, **kwargs) -> ctk.CTkButt
 def boton_icono(master, text: str = '', command=None, **kwargs) -> ctk.CTkButton:
     """Botón cuadrado discreto pensado para íconos (ej. «⟳», «✕»)."""
     kwargs.pop('variant', None)
+    w = kwargs.pop('width', CONTROL_HEIGHT)
+    h = kwargs.pop('height', CONTROL_HEIGHT)
     base: Dict[str, Any] = {
-        'width':                CONTROL_HEIGHT,
-        'height':               CONTROL_HEIGHT,
+        'width':                w,
+        'height':               h,
         'corner_radius':        RADIUS['control'],
         'font':                 font('body'),
         'command':              command,
@@ -261,27 +292,36 @@ def boton_icono(master, text: str = '', command=None, **kwargs) -> ctk.CTkButton
     return ctk.CTkButton(master, text=text, **{**base, **kwargs})
 
 
+def boton_fantasma(master, text: str = '', command=None, **kwargs) -> ctk.CTkButton:
+    """Botón transparente con hover suave para acciones secundarias o de deselección."""
+    kwargs.pop('variant', None)
+    h = kwargs.pop('height', 30)
+    base: Dict[str, Any] = {
+        'height':               h,
+        'corner_radius':        RADIUS['control'],
+        'font':                 font('body'),
+        'command':              command,
+        'fg_color':             'transparent',
+        'hover_color':          COLORS['surface_alt'],
+        'text_color':           COLORS['ink_soft'],
+        'text_color_disabled':  COLORS['muted_light'],
+        'border_width':         0,
+    }
+    return ctk.CTkButton(master, text=text, **{**base, **kwargs})
+
+
 def button(master, text: str = '', command=None, variant: str = 'secondary', **kwargs) -> ctk.CTkButton:
     """Fábrica de botones compatible con el parámetro variant."""
     if variant == 'primary':
         return boton_primario(master, text=text, command=command, **kwargs)
     elif variant == 'danger':
         return boton_peligro(master, text=text, command=command, **kwargs)
+    elif variant == 'warning':
+        return boton_advertencia(master, text=text, command=command, **kwargs)
     elif variant == 'icon':
         return boton_icono(master, text=text, command=command, **kwargs)
-    elif variant == 'ghost':
-        h = kwargs.pop('height', 28)
-        base = {
-            'height':               h,
-            'corner_radius':        RADIUS['control'],
-            'font':                 font('body'),
-            'command':              command,
-            'fg_color':             'transparent',
-            'hover_color':          COLORS['surface_alt'],
-            'text_color':           COLORS['ink'],
-            'border_width':         0,
-        }
-        return ctk.CTkButton(master, text=text, **{**base, **kwargs})
+    elif variant in ('ghost', 'tertiary'):
+        return boton_fantasma(master, text=text, command=command, **kwargs)
     else:
         return boton_secundario(master, text=text, command=command, **kwargs)
 
@@ -334,7 +374,7 @@ def combo(
     width: int = 160,
     **kwargs,
 ) -> ctk.CTkOptionMenu:
-    """CTkOptionMenu estilizado."""
+    """CTkOptionMenu estilizado con altura estándar."""
     base: Dict[str, Any] = {
         'values':               values,
         'variable':             variable,
@@ -357,7 +397,7 @@ def combo(
 
 
 def tarjeta(master, corner_radius: int = 12, **kwargs) -> ctk.CTkFrame:
-    """Contenedor de tarjeta blanco con borde #E5E7EB y radio 12."""
+    """Contenedor de tarjeta blanco con borde #E2E8F0 y radio 12."""
     base: Dict[str, Any] = {
         'corner_radius': corner_radius,
         'fg_color':      COLORS['surface'],
@@ -368,7 +408,6 @@ def tarjeta(master, corner_radius: int = 12, **kwargs) -> ctk.CTkFrame:
 
 
 # Alias de compatibilidad previa
-button = boton_secundario
 card = tarjeta
 entry = entrada_busqueda
 
@@ -398,9 +437,9 @@ def setup_treeview_style(root) -> ttk.Style:
         pass
 
     dpi_scale = get_dpi_scale(root)
-    row_height = int(round(46 * dpi_scale))
+    row_height = int(round(44 * dpi_scale))
     pad_x = int(round(12 * dpi_scale))
-    pad_y = int(round(10 * dpi_scale))
+    pad_y = int(round(9 * dpi_scale))
 
     style.layout('Pea.Treeview', [('Treeview.treearea', {'sticky': 'nswe'})])
 
@@ -410,7 +449,7 @@ def setup_treeview_style(root) -> ttk.Style:
         foreground=COLORS['ink'],
         fieldbackground=COLORS['surface'],
         rowheight=row_height,
-        font=(FONT_FAMILY, 12),
+        font=(FONT_FAMILY, 11),
         borderwidth=0,
         relief='flat',
     )
@@ -423,9 +462,9 @@ def setup_treeview_style(root) -> ttk.Style:
 
     style.configure(
         'Pea.Treeview.Heading',
-        background='#F9FAFB',
+        background='#F8FAFC',
         foreground=COLORS['muted'],
-        font=(FONT_FAMILY, 11, 'bold'),
+        font=(FONT_FAMILY, 10, 'bold'),
         relief='flat',
         borderwidth=0,
         padding=(pad_x, pad_y),
@@ -460,7 +499,7 @@ def setup_treeview_style(root) -> ttk.Style:
         darkcolor=COLORS['surface'],
         arrowcolor=COLORS['surface'],
         gripcount=0,
-        width=6,
+        width=7,
     )
 
     return style
@@ -471,9 +510,9 @@ configurar_treeview = setup_treeview_style
 
 def apply_treeview_tags(tree: ttk.Treeview):
     """Configura las etiquetas de alternancia de filas y estado."""
-    tree.tag_configure('odd',  background=COLORS['surface'],     foreground=COLORS['ink'])
-    tree.tag_configure('even', background=COLORS['surface_alt'], foreground=COLORS['ink'])
-    tree.tag_configure('hover', background=COLORS['accent_soft'], foreground=COLORS['ink'])
+    tree.tag_configure('odd',            background=COLORS['surface'],     foreground=COLORS['ink'])
+    tree.tag_configure('even',           background='#F8FAFC',             foreground=COLORS['ink'])
+    tree.tag_configure('hover',          background=COLORS['accent_soft'], foreground=COLORS['ink'])
     tree.tag_configure('active_badge',   foreground=COLORS['success'])
     tree.tag_configure('inactive_badge', foreground=COLORS['muted'])
 
@@ -487,8 +526,10 @@ def style_bar_axes(ax, fig=None):
     ax.spines['right'].set_visible(False)
     ax.spines['left'].set_color(COLORS['border'])
     ax.spines['bottom'].set_color(COLORS['border'])
-    ax.grid(axis='y', linestyle='--', alpha=0.35, color=COLORS['muted_light'])
-    ax.tick_params(colors=COLORS['ink_soft'], labelsize=10)
+    ax.spines['left'].set_linewidth(1.0)
+    ax.spines['bottom'].set_linewidth(1.0)
+    ax.grid(axis='y', linestyle='--', alpha=0.35, color=COLORS['border'])
+    ax.tick_params(colors=COLORS['ink_soft'], labelsize=9.5, width=0.8)
 
 
 def setup_app(root):
