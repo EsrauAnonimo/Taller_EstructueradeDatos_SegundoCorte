@@ -1,0 +1,43 @@
+class Investigador:
+    """Clase para representar un investigador."""
+
+    def __init__(self, id=None, cedula="", nombres="", apellidos="", email="", activo=True, grupo_id=None):
+        """Inicializa un objeto Investigador."""
+        self.id = id
+        self.cedula = cedula
+        self.nombres = nombres
+        self.apellidos = apellidos
+        self.email = email
+        self.activo = activo
+        self.grupo_id = grupo_id
+
+    def __repr__(self):
+        """Representación en cadena del objeto Investigador."""
+        return f"Investigador(id={self.id}, cedula={self.cedula}, nombres={self.nombres}, apellidos={self.apellidos})"
+
+    def to_dict(self):
+        """Convierte el objeto Investigador a un diccionario."""
+        return {
+            "id": self.id,
+            "cedula": self.cedula,
+            "nombres": self.nombres,
+            "apellidos": self.apellidos,
+            "email": self.email,
+            "activo": self.activo,
+            "grupo_id": self.grupo_id
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        """Crea un objeto Investigador a partir de un diccionario."""
+        if data is None:
+            return None
+        return cls(
+            id=data.get("id"),
+            cedula=data.get("cedula", ""),
+            nombres=data.get("nombres", ""),
+            apellidos=data.get("apellidos", ""),
+            email=data.get("email", ""),
+            activo=data.get("activo", True),
+            grupo_id=data.get("grupo_id")
+        )
