@@ -63,13 +63,15 @@ const std::string MAGENTA   = "\033[1;35m";  // Mensajes de sistema.
 // Nombre del archivo de persistencia.
 const std::string ARCHIVO_DATOS = "datos.csv";
 
-// Arte ASCII del titulo (cada linea es una fila del letrero).
+// Banner del titulo: letras de bloque (caracter █) formando la palabra
+// INVESTIGACION. Se usa este diseno porque es mas limpio y legible en la
+// consola de Windows que el arte hecho con '#' y '.'.
 const std::vector<std::string> BANNER = {
-    "#####  #...#  #...#  #####  .####  #####  #####  .###.  .###.  .###.  #####  .###.  #...#",
-    "..#..  ##..#  #...#  #....  #....  ..#..  ..#..  #...#  #...#  #...#  ..#..  #...#  ##..#",
-    "..#..  #.#.#  #...#  ####.  .###.  ..#..  ..#..  #.###  #####  #....  ..#..  #...#  #.#.#",
-    "..#..  #..##  .#.#.  #....  ....#  ..#..  ..#..  #...#  #...#  #...#  ..#..  #...#  #..##",
-    "#####  #...#  ..#..  #####  ####.  ..#..  #####  .###.  #...#  .###.  #####  .###.  #...#",
+    "  █████  █   █  █   █  █████   ████  █████  █████   ███    ███    ███   █████   ███   █   █",
+    "    █    ██  █  █   █  █      █        █      █    █   █  █   █  █   █    █    █   █  ██  █",
+    "    █    █ █ █  █   █  ████    ███     █      █    █ ███  █████  █        █    █   █  █ █ █",
+    "    █    █  ██   █ █   █          █    █      █    █   █  █   █  █   █    █    █   █  █  ██",
+    "  █████  █   █    █    █████  ████     █    █████   ███   █   █   ███   █████   ███   █   █",
 };
 
 // ============================================================================
@@ -88,6 +90,10 @@ Pila historial;
 // ============================================================================
 void habilitarColoresANSI() {
 #ifdef _WIN32
+    // Se cambia la pagina de codigo de salida a UTF-8 para que los caracteres
+    // de bloque del banner (como █) se muestren correctamente en la consola.
+    SetConsoleOutputCP(CP_UTF8);
+
     HANDLE salida = GetStdHandle(STD_OUTPUT_HANDLE);
     if (salida != INVALID_HANDLE_VALUE) {
         DWORD modo = 0;
@@ -969,7 +975,7 @@ void mostrarTitulo() {
         std::cout << CIAN << fila << RESET << std::endl;
     }
     std::cout << MAGENTA
-              << "   Sistema de Gestion de Investigacion"
+              << "                             Sistema de Gestion de Investigacion"
               << RESET << std::endl;
     std::cout << std::endl;
 }

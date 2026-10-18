@@ -218,3 +218,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Artefactos del taller de C++:
+# - *.exe: ejecutables generados al compilar (por ejemplo cpp/programa.exe).
+# - *.csv: datos generados por el programa (por ejemplo cpp/datos.csv).
+*.exe
+*.csv
