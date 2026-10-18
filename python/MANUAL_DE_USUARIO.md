@@ -101,7 +101,20 @@ El sistema gestiona la información académica mediante una **Multilista jerárq
 
 ---
 
-## 5. Solución de Problemas Frecuentes
+## 5. Estructuras de Datos Utilizadas (Requisitos del Proyecto)
+
+Todas las estructuras fueron implementadas **a mano** en la carpeta `modelos/` (sin usar librerías de alto nivel para el modelo):
+
+| Estructura | Archivo | ¿Dónde y cómo se usa en el programa? |
+| :--- | :--- | :--- |
+| **Lista Doblemente Enlazada** | `modelos/lista.py` | Estructura base con punteros anterior y siguiente (`Nodo`) para almacenar, recorrer e iterar elementos en ambos sentidos de forma eficiente. |
+| **Multilista** | `modelos/multilista.py` | Núcleo del modelo en memoria. Conecta jerárquicamente las entidades: cada **Grupo** contiene su sublista de **Investigadores**, y estos a su vez sus **Productos**, permitiendo relaciones cruzadas sin base de datos SQL. |
+| **Pila (Stack - LIFO)** | `modelos/pila.py` | Mecanismo de **Deshacer (Undo)** en Grupos, Investigadores y Productos. Al borrar un registro se apila (`push`), y al pulsar el botón "Deshacer" se desapila (`pop`) restaurándolo al instante. |
+| **Cola (Queue - FIFO)** | `modelos/cola.py` | **Cola de Importación** de MinCiencias (`ColaImportacionModal`). Encola (`enqueue`) URLs de GrupLAC para descargarlas y procesarlas secuencialmente una por una (`dequeue`) en segundo plano sin congelar la app. |
+
+---
+
+## 6. Solución de Problemas Frecuentes
 
 | Problema | Solución |
 | :--- | :--- |
@@ -113,7 +126,7 @@ El sistema gestiona la información académica mediante una **Multilista jerárq
 
 ---
 
-## 6. Autores
+## 7. Autores
 
 Proyecto desarrollado para la asignatura **Estructura de Datos (Grupo 05)** — **Universidad Popular del Cesar (UPC)**:
 
