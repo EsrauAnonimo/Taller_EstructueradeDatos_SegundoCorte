@@ -7,6 +7,9 @@
             "request": "launch",
             "program": "${workspaceFolder}/python/gui/app.py",
             "cwd": "${workspaceFolder}/python",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/python"
+            },
             "console": "integratedTerminal",
             "justMyCode": false
         }

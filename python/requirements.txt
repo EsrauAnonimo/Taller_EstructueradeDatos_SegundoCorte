@@ -1,7 +1,5 @@
+beautifulsoup4
 customtkinter
 matplotlib
 pandas
 requests
-beautifulsoup4
-pdfplumber
-openpyxl
