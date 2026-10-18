@@ -17,30 +17,43 @@
 
 ## 2. Cómo Ejecutar
 
-Elige la opción que prefieras:
+Elige la forma que te resulte más cómoda:
 
-### Opción A: Inicio Rápido en 1 Clic (Recomendada en Windows)
-Usa los scripts automáticos incluidos que configuran las rutas necesarias:
-- **Desde PowerShell:**
+### Opción A: Desde la Terminal (PowerShell o CMD)
+- **Inicio rápido en 1 comando (Recomendada en Windows):**
+  - En **PowerShell**:
+    ```powershell
+    .\rust\ejecutar.ps1
+    ```
+  - En **CMD (Símbolo del sistema)** o doble clic:
+    ```cmd
+    .\rust\ejecutar.bat
+    ```
+- **Con Cargo (Compilar y ejecutar):**
   ```powershell
-  .\rust\ejecutar.ps1
+  cd rust/pea_i
+  cargo run
   ```
-- **Desde CMD o doble clic:**
-  ```cmd
-  .\rust\ejecutar.bat
+- **O ejecutando directamente el binario compilado:**
+  ```powershell
+  cd rust/pea_i
+  .\target\debug\pea_i.exe
   ```
 
-### Opción B: Ejecutar directamente el archivo compilado
-```powershell
-cd rust/pea_i
-.\target\debug\pea_i.exe
-```
-
-### Opción C: Compilar y ejecutar con Cargo
-```powershell
-cd rust/pea_i
-cargo run
-```
+### Opción B: Desde Visual Studio Code (o cualquier IDE)
+1. Abre la carpeta del proyecto en VS Code.
+2. Abre la terminal integrada con el atajo ``Ctrl + ` `` (o `Terminal > New Terminal`).
+3. Ejecuta cualquiera de las dos alternativas:
+   - Directo con el script:
+     ```powershell
+     .\rust\ejecutar.ps1
+     ```
+   - O con Cargo:
+     ```powershell
+     cd rust/pea_i
+     cargo run
+     ```
+4. *(Opcional)* Si tienes instalada la extensión oficial **rust-analyzer**, abre [rust/pea_i/src/main.rs](file:///c:/Users/Esteb/OneDrive/Documentos/Taller_EstructuraDeDatos_2corte/rust/pea_i/src/main.rs) y haz clic en el botón interactivo **▶ Run** que aparece flotando encima de `fn main()`.
 
 ---
 
