@@ -37,9 +37,8 @@ source .venv/bin/activate
 
 ### Paso 2: Instalar dependencias
 ```bash
-pip install -r requirements.txt
+pip install customtkinter matplotlib pandas requests beautifulsoup4
 ```
-*(Si estás en la raíz del proyecto ejecuta: `pip install -r python/requirements.txt`)*
 
 ---
 
@@ -106,7 +105,7 @@ El sistema gestiona la información académica mediante una **Multilista jerárq
 
 | Problema | Solución |
 | :--- | :--- |
-| `No module named 'customtkinter'` o similar | El entorno virtual no está activo. Ejecuta `.\.venv\Scripts\activate` y luego `pip install -r requirements.txt`. |
+| `No module named 'customtkinter'` o similar | El entorno virtual no está activo. Ejecuta `.\.venv\Scripts\activate` y luego `pip install customtkinter matplotlib pandas requests beautifulsoup4`. |
 | Script bloqueado en PowerShell al activar `.venv` | Ejecuta en la terminal: `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`. |
 | Error en Linux: `No module named '_tkinter'` | Falta Tkinter en el sistema operativo. Ejecuta: `sudo apt install python3-tk`. |
 | Error al descargar desde SCIENTI | Revisa tu conexión a internet o verifica que la página de MinCiencias no esté en mantenimiento temporal. |
