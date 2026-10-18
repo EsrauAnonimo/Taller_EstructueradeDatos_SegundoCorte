@@ -3,7 +3,7 @@
 dashboard.py
 Dashboard interactivo (Streamlit) para visualizar los datos generados por el
 programa en C++ del taller. Disenado como el panel de control de un centro de
-investigacion.
+investigacion con un estilo SaaS moderno (modo claro).
 
 Lee el archivo ../cpp/datos.csv, que tiene un formato separado por comas donde
 cada linea empieza con una etiqueta que indica el tipo de registro:
@@ -39,6 +39,211 @@ RUTA_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 st.set_page_config(page_title="Dashboard de Investigación",
                    page_icon="🔬", layout="wide")
 
+
+# --- Paleta y estilos ------------------------------------------------------
+# Colores corporativos usados en los graficos y en el CSS. Se definen aqui
+# para mantener una linea visual coherente en todo el tablero.
+COLOR_PRIMARIO = "#4361ee"     # Azul principal (SaaS).
+COLOR_ACENTO = "#7209b7"       # Morado de acento.
+COLOR_EXITO = "#10b981"        # Verde para "Validado".
+COLOR_ALERTA = "#ef4444"       # Rojo para "Pendiente".
+PALETA_CATEGORICA = ["#4361ee", "#7209b7", "#f72585", "#4cc9f0",
+                     "#f8961e", "#10b981", "#ef476f"]
+
+
+def inyectar_estilos():
+    """
+    Inyecta el CSS personalizado que da el aspecto de dashboard SaaS moderno
+    (modo claro): fondo gris claro, tarjetas blancas con bordes redondeados y
+    sombras suaves, tipografia moderna y barra lateral blanca.
+
+    Es puramente visual: no afecta la logica de datos, filtros ni descargas.
+    """
+    st.markdown(
+        """
+        <style>
+        /* ---- Tipografia moderna ---- */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        html, body, [class*="css"], .stApp, button, input, select, textarea {
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        /* ---- Texto oscuro y en negrilla en todo el tablero ----
+           Se fuerza un color casi negro (#1e293b) y peso semi-negrita
+           (600) en todos los textos para que se lean bien sobre las
+           tarjetas blancas. */
+        .stApp p,
+        .stApp h1,
+        .stApp h2,
+        .stApp h3,
+        .stApp h4,
+        .stApp span,
+        .stApp label,
+        .stApp li {
+            color: #1e293b;
+            font-weight: 600;
+        }
+
+        /* ---- Fondo general (gris muy claro) ---- */
+        .stApp {
+            background-color: #f8f9fa;
+        }
+        [data-testid="stHeader"] {
+            background: transparent;
+        }
+
+        /* ---- Encabezado tipo SaaS ---- */
+        .app-header {
+            background-color: #ffffff;
+            border: 1px solid #eef0f3;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            padding: 1.4rem 1.6rem;
+            margin-bottom: 1.5rem;
+        }
+        .app-header h1 {
+            font-size: 1.7rem;
+            font-weight: 700;
+            color: #1a1f36;
+            margin: 0 0 0.35rem 0;
+        }
+        .app-header p {
+            color: #1e293b;
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin: 0;
+        }
+
+        /* ---- Barra lateral: blanca con divisor sutil ---- */
+        [data-testid="stSidebar"] {
+            background-color: #ffffff;
+            border-right: 1px solid #e9ecef;
+        }
+        [data-testid="stSidebar"] > div:first-child {
+            background-color: #ffffff;
+        }
+        .sidebar-brand {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 0.1rem;
+        }
+        .sidebar-sub {
+            color: #1e293b;
+            font-weight: 600;
+            font-size: 0.8rem;
+            margin-bottom: 0.5rem;
+        }
+        .filtro-titulo {
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #1e293b;
+            margin: 0.4rem 0 0.3rem 0;
+        }
+
+        /* ---- Tarjetas de metricas (KPIs) ----
+           Se mantiene st.metric: se coloca el icono a la izquierda, el
+           numero en grande y la descripcion del texto por debajo. */
+        [data-testid="stMetric"] {
+            position: relative;
+            background-color: #ffffff;
+            border: 1px solid #eef0f3;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            padding: 1.1rem 1.3rem;
+            height: 100%;
+            transition: box-shadow 0.2s ease;
+        }
+        [data-testid="stMetric"]:hover {
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+        }
+        [data-testid="stMetric"] > div {
+            display: flex;
+            flex-direction: column;
+        }
+        [data-testid="stMetricValue"] {
+            order: -1;
+            margin-left: 2.5rem;
+            font-size: 2.1rem;
+            font-weight: 700;
+            color: #1e293b;
+            line-height: 1.15;
+        }
+        [data-testid="stMetricIcon"] {
+            position: absolute;
+            left: 1.3rem;
+            top: 1.15rem;
+            font-size: 1.4rem;
+        }
+        [data-testid="stMetricLabel"] p {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-top: 0.35rem;
+        }
+
+        /* ---- Tarjetas de contenido (graficos y tablas) ---- */
+        [data-testid="stPlotlyChart"] {
+            background-color: #ffffff;
+            border: 1px solid #eef0f3;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            padding: 12px;
+        }
+
+        [data-testid="stDataFrame"] {
+            background-color: #ffffff;
+            border: 1px solid #eef0f3;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        /* ---- Tabla de reporte (HTML) con badges de estado ---- */
+        .tabla-wrap {
+            background-color: #ffffff;
+            border: 1px solid #eef0f3;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+        }
+        .tabla-reportes {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        .tabla-reportes thead th {
+            background-color: #f8f9fa;
+            color: #1a1f36;
+            font-weight: 600;
+            text-align: left;
+            padding: 10px 14px;
+            border-bottom: 1px solid #eef0f3;
+            white-space: nowrap;
+        }
+        .tabla-reportes tbody td {
+            padding: 9px 14px;
+            border-bottom: 1px solid #f1f3f5;
+            color: #374151;
+        }
+        .tabla-reportes tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* ---- Titulos de seccion ---- */
+        h3, h2 {
+            color: #1e293b;
+            font-weight: 600;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True)
+
+
+# --- Lectura de datos ------------------------------------------------------
 
 def leer_texto(ruta_csv):
     """
@@ -132,6 +337,38 @@ def cargar_datos(ruta_csv):
             "productos": productos}
 
 
+# --- Graficos --------------------------------------------------------------
+
+def _estilo_plotly(figura):
+    """
+    Aplica el aspecto visual comun a todas las figuras: plantilla limpia,
+    tipografia oscura y en negrilla, rejilla suave y margenes consistentes.
+
+    Todo el texto de los graficos (titulo, titulos de los ejes, etiquetas de
+    los ticks y leyenda) usa el mismo color casi negro (#1e293b) con peso
+    negrita, para que se lea bien sobre las tarjetas blancas.
+    """
+    texto = "#1e293b"
+
+    figura.update_layout(
+        template="plotly_white",
+        font=dict(family="Inter, Segoe UI, sans-serif", color=texto,
+                  weight="bold"),
+        title_font=dict(color=texto, size=16, weight="bold"),
+        legend_font=dict(color=texto, weight="bold"),
+        title_x=0.01,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        margin=dict(t=60, b=40, l=40, r=20))
+
+    # Titulo de los ejes y etiquetas (ticks) en oscuro y negrita.
+    eje = dict(title_font=dict(color=texto, weight="bold"),
+               tickfont=dict(color=texto, weight="bold"))
+    figura.update_xaxes(gridcolor="#eef0f3", zeroline=False, **eje)
+    figura.update_yaxes(gridcolor="#eef0f3", zeroline=False, **eje)
+    return figura
+
+
 def construir_grafico_anio(productos_filtrados):
     """
     Devuelve una figura de Plotly con la cantidad de productos por anio,
@@ -150,19 +387,82 @@ def construir_grafico_anio(productos_filtrados):
         datos, x="Año", y="Cantidad de productos",
         text="Cantidad de productos",
         color="Cantidad de productos",
-        color_continuous_scale="Blues",
-        title="Distribución de productos por año")
+        color_continuous_scale=["#c7d2fe", COLOR_PRIMARIO],
+        title="Productos por año")
 
-    figura.update_traces(textposition="outside")
+    figura.update_traces(textposition="outside",
+                         marker_line_width=0, width=0.6,
+                         textfont=dict(color="#1e293b", weight="bold"))
     figura.update_layout(
-        template="plotly_white",
         xaxis_title="Año de publicación",
         yaxis_title="Cantidad de productos",
         showlegend=False,
-        coloraxis_showscale=False,
-        title_x=0.01,
-        margin=dict(t=60, b=40, l=40, r=20))
-    return figura
+        coloraxis_showscale=False)
+    return _estilo_plotly(figura)
+
+
+def construir_grafico_evolucion(productos_filtrados):
+    """
+    Devuelve una figura de Plotly (grafico de lineas) con la evolucion de la
+    cantidad de productos a lo largo del tiempo, o None si no hay datos.
+    """
+    por_anio = productos_filtrados.groupby("anio").size().sort_index()
+    if por_anio.empty:
+        return None
+
+    datos = por_anio.reset_index()
+    datos.columns = ["Año", "Cantidad de productos"]
+
+    figura = px.line(
+        datos, x="Año", y="Cantidad de productos",
+        markers=True, title="Evolución de Productos")
+
+    figura.update_traces(
+        line=dict(width=3, color=COLOR_PRIMARIO),
+        marker=dict(size=9, color=COLOR_PRIMARIO, line=dict(width=1.5,
+                                                            color="#ffffff")),
+        fill="tozeroy",
+        fillcolor="rgba(67, 97, 238, 0.10)")
+    figura.update_layout(
+        xaxis_title="Año",
+        yaxis_title="Cantidad de productos")
+    return _estilo_plotly(figura)
+
+
+def construir_grafico_categoria(productos_filtrados):
+    """
+    Devuelve una figura de Plotly (gráfico de torta) con la proporción de
+    productos según su categoría (Artículo, Libro, Ponencia, etc.), o None
+    si no hay datos.
+
+    Se usa la misma paleta cualitativa que el resto del tablero para
+    mantener una línea visual coherente.
+    """
+    # Si la categoría viene vacía en el CSV se agrupa como "Sin categoría"
+    # para no perder esos productos en el gráfico.
+    categorias = productos_filtrados["categoria"].replace("", "Sin categoría")
+    conteo = categorias.value_counts()
+
+    if conteo.empty:
+        return None
+
+    datos = conteo.reset_index()
+    datos.columns = ["Categoría", "Cantidad de productos"]
+
+    figura = px.pie(
+        datos, names="Categoría", values="Cantidad de productos",
+        color_discrete_sequence=PALETA_CATEGORICA,
+        hole=0.45,
+        title="Proporción por categoría")
+
+    # Se muestra el porcentaje dentro de cada porcion. El texto va en
+    # negrita y en blanco porque cae sobre rellenos de color saturado (si
+    # fuera oscuro no se leeria); el titulo, los ejes y la leyenda si van
+    # en oscuro como el resto del tablero.
+    figura.update_traces(textposition="inside", textinfo="percent",
+                         textfont=dict(color="#ffffff", weight="bold"),
+                         marker=dict(line=dict(color="#ffffff", width=2)))
+    return _estilo_plotly(figura)
 
 
 def construir_grafico_investigador(productos_filtrados, investigadores_full):
@@ -188,66 +488,65 @@ def construir_grafico_investigador(productos_filtrados, investigadores_full):
     datos.columns = ["Investigador", "Cantidad de productos"]
 
     figura = px.bar(
-        datos, x="Investigador", y="Cantidad de productos",
+        datos, x="Cantidad de productos", y="Investigador",
         text="Cantidad de productos",
+        orientation="h",
         color="Investigador",
-        color_discrete_sequence=px.colors.qualitative.Bold,
+        color_discrete_sequence=PALETA_CATEGORICA,
         title="Productos por investigador")
 
-    figura.update_traces(textposition="outside")
+    figura.update_traces(textposition="outside", marker_line_width=0,
+                         textfont=dict(color="#1e293b", weight="bold"))
     figura.update_layout(
-        template="plotly_white",
-        xaxis_title="Investigador",
-        yaxis_title="Cantidad de productos",
+        xaxis_title="Cantidad de productos",
+        yaxis_title="Investigador",
         showlegend=False,
-        title_x=0.01,
-        margin=dict(t=60, b=40, l=40, r=20))
-    return figura
+        yaxis=dict(categoryorder="total ascending"))
+    return _estilo_plotly(figura)
 
 
-def construir_grafico_categoria(productos_filtrados):
+def construir_tabla_productos_html(tabla):
     """
-    Devuelve una figura de Plotly (gráfico de torta) con la proporción de
-    productos según su categoría (Artículo, Libro, Ponencia, etc.), o None
-    si no hay datos.
+    Devuelve la tabla de productos como HTML con la columna "Validado"
+    convertida en una etiqueta visual (badge): fondo verde para "Validado" y
+    fondo rojo para "Pendiente".
 
-    Se usa la misma paleta cualitativa que el gráfico por investigador para
-    que todo el tablero mantenga una línea visual coherente.
+    Se usa el Styler de pandas (style.map) y el HTML se genera con to_html().
+    El resultado se inyecta con st.markdown(unsafe_allow_html=True), de modo
+    que las etiquetas con fondo de color se ven en cualquier navegador.
     """
-    # Si la categoría viene vacía en el CSV se agrupa como "Sin categoría"
-    # para no perder esos productos en el gráfico.
-    categorias = productos_filtrados["categoria"].replace("", "Sin categoría")
-    conteo = categorias.value_counts()
+    def estilo_badge(valor):
+        if valor == "Validado":
+            base = "background-color: #10b981; color: #ffffff;"
+        elif valor == "Pendiente":
+            base = "background-color: #ef4444; color: #ffffff;"
+        else:
+            base = "background-color: #f1f3f5; color: #6b7280;"
+        return base + " font-weight: 700; text-align: center;"
 
-    if conteo.empty:
-        return None
-
-    datos = conteo.reset_index()
-    datos.columns = ["Categoría", "Cantidad de productos"]
-
-    figura = px.pie(
-        datos, names="Categoría", values="Cantidad de productos",
-        color_discrete_sequence=px.colors.qualitative.Bold,
-        title="Proporción de productos por categoría")
-
-    # Se muestra el nombre de la categoría y su porcentaje dentro de cada
-    # porción; el valor absoluto queda al pasar el cursor.
-    figura.update_traces(textposition="inside", textinfo="percent+label")
-    figura.update_layout(
-        template="plotly_white",
-        title_x=0.01,
-        margin=dict(t=60, b=40, l=40, r=40))
-    return figura
+    # Los estilos del encabezado y de la tabla en general se definen en el
+    # CSS inyectado (.tabla-wrap / .tabla-reportes); aqui solo se colorean
+    # las celdas de "Validado" con el badge.
+    estilizador = tabla.style.map(estilo_badge, subset=["Validado"])
+    estilizador = estilizador.hide(axis="index")
+    estilizador = estilizador.set_table_attributes('class="tabla-reportes"')
+    return '<div class="tabla-wrap">' + estilizador.to_html() + '</div>'
 
 
 def main():
+    inyectar_estilos()
+
     # --- 2. Encabezado -----------------------------------------------------
-    st.title("🔬 Dashboard de Investigación")
-    st.markdown("#### Panel de control del centro de investigación")
     st.markdown(
-        "Supervisa la producción científica del centro: **grupos**, "
-        "**investigadores** y **productos** registrados desde el programa en "
-        "C++. Usa la barra lateral para acotar la información.")
+        """
+        <div class="app-header">
+            <h1>🔬 Dashboard de Investigación</h1>
+            <p>Panel de control del centro de investigación. Supervisa grupos,
+            investigadores y productos registrados desde el programa en C++.
+            Usa la barra lateral para acotar la información.</p>
+        </div>
+        """,
+        unsafe_allow_html=True)
 
     datos = cargar_datos(RUTA_CSV)
 
@@ -276,14 +575,18 @@ def main():
 
     # --- 7. Barra lateral con filtros --------------------------------------
     with st.sidebar:
-        st.title("Panel de Control")
-        st.markdown("Centro de Investigación")
+        st.markdown('<div class="sidebar-brand">🔬 Panel de Control</div>',
+                    unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-sub">Centro de Investigación</div>',
+                    unsafe_allow_html=True)
         st.divider()
 
-        st.subheader("Filtro por Grupo")
+        st.markdown('<div class="filtro-titulo">Filtrar por grupo</div>',
+                    unsafe_allow_html=True)
         opciones_grupo = ["Todos"] + sorted(
             grupos["grupo"].dropna().unique())
-        grupo_seleccionado = st.selectbox("Grupo", opciones_grupo)
+        grupo_seleccionado = st.selectbox(
+            "Grupo", opciones_grupo, label_visibility="collapsed")
 
         # Los investigadores disponibles dependen del grupo elegido.
         if grupo_seleccionado == "Todos":
@@ -292,11 +595,12 @@ def main():
             investigadores_disponibles = investigadores_full[
                 investigadores_full["grupo"] == grupo_seleccionado]
 
-        st.subheader("Filtro por Investigador")
+        st.markdown('<div class="filtro-titulo">Filtrar por investigador</div>',
+                    unsafe_allow_html=True)
         opciones_investigador = ["Todos"] + sorted(
             investigadores_disponibles["investigador"].dropna().unique())
         investigador_seleccionado = st.selectbox(
-            "Investigador", opciones_investigador)
+            "Investigador", opciones_investigador, label_visibility="collapsed")
 
     # --- Aplicacion de los filtros -----------------------------------------
     productos_filtrados = productos_full.copy()
@@ -362,56 +666,58 @@ def main():
             st.cache_data.clear()
             st.rerun()
 
-    # --- 3. Tarjetas de metricas -------------------------------------------
+    # --- 3. Tarjetas de metricas (KPIs) ------------------------------------
     if grupo_seleccionado == "Todos":
         grupos_filtrados = grupos
     else:
         grupos_filtrados = grupos[grupos["grupo"] == grupo_seleccionado]
 
-    columna1, columna2, columna3 = st.columns(3)
+    columna1, columna2, columna3 = st.columns(3, gap="medium")
     columna1.metric("Grupos de investigación",
-                    grupos_filtrados["id_grupo"].nunique(), border=True)
+                    grupos_filtrados["id_grupo"].nunique(), icon="🏛️")
     columna2.metric("Investigadores",
                     investigadores_filtrados["investigador"].nunique(),
-                    border=True)
-    columna3.metric("Productos", len(productos_filtrados), border=True)
+                    icon="👩‍🔬")
+    columna3.metric("Productos", len(productos_filtrados), icon="📦")
 
-    st.divider()
+    st.write("")
 
-    # --- 4 y 5. Graficos profesionales en dos columnas ---------------------
+    # --- 4, 5 y 5b. Graficos en tres columnas ------------------------------
+    # El aspecto de tarjeta (fondo blanco, bordes redondeados y sombra) lo
+    # aporta el CSS sobre el propio contenedor del grafico.
     st.subheader("Análisis de la producción")
-    columna_izquierda, columna_derecha = st.columns(2)
+    columna_anio, columna_evolucion, columna_categoria = st.columns(3)
 
-    with columna_izquierda:
+    with columna_anio:
         figura_anio = construir_grafico_anio(productos_filtrados)
         if figura_anio is None:
             st.info("No hay productos para los filtros seleccionados.")
         else:
             st.plotly_chart(figura_anio, use_container_width=True)
 
-    with columna_derecha:
-        figura_investigador = construir_grafico_investigador(
-            productos_filtrados, investigadores_full)
-        if figura_investigador is None:
+    with columna_evolucion:
+        figura_evolucion = construir_grafico_evolucion(productos_filtrados)
+        if figura_evolucion is None:
             st.info("No hay productos para los filtros seleccionados.")
         else:
-            st.plotly_chart(figura_investigador, use_container_width=True)
+            st.plotly_chart(figura_evolucion, use_container_width=True)
 
-    # --- 5b. Grafico de torta: proporcion por categoria --------------------
-    st.subheader("Distribución por categoría")
-
-    figura_categoria = construir_grafico_categoria(productos_filtrados)
-    if figura_categoria is None:
-        st.info("No hay productos para los filtros seleccionados.")
-    else:
-        # Se centra el grafico con columnas proporcionales para que la torta
-        # no quede ni muy estirada ni pegada a los bordes en pantallas anchas.
-        columna_torta_izq, columna_torta_centro, columna_torta_der = (
-            st.columns([1, 2, 1]))
-        with columna_torta_centro:
+    with columna_categoria:
+        figura_categoria = construir_grafico_categoria(productos_filtrados)
+        if figura_categoria is None:
+            st.info("No hay productos para los filtros seleccionados.")
+        else:
             st.plotly_chart(figura_categoria, use_container_width=True)
 
-    st.divider()
+    # El detalle por investigador se conserva debajo para no perder esa vista.
+    figura_investigador = construir_grafico_investigador(
+        productos_filtrados, investigadores_full)
+    if figura_investigador is None:
+        st.info("No hay productos para los filtros seleccionados.")
+    else:
+        st.plotly_chart(figura_investigador, use_container_width=True)
+
+    st.write("")
 
     # --- 6. Tablas con los datos filtrados ---------------------------------
     st.subheader("Datos filtrados")
@@ -423,12 +729,17 @@ def main():
             ["grupo", "id", "titulo", "anio", "categoria", "validado"]].rename(
             columns={"grupo": "Grupo", "id": "ID", "titulo": "Título",
                      "anio": "Año", "categoria": "Categoría",
-                     "validado": "Validado"})
+                     "validado": "Validado"}).copy()
+
         if tabla_productos.empty:
             st.info("No hay productos para los filtros seleccionados.")
         else:
-            st.dataframe(tabla_productos, use_container_width=True,
-                         hide_index=True)
+            # La columna "Validado" se muestra como etiqueta visual
+            # (badge): "Validado" en verde y "Pendiente" en rojo.
+            tabla_productos["Validado"] = tabla_productos["Validado"].map(
+                {"Si": "Validado", "No": "Pendiente"}).fillna("Pendiente")
+            st.markdown(construir_tabla_productos_html(tabla_productos),
+                        unsafe_allow_html=True)
 
     with pestana_investigadores:
         tabla_investigadores = investigadores_filtrados[
