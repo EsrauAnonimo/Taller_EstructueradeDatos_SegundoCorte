@@ -5,6 +5,9 @@ ASIGNATURA: ESTRUCTURA DE DATOS
 GRUPO: Grupo 05
 TALLER 2 — SEGUNDO CORTE
 
+
+LINK DEL VIDEO (youtube) :
+
 ================================================================================
 INFORMACIÓN DE IDENTIFICACIÓN DE LOS ESTUDIANTES
 ================================================================================
