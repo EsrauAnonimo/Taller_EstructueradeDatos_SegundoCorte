@@ -9,7 +9,7 @@ TALLER 2 — SEGUNDO CORTE
 LINK DEL VIDEO (youtube) :
 
 ================================================================================
-INFORMACIÓN DE IDENTIFICACIÓN DE LOS ESTUDIANTES
+          INFORMACIÓN DE IDENTIFICACIÓN DE LOS ESTUDIANTES
 ================================================================================
 
 INTEGRANTE 1:
