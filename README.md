@@ -28,9 +28,9 @@ pip install -r python/requirements.txt
 - **Desde VS Code:** Presionar **F5** y seleccionar la configuración **"PEA-i GUI"**.
 - **Desde la Terminal:**
   ```bash
-  python python/gui/app.py
+  cd python && python EV_LG.py
+  python python/EV_LG.py   # desde la raíz del repo
   ```
-  *(o ingresar a la carpeta `cd python` y ejecutar `python gui/app.py`)*
 
 ## Funcionalidades Principales
 - **Estructura Multilista:** Gestión jerárquica en memoria (Grupos $\rightarrow$ Investigadores $\rightarrow$ Productos) con pilas y colas de apoyo.

@@ -13,7 +13,9 @@ from PIL import Image, ImageTk
 
 import customtkinter as ctk
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+_BASE_DIR = Path(__file__).resolve().parent
+if str(_BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(_BASE_DIR))
 
 # URL oficial de MinCiencias por defecto para descarga directa en un clic
 DEFAULT_SCIENTI_URL = "https://scienti.minciencias.gov.co/gruplac/jsp/visualiza/visualizagr.jsp?nro=00000000002099"
@@ -143,7 +145,7 @@ class App(ctk.CTk):
 
     def _setup_window_icon(self):
         """Establece el ícono institucional de Unicesar en la ventana."""
-        logo_path = Path(__file__).resolve().parent / "assets" / "logo_unicesar.png"
+        logo_path = Path(__file__).resolve().parent / "gui" / "assets" / "logo_unicesar.png"
         if logo_path.exists():
             try:
                 pil_icon = Image.open(logo_path)
@@ -173,7 +175,7 @@ class App(ctk.CTk):
 
         # Cargar logo institucional de Unicesar
         self.logo_image = None
-        logo_path = Path(__file__).resolve().parent / "assets" / "logo_unicesar.png"
+        logo_path = Path(__file__).resolve().parent / "gui" / "assets" / "logo_unicesar.png"
         if logo_path.exists():
             try:
                 pil_logo = Image.open(logo_path)
@@ -244,7 +246,7 @@ class App(ctk.CTk):
         """Construye el pie de la barra lateral con tarjeta sobria, versión y botón de engranaje."""
         # Cargar ícono de tuerca en alta resolución (PNG institucional)
         self.gear_image = None
-        gear_path = Path(__file__).resolve().parent / "assets" / "gear.png"
+        gear_path = Path(__file__).resolve().parent / "gui" / "assets" / "gear.png"
         if gear_path.exists():
             try:
                 pil_gear = Image.open(gear_path)
@@ -504,7 +506,7 @@ class App(ctk.CTk):
             return self._menu_icons
 
         self._menu_icons = {}
-        icons_dir = Path(__file__).resolve().parent / "assets" / "icons"
+        icons_dir = Path(__file__).resolve().parent / "gui" / "assets" / "icons"
         icon_names = ["folder_open", "save", "download", "csv", "queue", "info", "logout"]
         for name in icon_names:
             p = icons_dir / f"{name}.png"
@@ -768,7 +770,7 @@ class App(ctk.CTk):
 
     def init_persistence(self):
         """Inicializa la persistencia directa con archivo JSON."""
-        datos_path = Path(__file__).resolve().parent.parent / "datos" / "datos.json"
+        datos_path = Path(__file__).resolve().parent / "datos" / "datos.json"
         self.persistencia = PersistenciaJSON(filepath=str(datos_path))
 
     def has_data(self) -> bool:

@@ -49,10 +49,10 @@ Tienes dos formas directas de arrancar la aplicación:
 ### Opción A: Desde la Terminal
 ```bash
 # Estando dentro de la carpeta python/
-python gui/app.py
+cd python && python EV_LG.py
 
 # O desde la raíz del repositorio
-python python/gui/app.py
+python python/EV_LG.py
 ```
 
 ### Opción B: Desde Visual Studio Code (Tecla F5)

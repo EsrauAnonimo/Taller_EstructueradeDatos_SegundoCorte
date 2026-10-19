@@ -5,7 +5,7 @@
             "name": "PEA-i GUI",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/python/gui/app.py",
+            "program": "${workspaceFolder}/python/EV_LG.py",
             "cwd": "${workspaceFolder}/python",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}/python"
