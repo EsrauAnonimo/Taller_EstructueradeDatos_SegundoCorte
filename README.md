@@ -161,6 +161,6 @@ Trabajo realizado para la asignatura **Estructura de Datos (Grupo 05)** — **Un
 | :--- | :---: | :--- | :--- |
 | **Esteban Raúl Vergara Jaime** | 1065595117 | `ervergara@unicesar.edu.co` | Arquitectura GUI Python, Multilista, Web Scraping, Persistencia JSON y Documentación |
 | **Luis Eduardo Gómez Rosales** | 1118821800 | `luiseduardogomez@unicesar.edu.co` | Desarrollo C++, Estructuras de Datos (Pila, Cola, Listas), Persistencia CSV y Documentación |
-| **LINK DEL VIDEO :**           | 1118821800 |
+| **LINK DEL VIDEO :**           | https://youtu.be/AXiJqifF1NA|
 - **Docente:** Ing. Adith Pérez  
 - **Entrega Académica:** Octubre de 2026 — Valledupar, Cesar, Colombia
