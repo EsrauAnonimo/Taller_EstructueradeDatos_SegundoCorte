@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "PEA-i GUI",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/python/EV_LG.py",
+            "cwd": "${workspaceFolder}/python",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/python"
+            },
+            "console": "integratedTerminal",
+            "justMyCode": false
+        }
+    ]
+}

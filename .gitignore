@@ -75,6 +75,8 @@ docs/_build/
 # PyBuilder
 .pybuilder/
 target/
+rust/target/
+rust/pea_i/target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -150,7 +152,6 @@ activemq-data/
 *.sage.py
 
 # Environments
-.env
 .envrc
 .venv
 env/
@@ -219,8 +220,16 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Artefactos del taller de C++:
-# - *.exe: ejecutables generados al compilar (por ejemplo cpp/programa.exe).
-# - *.csv: datos generados por el programa (por ejemplo cpp/datos.csv).
-*.exe
-*.csv
+# Datos locales de prueba
+python/datos/*.json
+!python/datos/.gitkeep
+
+# Limpieza de raíz del proyecto
+__pycache__/
+*.pyc
+.venv/
+venv/
+python/datos/datos.json
+*.bak
+*.clean
+test_scraper.py
