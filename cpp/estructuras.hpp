@@ -16,6 +16,7 @@
 
 #include <iostream>
 #include <string>
+#include <type_traits>
 
 // Reutilizamos la estructura Investigador definida en investigador.hpp
 // (mismo taller, mismo modulo).
@@ -31,6 +32,7 @@ struct Producto {
                // C++ no deben contener caracteres especiales.
     std::string categoria;
     bool validado;
+    bool activo = true;
 };
 
 // ----------------------------------------------------------------------------
@@ -150,9 +152,12 @@ public:
         Nodo* anterior = nullptr;
 
         // Recorremos mientras no lleguemos al final ni encontremos el id.
-        while (actual != nullptr && actual->dato.id != id) {
-            anterior = actual;              // anterior se queda un paso atras.
-            actual = actual->siguiente;     // actual avanza al siguiente nodo.
+        while (actual != nullptr) {
+            bool coincide = false;
+            coincide = (actual->dato.id == id);
+            if (coincide) break;
+            anterior = actual;
+            actual = actual->siguiente;
         }
 
         if (actual == nullptr) {
@@ -185,12 +190,10 @@ public:
     Nodo* buscar(int id) {
         Nodo* actual = cabeza;
         while (actual != nullptr) {
-            if (actual->dato.id == id) {
-                return actual;  // Encontrado: devolvemos el nodo.
-            }
-            actual = actual->siguiente;  // Avanzamos al siguiente nodo.
+            if (actual->dato.id == id) return actual;
+            actual = actual->siguiente;
         }
-        return nullptr;  // Se recorrio toda la lista sin encontrar el id.
+        return nullptr;
     }
 
     // -----------------------------------------------------------------

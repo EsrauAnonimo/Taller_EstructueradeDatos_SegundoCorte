@@ -9,6 +9,7 @@ struct Investigador {
     std::string nombre;
     std::string areaConocimiento;
     std::string categoria;
+    bool activo = true;
 };
 
 // Función que imprime los datos de un investigador.
@@ -19,4 +20,5 @@ inline void imprimirInvestigador(const Investigador& investigador) {
     std::cout << "Nombre: " << investigador.nombre << std::endl;
     std::cout << "Area de conocimiento: " << investigador.areaConocimiento << std::endl;
     std::cout << "Categoria: " << investigador.categoria << std::endl;
+    std::cout << "Activo: " << (investigador.activo ? "Si" : "No") << std::endl;
 }

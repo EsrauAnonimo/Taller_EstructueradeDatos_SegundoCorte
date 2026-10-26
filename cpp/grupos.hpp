@@ -35,10 +35,11 @@ struct Grupo {
     std::string plan;
     ListaInvestigadores integrantes;  // Lista enlazada de Investigadores.
     ListaProductos productos;         // Lista enlazada de Productos.
+    bool activo = true;
 
     // Constructor por comodidad: crea un grupo vacio (listas vacias).
     Grupo(int idGrupo, const std::string& nombreGrupo, const std::string& planGrupo)
-        : id(idGrupo), nombre(nombreGrupo), plan(planGrupo) {
+        : id(idGrupo), nombre(nombreGrupo), plan(planGrupo), activo(true) {
         // Las listas se construyen solas (sus constructores dejan las
         // cabezas en nullptr), por eso no hay nada que hacer aqui.
     }
