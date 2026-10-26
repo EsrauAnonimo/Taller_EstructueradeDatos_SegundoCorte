@@ -1,49 +1,76 @@
-# Estructura de Datos — Segundo Corte (UPC)
-
-**Estudiantes:** Esteban Raúl Vergara Jaime y Luis Eduardo Gómez Rosales.  
-**Video Explicativo:** https://youtu.be/AXiJqifF1NA  
-**Docente Titular:** Ing. Adith Pérez  
-**Asignatura:** Estructura de Datos (Grupo 05)
-
-Este repositorio contiene la entrega académica completa dividida en:
-- `Taller_2/`: Solución base del taller (sin el indicador de MinCiencias).
-- `Parcial_2/`: Solución completa del parcial (incluye cálculo de Indicador Científico MinCiencias, filtros temporales, exclusión de no validados/inactivos, dataset de verificación y arranque modal).
-
-⚠️ **Consulta el archivo [CAMBIOS_PARCIAL.md](CAMBIOS_PARCIAL.md) para ver el desglose detallado de los cambios aplicados entre el Taller 2 y el Parcial 2.**
-
----
-
-# PEA-i — Programa Estadístico de Análisis de Investigación
+# PEA-i — Plataforma para la Evaluación y Analítica de la Investigación
 
 > **Universidad Popular del Cesar (UPC)**  
 > **Facultad de Ingenierías y Tecnológicas — Ingeniería de Sistemas**  
 > **Asignatura:** Estructura de Datos (Grupo 05)  
-> **Docente Titular:** Ing. Adith Pérez
+> **Docente Titular:** Ing. Adith Pérez  
+> **Evaluación:** Parcial 2 — Segundo Corte  
+> **Fecha:** Octubre de 2026 — Valledupar, Cesar, Colombia  
+> **Video Explicativo:** [PEGAR ENLACE AQUÍ]
 
 ---
 
-## 📌 Descripción General
+### Autores e Integrantes del Equipo
 
-**PEA-i** es un sistema integral para la gestión, estructuración, análisis y auditoría de información científica institucional (Grupos de Investigación, Investigadores y Productos Académicos) bajo la taxonomía oficial de **MinCiencias** (GrupLAC / Scienti).
-
-El núcleo del proyecto gira en torno a la implementación **desde cero y a mano** de estructuras de datos no lineales y lineales (sin depender de bases de datos relacionales ni colecciones de alto nivel para el modelo), aplicadas de forma consistente en **tres ecosistemas tecnológicos**:
-
-1. 🐍 **Python:** Aplicación de escritorio moderna con interfaz gráfica en CustomTkinter, analítica visual con Matplotlib/Pandas, Web Scraping automatizado en vivo y persistencia JSON.
-2. ⚡ **C++ (C++17):** Sistema en terminal interactiva de alto rendimiento con menús formateados, tablas de estadísticas con `<iomanip>`, auditoría de historial en Pila y cola de validación FIFO, con persistencia CSV.
-3. 🦀 **Rust (Edición 2021):** Solución de consola orientada a seguridad de memoria, concurrencia y cero fugas (*zero leaks*) mediante punteros inteligentes (`Rc<RefCell<...>>` y `Weak`), scraping con `reqwest`/`scraper` y gráficos en arte ASCII.
+| Integrante | Documento (CC) | Código Estudiantil | Correo Institucional | Rol Principal |
+| :--- | :---: | :---: | :--- | :--- |
+| **Esteban Raúl Vergara Jaime** | 1065595117 | 1065595117 | `ervergara@unicesar.edu.co` | Arquitectura GUI Python, Multilista, Web Scraping, Motor de Indicadores MinCiencias, Documentación |
+| **Luis Eduardo Gómez Rosales** | 1118821800 | 1118821800 | `luiseduardogomez@unicesar.edu.co` | Desarrollo C++, Estructuras de Datos (Pila, Cola, Listas), Persistencia CSV, Interoperabilidad, Documentación |
 
 ---
 
-## 🏗️ Estructuras de Datos Implementadas
+## 📌 Resumen del Proyecto
 
-Todas las estructuras fueron implementadas a nivel de punteros y referencias en cada lenguaje:
+**PEA-i (Plataforma para la Evaluación y Analítica de la Investigación)** es un sistema integral para la gestión, estructuración, análisis métrico y auditoría de la producción científica institucional (Grupos de Investigación, Investigadores y Productos Académicos) bajo el modelo oficial de **MinCiencias Colombia** (GrupLAC / Scienti).
 
-| Estructura | Propósito en el Sistema | Python | C++ | Rust |
-| :--- | :--- | :--- | :--- | :--- |
-| **Multilista Jerárquica** | Modelo central en memoria: `Grupo ➔ Investigadores ➔ Productos` con relaciones de pertenencia. | `Parcial_2/python/modelos/multilista.py` | `cpp/grupos.hpp` | `rust/pea_i/src/modelos/multilista.rs` |
-| **Lista Enlazada** | Almacenamiento dinámico bidireccional / simple de entidades y nodos. | `Parcial_2/python/modelos/lista.py` | `cpp/estructuras.hpp` | `rust/pea_i/src/modelos/lista.rs` |
-| **Pila (Stack — LIFO)** | Mecanismo de **Deshacer (Undo)** y auditoría histórica de operaciones. | `Parcial_2/python/modelos/pila.py` | `cpp/grupos.hpp` | `rust/pea_i/src/modelos/pila.rs` |
-| **Cola (Queue — FIFO)** | **Cola de Importación** masiva desde URLs de MinCiencias y validación secuencial. | `Parcial_2/python/modelos/cola.py` | `cpp/grupos.hpp` | `rust/pea_i/src/modelos/cola.rs` |
+El núcleo del proyecto implementa **desde cero y a mano** estructuras de datos dinámicas lineales y no lineales (sin depender de bases de datos relacionales externas ni de colecciones de alto nivel para el modelo), aplicadas en un **ecosistema dual**:
+
+1. 🐍 **Python:** Aplicación de escritorio moderna con interfaz gráfica en CustomTkinter, analítica con Matplotlib/Pandas, Web Scraping automatizado en vivo, motor de cálculo del Indicador MinCiencias y persistencia en JSON.
+2. ⚡ **C++ (C++17):** Sistema en terminal interactiva de alto rendimiento con menús formateados, tablas de estadísticas con `<iomanip>`, auditoría de historial en Pila LIFO, cola de validación FIFO, cálculo paramétrico del indicador por grupos e investigadores, y persistencia en CSV plano tipificado.
+
+El repositorio se divide formalmente en dos entregas:
+- **`Taller_2/`:** Solución base correspondiente al Taller 2 (gestión jerárquica, CRUDs, Pila/Cola, sin la fórmula de indicadores de MinCiencias).
+- **`Parcial_2/`:** Solución extendida correspondiente al Parcial 2 (motor del Indicador MinCiencias con pesos relativos, filtros por ventanas de años, pestaña interactiva de indicadores, exclusión formal de productos inactivos o no validados, y verificación cruzada).
+
+> ℹ️ Para consultar la bitácora detallada de cambios aplicados entre el Taller y el Parcial, revisa el archivo [CAMBIOS_PARCIAL.md](CAMBIOS_PARCIAL.md).
+
+---
+
+## 🏗️ Estructuras de Datos Implementadas (Sin Librerías Externas)
+
+Todas las estructuras de datos operan sobre nodos enlazados construidos manualmente a nivel de punteros y referencias:
+
+| Estructura | Propósito en el Sistema | Implementación Python | Implementación C++ |
+| :--- | :--- | :--- | :--- |
+| **Multilista Jerárquica** | Modelo central en memoria: `Grupo ➔ Investigadores ➔ Productos` con enlaces de pertenencia jerárquica sin redundancia. | [multilista.py](file:///c:/Users/Esteb/OneDrive/Documentos/Taller_EstructuraDeDatos_2corte/Parcial_2/python/modelos/multilista.py) | [grupos.hpp](file:///c:/Users/Esteb/OneDrive/Documentos/Taller_EstructuraDeDatos_2corte/Parcial_2/cpp/grupos.hpp) |
+| **Lista Enlazada Genérica** | Almacenamiento dinámico de entidades con punteros `cabeza` y `cola`. | [lista.py](file:///c:/Users/Esteb/OneDrive/Documentos/Taller_EstructuraDeDatos_2corte/Parcial_2/python/modelos/lista.py) | [estructuras.hpp](file:///c:/Users/Esteb/OneDrive/Documentos/Taller_EstructuraDeDatos_2corte/Parcial_2/cpp/estructuras.hpp) |
+| **Pila (Stack — LIFO)** | Historial de auditoría y mecanismo de **Deshacer (Undo)** ante eliminaciones lógicas (`Ctrl+Z`). | [pila.py](file:///c:/Users/Esteb/OneDrive/Documentos/Taller_EstructuraDeDatos_2corte/Parcial_2/python/modelos/pila.py) | [grupos.hpp](file:///c:/Users/Esteb/OneDrive/Documentos/Taller_EstructuraDeDatos_2corte/Parcial_2/cpp/grupos.hpp) |
+| **Cola (Queue — FIFO)** | **Cola de Importación** masiva y buffer de atención secuencial para validación de productos. | [cola.py](file:///c:/Users/Esteb/OneDrive/Documentos/Taller_EstructuraDeDatos_2corte/Parcial_2/python/modelos/cola.py) | [grupos.hpp](file:///c:/Users/Esteb/OneDrive/Documentos/Taller_EstructuraDeDatos_2corte/Parcial_2/cpp/grupos.hpp) |
+
+---
+
+## 📐 Fórmula del Indicador de Producción Científica (MinCiencias)
+
+El sistema modela con exactitud la fórmula paramétrica ponderada del modelo de medición MinCiencias:
+
+$$\text{Indicador} = 3.7 \cdot Nc\_Top + 2.3 \cdot Nc\_A + 0.4 \cdot Nc\_B + 1.5 \cdot AP + 0.5 \cdot DPC + 1.0 \cdot Fr\_A + 0.2 \cdot Fr\_B + 0.1 \cdot Cohe + 0.3 \cdot Coop$$
+
+### Taxonomía de Ponderación:
+- **$Nc\_Top$ (3.7):** Artículos en revistas A1 / Top.
+- **$Nc\_A$ (2.3):** Artículos en revistas A2 / A, libros de investigación y patentes concedidas.
+- **$Nc\_B$ (0.4):** Artículos en revistas categoría B y capítulos en libro resultado de investigación.
+- **$AP$ (1.5):** Apropiación Social del Conocimiento, eventos científicos y artículos categoría C.
+- **$DPC$ (0.5):** Conceptos técnicos, software con registro y registros de diseño industrial.
+- **$Fr\_A$ (1.0):** Tesis de Doctorado y trabajos de grado de Maestría sustentados y aprobados.
+- **$Fr\_B$ (0.2):** Trabajos de grado de pregrado aprobados y proyectos de semillero tutelados.
+- **$Cohe$ (0.1):** Indicador de cohesión grupal (coautoría interna).
+- **$Coop$ (0.3):** Indicador de cooperación internacional e interinstitucional.
+
+### Reglas de Medición y Filtros:
+1. **Condición de Validez:** Solo suman al puntaje los productos donde `validado == True` y `activo == True`.
+2. **Filtro Temporal:** Soporta `Todos los años`, `Últimos 5 años`, `Últimos 10 años` o `Personalizado` (con validación de no inversión $Desde \le Hasta$).
+3. **Desglose de Estados en la Tabla:** Los productos excluidos se listan con puntaje `0.00` y su estado explícito (`"No validado"`, `"Inactivo"`, `"Fuera de rango"`) estilisados visualmente en color gris.
+4. **Respuesta ante Escenario Cero:** Si ningún producto cumple los criterios, el total se fija en `0.00` con un aviso descriptivo de la causa.
 
 ---
 
@@ -52,101 +79,79 @@ Todas las estructuras fueron implementadas a nivel de punteros y referencias en 
 ```text
 Taller_EstructuraDeDatos_2corte/
 │
-├── Taller_2/                   # Entrega del Taller 2
-│   └── python/                 # Código Python original (Taller2_ERV_LGR.py)
+├── Taller_2/                               # Entrega del Taller 2 (Base)
+│   ├── cpp/                                # Solución en C++17 (Taller2_ERV_LGR.cpp)
+│   ├── python/                             # Solución en Python (Taller2_ERV_LGR.py)
+│   └── docs/                               # Documento técnico completo (.docx)
 │
-├── Parcial_2/                  # Entrega del Parcial 2
-│   ├── python/                 # Código Python del Parcial (Parcial2_ERV_LGR.py, indicadores.py)
-│   └── docs/                   # Requisitos y especificaciones del Parcial 2
+├── Parcial_2/                              # Entrega del Parcial 2 (Completo con Indicadores)
+│   ├── cpp/                                # Solución en C++17 (Parcial2_ERV_LGR.cpp)
+│   ├── python/                             # Solución GUI en Python (Parcial2_ERV_LGR.py)
+│   └── docs/                               # Especificación IEEE 830 (.md) y Documento Word (.docx)
+│       ├── Requisitos_Parcial2.md          # Especificación formal con diagramas Mermaid
+│       └── Requisitos_Parcial2_ERV_LGR.docx# Documento Word oficial para entrega
 │
-├── cpp/                        # Solución interactiva de consola en C++17 (ERV-LGR.cpp)
-│   ├── ERV-LGR.cpp             # Código fuente C++ (punto de entrada único)
-│   ├── estructuras.hpp         # Nodos, Producto y ListaEnlazada genérica
-│   ├── grupos.hpp              # Multilista Grupo, Pila y Cola
-│   ├── investigador.hpp        # Entidad Investigador
-│   ├── datos.csv               # Archivo plano de persistencia
-│   └── MANUAL_DE_USUARIO.md    # Manual con diagramas Mermaid (C++)
-│
-├── rust/                       # Solución de consola en Rust
-│   ├── pea_i/                  # Proyecto Cargo completo
-│   ├── ejecutar.ps1            # Script de ejecución rápida para PowerShell
-│   ├── ejecutar.bat            # Script de ejecución rápida para CMD
-│   └── MANUAL_DE_USUARIO.md    # Manual de usuario (Rust)
-│
-├── datos/                      # Datasets de verificación cruzada (JSON y CSV para C++ y Python)
-│   ├── dataset_verificacion.json
-│   └── dataset_verificacion.csv
-│
-├── docs/                       # Documentación académica formal
-│   └── Taller2_PEAi_EV_LG_Completo.docx  # Informe técnico final con anexos
-│
-├── CAMBIOS_PARCIAL.md          # Bitácora detallada de cambios para el Parcial 2
-├── integrantes.md              # Identificación formal del grupo y entrega
-└── README.md                   # Esta guía general
+├── CAMBIOS_PARCIAL.md                      # Bitácora detallada de cambios Taller 2 -> Parcial 2
+├── integrantes.txt                         # Identificación institucional de los integrantes
+└── README.md                               # Guía general de inicio y documentación
 ```
 
 ---
 
-## 🚀 Guía de Inicio Rápido por Lenguaje
+## 🚀 Guía de Inicio Rápido
 
-### 1. 🐍 Versión Python (Interfaz Gráfica de Escritorio)
+### 1. 🐍 Aplicación en Python (GUI de Escritorio)
 
 #### Requisitos
 - Python 3.10 o superior ([python.org](https://www.python.org/downloads/)).
 
-#### Instalación de dependencias
+#### Instalación de Dependencias
 ```bash
-pip install customtkinter matplotlib pandas requests beautifulsoup4 pillow
+pip install customtkinter matplotlib pandas requests beautifulsoup4 pillow python-docx
 ```
 
 #### Ejecución
 ```bash
-# Ejecutar Parcial 2
+# Ejecutar Parcial 2 (con pestaña de Indicadores y modelo MinCiencias)
 python Parcial_2/python/Parcial2_ERV_LGR.py
 
-# O ejecutar Taller 2
+# O ejecutar Taller 2 (versión base del taller)
 python Taller_2/python/Taller2_ERV_LGR.py
 ```
 
 ---
 
-### 2. ⚡ Versión C++ (Consola Interactiva)
+### 2. ⚡ Aplicación en C++ (Terminal Interactiva)
 
-#### Ejecución y compilación
+#### Compilación y Ejecución del Parcial 2:
 ```powershell
-cd cpp
-g++ -std=c++17 -Wall -Wextra -I . ERV-LGR.cpp -o programa.exe
-.\programa.exe
+# Compilación con g++ (C++17)
+g++ -std=c++17 -Wall -Wextra -I Parcial_2/cpp Parcial_2/cpp/Parcial2_ERV_LGR.cpp -o Parcial_2/cpp/parcial2.exe
+
+# Ejecución
+.\Parcial_2/cpp/parcial2.exe
 ```
 
----
-
-### 3. 🦀 Versión Rust (Consola Interactiva)
-
-#### Con Cargo
+#### Compilación y Ejecución del Taller 2:
 ```powershell
-cd rust/pea_i
-cargo run
+# Compilación con g++ (C++17)
+g++ -std=c++17 -Wall -Wextra -I Taller_2/cpp Taller_2/cpp/Taller2_ERV_LGR.cpp -o Taller_2/cpp/taller2.exe
+
+# Ejecución
+.\Taller_2/cpp/taller2.exe
 ```
 
 ---
 
 ## 💾 Persistencia de Datos
 
-- **Persistencia JSON (`Parcial_2/python/datos/datos.json` / `datos/`):** Almacena el árbol completo en formato estructurado JSON. Es compatible con operaciones de guardado automático y recuperación ante reinicios del sistema.
-- **Persistencia CSV (`cpp/datos.csv` / `datos/`):** Almacena los registros con formato de texto plano tipificado (`GRUPO`, `INVESTIGADOR`, `PRODUCTO`) permitiendo portabilidad con suites como Excel.
+- **Persistencia JSON (`Parcial_2/python/datos/datos.json`):** Almacena el árbol jerárquico completo en memoria secundaria, serializando los atributos extendidos `peso_relativo`, `puntaje`, `gran_categoria` y `codigo_minciencias`.
+- **Persistencia CSV (`Parcial_2/cpp/datos.csv`):** Almacena los registros con formato de texto plano tipificado (`GRUPO`, `INVESTIGADOR`, `PRODUCTO`), permitiendo portabilidad con suites como Excel y garantizando compatibilidad entre C++ y Python.
 
 ---
 
-## 👥 Autores
+## 🎥 Enlace al Video Explicativo
 
-Trabajo realizado para la asignatura **Estructura de Datos (Grupo 05)** — **Universidad Popular del Cesar (UPC)**:
-
-| Integrante | Documento (CC) | Correo Institucional | Rol Principal |
-| :--- | :---: | :--- | :--- |
-| **Esteban Raúl Vergara Jaime** | 1065595117 | `ervergara@unicesar.edu.co` | Arquitectura GUI Python, Multilista, Web Scraping, Persistencia JSON y Documentación |
-| **Luis Eduardo Gómez Rosales** | 1118821800 | `luiseduardogomez@unicesar.edu.co` | Desarrollo C++, Estructuras de Datos (Pila, Cola, Listas), Persistencia CSV y Documentación |
-
-- **Link del Video Explicativo:** https://youtu.be/AXiJqifF1NA  
+- **Video Explicativo en YouTube:** [PEGAR ENLACE AQUÍ]
 - **Docente:** Ing. Adith Pérez  
-- **Entrega Académica:** Octubre de 2026 — Valledupar, Cesar, Colombia
+- **Asignatura:** Estructura de Datos (Grupo 05) — Universidad Popular del Cesar (UPC)

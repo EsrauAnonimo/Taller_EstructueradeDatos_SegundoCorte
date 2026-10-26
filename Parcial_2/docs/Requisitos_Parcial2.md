@@ -140,7 +140,7 @@ PEA-i es un software de escritorio autónomo, autocontenido y multiplataforma. N
 - **Descripción:** Los productos marcados como "No validados" deben encolarse en una estructura `Cola` propia con nodos enlazados para su revisión ordenada secuencial.
 
 #### RF-09: Persistencia Dual Compatible
-- **Descripción:** Sincronización transparente de datos en `python/datos/datos.json` y `cpp/datos.csv`, soportando los nuevos campos `peso_relativo` y `puntaje`.
+- **Descripción:** Sincronización transparente de datos en `Parcial_2/python/datos/datos.json` y `Parcial_2/cpp/datos.csv`, soportando los nuevos campos `peso_relativo` y `puntaje`.
 
 ---
 
