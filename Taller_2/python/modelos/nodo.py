@@ -1,0 +1,26 @@
+class Node:
+    """Nodo genérico utilizado por listas enlazadas, pilas, colas y multilistas."""
+
+    def __init__(self, data=None):
+        """Inicializa un nodo con el dato proporcionado."""
+        self.data = data
+        self.next = None
+        self.prev = None
+        self.sublist = None
+        self.active = True
+
+    def __repr__(self):
+        """Retorna una representación legible del nodo."""
+        return f"Node(data={self.data})"
+
+    def is_active(self):
+        """Indica si el nodo se encuentra activo."""
+        return self.active
+
+    def deactivate(self):
+        """Marca el nodo como inactivo (eliminación lógica)."""
+        self.active = False
+
+    def activate(self):
+        """Marca el nodo como activo."""
+        self.active = True
