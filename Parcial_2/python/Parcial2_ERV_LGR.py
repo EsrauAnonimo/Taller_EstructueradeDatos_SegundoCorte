@@ -141,20 +141,144 @@ class App(ctk.CTk):
         # Atajos de teclado y listeners globales
         self._bind_global_events()
 
-        # Cargar automáticamente los datos guardados al arrancar o iniciar vacío si no existen
-        self._load_data_on_startup()
+        # Inicializar estructuras vacías en memoria antes de la decisión del usuario (no cargar nada antes)
+        self.start_empty_data()
         self.navigate_to(_TAB_NAMES[0])
 
-    def _load_data_on_startup(self):
-        """Carga automáticamente los datos persistidos al arrancar.
-        Si el archivo no existe o ocurre un error, inicia la aplicación vacía sin mostrar errores."""
+        # Diálogo modal de inicio: el usuario decide si cargar datos o iniciar sin datos
+        self.after(50, self._prompt_startup_choice)
+
+    def _prompt_startup_choice(self):
+        """Muestra un diálogo modal al iniciar con dos opciones:
+        'Cargar datos del archivo' e 'Iniciar sin datos'.
+        Si elige cargar y el archivo no existe o está corrupto, avisa y ofrece iniciar vacío.
+        No carga nada antes de que el usuario elija."""
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Inicio del Sistema · PEA-i UPC")
+        w, h = 480, 270
+        dialog.resizable(False, False)
+        dialog.transient(self)
+        dialog.grab_set()
+
         try:
-            self.load_data()
+            self.update_idletasks()
+            sw = self.winfo_screenwidth()
+            sh = self.winfo_screenheight()
+            x = max(0, (sw - w) // 2)
+            y = max(0, (sh - h) // 2)
+            dialog.geometry(f"{w}x{h}+{x}+{y}")
         except Exception:
+            dialog.geometry(f"{w}x{h}")
+
+        dialog.attributes("-topmost", True)
+        dialog.lift()
+        dialog.focus_force()
+
+        card = ctk.CTkFrame(dialog, fg_color=COLORS.get("surface", "#FFFFFF"), corner_radius=12)
+        card.pack(fill="both", expand=True, padx=14, pady=14)
+
+        lbl_icon = ctk.CTkLabel(card, text="🏛️", font=(FONT_FAMILY, 28))
+        lbl_icon.pack(pady=(8, 2))
+
+        lbl_title = ctk.CTkLabel(
+            card,
+            text="Sistema de Investigación PEA-i",
+            font=(FONT_FAMILY, 15, "bold"),
+            text_color=COLORS.get("primary", "#1E3A8A"),
+        )
+        lbl_title.pack(pady=(0, 2))
+
+        lbl_desc = ctk.CTkLabel(
+            card,
+            text="Seleccione cómo desea iniciar la aplicación:",
+            font=(FONT_FAMILY, 11),
+            text_color=COLORS.get("ink_soft", "#64748B"),
+            justify="center",
+        )
+        lbl_desc.pack(pady=(0, 14), padx=16)
+
+        btn_box = ctk.CTkFrame(card, fg_color="transparent")
+        btn_box.pack(fill="x", padx=36, pady=4)
+
+        def _action_load():
             try:
-                self.start_empty_data()
+                if not hasattr(self, "persistencia") or not self.persistencia.exists():
+                    dialog.grab_release()
+                    dialog.destroy()
+                    res = messagebox.askyesno(
+                        "Archivo no encontrado",
+                        "El archivo de datos guardados no existe.\n\n¿Desea iniciar con las listas vacías?"
+                    )
+                    if res:
+                        self.start_empty_data()
+                        self.show_toast("Iniciado con estructuras vacías")
+                    else:
+                        path = filedialog.askopenfilename(
+                            filetypes=[("Archivos JSON", "*.json"), ("Todos los archivos", "*.*")],
+                            title="Seleccionar archivo guardado (JSON)",
+                        )
+                        if path:
+                            self.persistencia = PersistenciaJSON(filepath=path)
+                            self.load_data()
+                            self.show_toast("Datos cargados correctamente")
+                        else:
+                            self.start_empty_data()
+                    return
+
+                self.load_data()
+                dialog.grab_release()
+                dialog.destroy()
+                self.show_toast("Datos cargados correctamente desde el archivo")
+            except Exception as e:
+                try:
+                    dialog.grab_release()
+                    dialog.destroy()
+                except Exception:
+                    pass
+                res = messagebox.askyesno(
+                    "Error al cargar archivo",
+                    f"El archivo de datos está corrupto o es incompatible ({e}).\n\n¿Desea iniciar con las listas vacías?"
+                )
+                if res:
+                    self.start_empty_data()
+                    self.show_toast("Iniciado con estructuras vacías")
+                else:
+                    self.start_empty_data()
+
+        def _action_empty():
+            try:
+                dialog.grab_release()
+                dialog.destroy()
             except Exception:
                 pass
+            self.start_empty_data()
+            self.show_toast("Iniciado con estructuras vacías en memoria")
+
+        dialog.protocol("WM_DELETE_WINDOW", _action_empty)
+
+        btn_load = ctk.CTkButton(
+            btn_box,
+            text="📂  Cargar datos del archivo",
+            font=(FONT_FAMILY, 12, "bold"),
+            fg_color=COLORS["primary"],
+            hover_color=COLORS["primary_hover"],
+            height=38,
+            corner_radius=RADIUS["control"],
+            command=_action_load,
+        )
+        btn_load.pack(fill="x", pady=4)
+
+        btn_empty = ctk.CTkButton(
+            btn_box,
+            text="✨  Iniciar sin datos",
+            font=(FONT_FAMILY, 12),
+            fg_color="#475569",
+            hover_color="#334155",
+            height=36,
+            corner_radius=RADIUS["control"],
+            command=_action_empty,
+        )
+        btn_empty.pack(fill="x", pady=4)
 
     def create_menu(self):
         """Compatibilidad: la barra de menú nativa fue reubicada en la tuerca del pie del sidebar."""
