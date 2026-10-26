@@ -43,9 +43,9 @@
 #endif
 
 // Encabezados del taller (cada uno incluye lo que necesita).
-#include "investigador.hpp"
 #include "estructuras.hpp"
 #include "grupos.hpp"
+#include "investigador.hpp"
 
 // ============================================================================
 //  Colores ANSI
@@ -79,6 +79,7 @@ const std::vector<std::string> BANNER = {
 //  "grupos" guarda PUNTEROS a los grupos. Se usan punteros porque Grupo
 //  contiene dos ListaEnlazada y estas no se pueden copiar (su copia esta
 //  borrada); guardando solo la direccion evitamos cualquier copia.
+//  Ahora se usa una ListaEnlazada<Grupo*> para cumplir con la restriccion.
 //  "historial" es la Pila de cambios y se declara una sola vez para todo el
 //  programa.
 // ============================================================================
@@ -234,9 +235,9 @@ int anioActual() {
 
 // Busca un grupo por id. Devuelve el PUNTERO o nullptr si no existe.
 Grupo* buscarGrupo(int id) {
-    for (Grupo* grupo : grupos) {
-        if (grupo->id == id) {
-            return grupo;
+    for (size_t i = 0; i < grupos.size(); ++i) {
+        if (grupos[i] != nullptr && grupos[i]->id == id) {
+            return grupos[i];
         }
     }
     return nullptr;
@@ -244,8 +245,9 @@ Grupo* buscarGrupo(int id) {
 
 // Busca un producto por id en TODOS los grupos. Devuelve el nodo o nullptr.
 ListaProductos::Nodo* buscarProductoGlobal(int id) {
-    for (Grupo* grupo : grupos) {
-        ListaProductos::Nodo* nodo = grupo->productos.buscar(id);
+    for (size_t i = 0; i < grupos.size(); ++i) {
+        if (grupos[i] == nullptr) continue;
+        ListaProductos::Nodo* nodo = grupos[i]->productos.buscar(id);
         if (nodo != nullptr) {
             return nodo;
         }
@@ -255,8 +257,10 @@ ListaProductos::Nodo* buscarProductoGlobal(int id) {
 
 // Libera la memoria de todos los grupos.
 void liberarGrupos() {
-    for (Grupo* grupo : grupos) {
-        delete grupo;  // El destructor del Grupo libera sus dos listas.
+    for (size_t i = 0; i < grupos.size(); ++i) {
+        if (grupos[i] != nullptr) {
+            delete grupos[i];
+        }
     }
     grupos.clear();
 }
@@ -264,16 +268,18 @@ void liberarGrupos() {
 // Totales para las estadisticas.
 int contarTotalInvestigadores() {
     int total = 0;
-    for (Grupo* grupo : grupos) {
-        total += grupo->integrantes.contar();
+    for (size_t i = 0; i < grupos.size(); ++i) {
+        if (grupos[i] == nullptr) continue;
+        total += grupos[i]->integrantes.contar();
     }
     return total;
 }
 
 int contarTotalProductos() {
     int total = 0;
-    for (Grupo* grupo : grupos) {
-        total += grupo->productos.contar();
+    for (size_t i = 0; i < grupos.size(); ++i) {
+        if (grupos[i] == nullptr) continue;
+        total += grupos[i]->productos.contar();
     }
     return total;
 }
@@ -288,7 +294,12 @@ void imprimirLinea(int ancho) {
 // ============================================================================
 
 void mostrarGrupos() {
-    if (grupos.empty()) {
+    // Contar grupos activos
+    int totalGrupos = 0;
+    for (size_t i = 0; i < grupos.size(); ++i) {
+        if (grupos[i] != nullptr && grupos[i]->activo) totalGrupos++;
+    }
+    if (totalGrupos == 0) {
         aviso("No hay grupos registrados.");
         return;
     }
@@ -302,10 +313,13 @@ void mostrarGrupos() {
               << std::right
               << std::setw(9)  << "INTEGR."
               << std::setw(9)  << "PROD."
+              << std::setw(10) << "ACTIVO"
               << std::endl;
-    imprimirLinea(78);
+    imprimirLinea(88);
 
-    for (Grupo* grupo : grupos) {
+    for (size_t i = 0; i < grupos.size(); ++i) {
+        Grupo* grupo = grupos[i];
+        if (grupo == nullptr) continue;
         std::cout << std::left
                   << std::setw(6)  << grupo->id
                   << std::setw(24) << grupo->nombre
@@ -313,12 +327,14 @@ void mostrarGrupos() {
                   << std::right
                   << std::setw(9)  << grupo->integrantes.contar()
                   << std::setw(9)  << grupo->productos.contar()
+                  << std::setw(10) << (grupo->activo ? "Si" : "No")
                   << std::endl;
     }
-    imprimirLinea(78);
+    imprimirLinea(88);
 }
 
 void mostrarInvestigadoresDeGrupo(const Grupo* grupo) {
+    if (grupo == nullptr) return;
     if (grupo->integrantes.vacia()) {
         aviso("El grupo '" + grupo->nombre + "' no tiene investigadores.");
         return;
@@ -326,14 +342,15 @@ void mostrarInvestigadoresDeGrupo(const Grupo* grupo) {
 
     std::cout << CIAN << "\n=== INVESTIGADORES DEL GRUPO " << grupo->id
               << " (" << grupo->nombre << ") ===" << RESET << std::endl;
-    imprimirLinea(80);
+    imprimirLinea(90);
     std::cout << std::left
               << std::setw(6)  << "ID"
               << std::setw(24) << "NOMBRE"
               << std::setw(30) << "AREA DE CONOCIMIENTO"
               << std::setw(16) << "CATEGORIA"
+              << std::setw(10) << "ACTIVO"
               << std::endl;
-    imprimirLinea(80);
+    imprimirLinea(90);
 
     // Recorrido de la lista enlazada con un puntero auxiliar.
     for (ListaInvestigadores::Nodo* nodo = grupo->integrantes.primero();
@@ -344,12 +361,14 @@ void mostrarInvestigadoresDeGrupo(const Grupo* grupo) {
                   << std::setw(24) << inv.nombre
                   << std::setw(30) << inv.areaConocimiento
                   << std::setw(16) << inv.categoria
+                  << std::setw(10) << (inv.activo ? "Si" : "No")
                   << std::endl;
     }
-    imprimirLinea(80);
+    imprimirLinea(90);
 }
 
 void mostrarProductosDeGrupo(const Grupo* grupo) {
+    if (grupo == nullptr) return;
     if (grupo->productos.vacia()) {
         aviso("El grupo '" + grupo->nombre + "' no tiene productos.");
         return;
@@ -357,15 +376,16 @@ void mostrarProductosDeGrupo(const Grupo* grupo) {
 
     std::cout << CIAN << "\n=== PRODUCTOS DEL GRUPO " << grupo->id
               << " (" << grupo->nombre << ") ===" << RESET << std::endl;
-    imprimirLinea(82);
+    imprimirLinea(92);
     std::cout << std::left
               << std::setw(6)  << "ID"
               << std::setw(30) << "TITULO"
               << std::right << std::setw(6) << "ANIO" << std::left << "  "
               << std::setw(18) << "CATEGORIA"
               << std::setw(10) << "VALIDADO"
+              << std::setw(10) << "ACTIVO"
               << std::endl;
-    imprimirLinea(82);
+    imprimirLinea(92);
 
     for (ListaProductos::Nodo* nodo = grupo->productos.primero();
          nodo != nullptr; nodo = nodo->siguiente) {
@@ -376,14 +396,16 @@ void mostrarProductosDeGrupo(const Grupo* grupo) {
                   << std::right << std::setw(6) << prod.anio << std::left << "  "
                   << std::setw(18) << prod.categoria
                   << std::setw(10) << (prod.validado ? "Si" : "No")
+                  << std::setw(10) << (prod.activo ? "Si" : "No")
                   << std::endl;
     }
-    imprimirLinea(82);
+    imprimirLinea(92);
 }
 
 // Pide un grupo por id y lo devuelve (o nullptr si no existe).
 // Se usa antes de operar sobre investigadores/productos.
 Grupo* pedirGrupo() {
+    // Verificar si hay grupos
     if (grupos.empty()) {
         error("No hay grupos registrados. Cree un grupo primero.");
         return nullptr;
@@ -425,21 +447,60 @@ void eliminarGrupo() {
     }
 
     int id = leerEntero("ID del grupo a eliminar: ");
-    for (size_t i = 0; i < grupos.size(); ++i) {
-        if (grupos[i]->id == id) {
-            if (!leerBooleano("Confirma eliminar el grupo y TODOS sus datos?")) {
-                aviso("Operacion cancelada.");
-                return;
-            }
-            std::string nombre = grupos[i]->nombre;
-            delete grupos[i];                 // Libera el grupo y sus listas.
-            grupos.erase(grupos.begin() + i); // Lo quita del vector.
-            historial.insertar("Grupo eliminado (ID " + std::to_string(id) + "): " + nombre);
-            exito("Grupo eliminado correctamente.");
-            return;
-        }
+    Grupo* grupo = buscarGrupo(id);
+    if (grupo == nullptr) {
+        error("No existe un grupo con ese ID.");
+        return;
     }
-    error("No existe un grupo con ese ID.");
+    if (!leerBooleano("Confirma desactivar el grupo y TODOS sus datos?")) {
+        aviso("Operacion cancelada.");
+        return;
+    }
+    std::string nombre = grupo->nombre;
+    grupo->activo = false;
+    // Desactivar investigadores y productos también
+    for (ListaInvestigadores::Nodo* nodoInv = grupo->integrantes.primero();
+         nodoInv != nullptr; nodoInv = nodoInv->siguiente) {
+        nodoInv->dato.activo = false;
+    }
+    for (ListaProductos::Nodo* nodoProd = grupo->productos.primero();
+         nodoProd != nullptr; nodoProd = nodoProd->siguiente) {
+        nodoProd->dato.activo = false;
+    }
+    historial.insertar("Grupo desactivado (ID " + std::to_string(id) + "): " + nombre);
+    exito("Grupo desactivado correctamente (borrado lógico).");
+}
+
+void reactivarGrupo() {
+    std::cout << CIAN << "\n--- REACTIVAR GRUPO ---" << RESET << std::endl;
+    // Contar desactivados
+    int desactivados = 0;
+    for (size_t i = 0; i < grupos.size(); ++i) {
+        if (grupos[i] != nullptr && !grupos[i]->activo) desactivados++;
+    }
+    if (desactivados == 0) {
+        aviso("No hay grupos desactivados.");
+        return;
+    }
+    // Mostrar desactivados
+    std::cout << CIAN << "\n=== GRUPOS DESACTIVADOS ===" << RESET << std::endl;
+    imprimirLinea(78);
+    for (size_t i = 0; i < grupos.size(); ++i) {
+        Grupo* g = grupos[i];
+        if (g == nullptr || g->activo) continue;
+        std::cout << std::left << std::setw(6) << g->id << std::setw(24) << g->nombre
+                  << std::setw(26) << g->plan << std::endl;
+    }
+    imprimirLinea(78);
+    int id = leerEntero("ID del grupo a reactivar: ");
+    Grupo* grupo = buscarGrupo(id);
+    if (grupo == nullptr) {
+        error("No existe un grupo con ese ID.");
+        return;
+    }
+    grupo->activo = true;
+    historial.insertar("Grupo reactivado (ID " + std::to_string(id) + "): " + grupo->nombre);
+    exito("Grupo reactivado correctamente.");
 }
 
 void modificarGrupo() {
@@ -482,7 +543,13 @@ void agregarInvestigador() {
     std::string area = leerTexto("Area de conocimiento: ");
     std::string categoria = leerTexto("Categoria: ");
 
-    grupo->integrantes.insertar({id, nombre, area, categoria});
+    Investigador inv;
+    inv.id = id;
+    inv.nombre = nombre;
+    inv.areaConocimiento = area;
+    inv.categoria = categoria;
+    inv.activo = true;
+    grupo->integrantes.insertar(inv);
     historial.insertar("Investigador agregado al grupo " + std::to_string(grupo->id) +
                        ": " + nombre);
     exito("Investigador agregado correctamente.");
@@ -496,10 +563,46 @@ void eliminarInvestigador() {
     }
 
     int id = leerEntero("ID del investigador a eliminar: ");
-    if (grupo->integrantes.eliminar(id)) {
-        historial.insertar("Investigador eliminado (ID " + std::to_string(id) +
+    ListaInvestigadores::Nodo* nodo = grupo->integrantes.buscar(id);
+    if (nodo != nullptr) {
+        nodo->dato.activo = false;
+        historial.insertar("Investigador desactivado (ID " + std::to_string(id) +
                            ") del grupo " + std::to_string(grupo->id));
-        exito("Investigador eliminado correctamente.");
+        exito("Investigador desactivado correctamente (borrado lógico).");
+    } else {
+        error("No existe un investigador con ese ID en el grupo.");
+    }
+}
+
+void reactivarInvestigador() {
+    std::cout << CIAN << "\n--- REACTIVAR INVESTIGADOR ---" << RESET << std::endl;
+    Grupo* grupo = pedirGrupo();
+    if (grupo == nullptr) return;
+    // Mostrar desactivados
+    std::cout << CIAN << "\n=== INVESTIGADORES DESACTIVADOS ===" << RESET << std::endl;
+    imprimirLinea(90);
+    bool hayDesactivados = false;
+    for (ListaInvestigadores::Nodo* nodo = grupo->integrantes.primero();
+         nodo != nullptr; nodo = nodo->siguiente) {
+        if (!nodo->dato.activo) {
+            hayDesactivados = true;
+            std::cout << std::left << std::setw(6) << nodo->dato.id << std::setw(24)
+                      << nodo->dato.nombre << std::setw(30) << nodo->dato.areaConocimiento
+                      << std::setw(16) << nodo->dato.categoria << std::endl;
+        }
+    }
+    imprimirLinea(90);
+    if (!hayDesactivados) {
+        aviso("No hay investigadores desactivados.");
+        return;
+    }
+    int id = leerEntero("ID del investigador a reactivar: ");
+    ListaInvestigadores::Nodo* nodo = grupo->integrantes.buscar(id);
+    if (nodo != nullptr) {
+        nodo->dato.activo = true;
+        historial.insertar("Investigador reactivado (ID " + std::to_string(id) +
+                           ") del grupo " + std::to_string(grupo->id));
+        exito("Investigador reactivado correctamente.");
     } else {
         error("No existe un investigador con ese ID en el grupo.");
     }
@@ -567,7 +670,41 @@ void agregarProducto() {
     std::string categoria = leerTexto("Categoria: ");
     bool validado = leerBooleano("Esta validado?");
 
-    grupo->productos.insertar({id, titulo, anio, categoria, validado});
+    Producto prod;
+    prod.id = id;
+    prod.titulo = titulo;
+    prod.anio = anio;
+    prod.categoria = categoria;
+    prod.validado = validado;
+    prod.activo = true;
+    grupo->productos.insertar(prod);
+    // Agregar producto a los investigadores del grupo
+    std::cout << "\n¿Desea asignar este producto a algun investigador del grupo?" << std::endl;
+    if (leerBooleano("Asignar a investigador?")) {
+        // Mostrar investigadores activos
+        std::cout << CIAN << "\n=== INVESTIGADORES DEL GRUPO ===" << RESET << std::endl;
+        imprimirLinea(90);
+        for (ListaInvestigadores::Nodo* nodoInv = grupo->integrantes.primero();
+             nodoInv != nullptr; nodoInv = nodoInv->siguiente) {
+            if (nodoInv->dato.activo) {
+                std::cout << std::left << std::setw(6) << nodoInv->dato.id << std::setw(24)
+                          << nodoInv->dato.nombre << std::setw(30) << nodoInv->dato.areaConocimiento
+                          << std::setw(16) << nodoInv->dato.categoria << std::endl;
+            }
+        }
+        imprimirLinea(90);
+        int idInv = leerEntero("ID del investigador: ");
+        ListaInvestigadores::Nodo* nodoInvSel = grupo->integrantes.buscar(idInv);
+        if (nodoInvSel != nullptr) {
+            if (nodoInvSel->dato.misProductosPtr == nullptr) {
+                nodoInvSel->dato.misProductosPtr = new ListaEnlazada<Producto>();
+            }
+            nodoInvSel->dato.misProductosPtr->insertar(prod);
+            exito("Producto asignado al investigador correctamente.");
+        } else {
+            aviso("No se encontro el investigador, producto solo guardado en el grupo.");
+        }
+    }
     historial.insertar("Producto agregado al grupo " + std::to_string(grupo->id) +
                        ": " + titulo);
     exito("Producto agregado correctamente.");
@@ -581,10 +718,45 @@ void eliminarProducto() {
     }
 
     int id = leerEntero("ID del producto a eliminar: ");
-    if (grupo->productos.eliminar(id)) {
-        historial.insertar("Producto eliminado (ID " + std::to_string(id) +
+    ListaProductos::Nodo* nodoProd = grupo->productos.buscar(id);
+    if (nodoProd != nullptr) {
+        nodoProd->dato.activo = false;
+        historial.insertar("Producto desactivado (ID " + std::to_string(id) +
                            ") del grupo " + std::to_string(grupo->id));
-        exito("Producto eliminado correctamente.");
+        exito("Producto desactivado correctamente (borrado lógico).");
+    } else {
+        error("No existe un producto con ese ID en el grupo.");
+    }
+}
+
+void reactivarProducto() {
+    std::cout << CIAN << "\n--- REACTIVAR PRODUCTO ---" << RESET << std::endl;
+    Grupo* grupo = pedirGrupo();
+    if (grupo == nullptr) return;
+    std::cout << CIAN << "\n=== PRODUCTOS DESACTIVADOS ===" << RESET << std::endl;
+    imprimirLinea(92);
+    bool hayDesactivados = false;
+    for (ListaProductos::Nodo* nodo = grupo->productos.primero();
+         nodo != nullptr; nodo = nodo->siguiente) {
+        if (!nodo->dato.activo) {
+            hayDesactivados = true;
+            std::cout << std::left << std::setw(6) << nodo->dato.id << std::setw(30)
+                      << nodo->dato.titulo << std::right << std::setw(6) << nodo->dato.anio
+                      << std::left << "  " << std::setw(18) << nodo->dato.categoria << std::endl;
+        }
+    }
+    imprimirLinea(92);
+    if (!hayDesactivados) {
+        aviso("No hay productos desactivados.");
+        return;
+    }
+    int id = leerEntero("ID del producto a reactivar: ");
+    ListaProductos::Nodo* nodoProd = grupo->productos.buscar(id);
+    if (nodoProd != nullptr) {
+        nodoProd->dato.activo = true;
+        historial.insertar("Producto reactivado (ID " + std::to_string(id) +
+                           ") del grupo " + std::to_string(grupo->id));
+        exito("Producto reactivado correctamente.");
     } else {
         error("No existe un producto con ese ID en el grupo.");
     }
@@ -660,12 +832,15 @@ void filtrarProductosPorAnio() {
               << std::right << std::setw(6) << "ANIO" << std::left << "  "
               << std::setw(18) << "CATEGORIA"
               << std::setw(10) << "VALIDADO"
+              << std::setw(10) << "ACTIVO"
               << std::endl;
-    imprimirLinea(88);
+    imprimirLinea(98);
 
     int encontrados = 0;
     // Recorremos todos los grupos y, dentro de cada uno, su lista de productos.
-    for (Grupo* grupo : grupos) {
+    for (size_t i = 0; i < grupos.size(); ++i) {
+        Grupo* grupo = grupos[i];
+        if (grupo == nullptr) continue;
         for (ListaProductos::Nodo* nodo = grupo->productos.primero();
              nodo != nullptr; nodo = nodo->siguiente) {
             const Producto& prod = nodo->dato;
@@ -677,12 +852,13 @@ void filtrarProductosPorAnio() {
                           << std::right << std::setw(6) << prod.anio << std::left << "  "
                           << std::setw(18) << prod.categoria
                           << std::setw(10) << (prod.validado ? "Si" : "No")
+                          << std::setw(10) << (prod.activo ? "Si" : "No")
                           << std::endl;
                 ++encontrados;
             }
         }
     }
-    imprimirLinea(88);
+    imprimirLinea(98);
 
     if (encontrados == 0) {
         aviso("No se encontraron productos en ese rango de anios.");
@@ -704,8 +880,14 @@ void mostrarEstadisticas() {
 
     int totalInvestigadores = contarTotalInvestigadores();
     int totalProductos = contarTotalProductos();
+    if (totalProductos == 0 && totalInvestigadores == 0) {
+        aviso("No hay datos suficientes para calcular estadísticas.");
+        return;
+    }
     int productosValidados = 0;
-    for (Grupo* grupo : grupos) {
+    for (size_t i = 0; i < grupos.size(); ++i) {
+        if (grupos[i] == nullptr) continue;
+        Grupo* grupo = grupos[i];
         for (ListaProductos::Nodo* nodo = grupo->productos.primero();
              nodo != nullptr; nodo = nodo->siguiente) {
             if (nodo->dato.validado) {
@@ -720,8 +902,22 @@ void mostrarEstadisticas() {
     std::cout << std::left << std::setw(32) << "METRICA"
               << std::right << std::setw(14) << "VALOR" << std::endl;
     imprimirLinea(46);
+    int totalGruposCnt = 0;
+    for (size_t i = 0; i < grupos.size(); ++i) {
+        if (grupos[i] != nullptr && grupos[i]->activo) totalGruposCnt++;
+    }
+    if (totalGruposCnt == 0) {
+        aviso("No hay datos suficientes para calcular estadísticas.");
+        return;
+    }
+    double indicadorTotalInstitucion = 0.0;
+    for (size_t i = 0; i < grupos.size(); ++i) {
+        if (grupos[i] == nullptr) continue;
+        if (!grupos[i]->activo) continue;
+        indicadorTotalInstitucion += calcularIndicadorGrupo(*grupos[i], 0, 9999);
+    }
     std::cout << std::left << std::setw(32) << "Grupos registrados"
-              << std::right << std::setw(14) << grupos.size() << std::endl;
+              << std::right << std::setw(14) << totalGruposCnt << std::endl;
     std::cout << std::left << std::setw(32) << "Investigadores"
               << std::right << std::setw(14) << totalInvestigadores << std::endl;
     std::cout << std::left << std::setw(32) << "Productos"
@@ -731,6 +927,8 @@ void mostrarEstadisticas() {
     std::cout << std::left << std::setw(32) << "Productos sin validar"
               << std::right << std::setw(14) << (totalProductos - productosValidados)
               << std::endl;
+    std::cout << std::left << std::setw(32) << "Indicador Total de la Institución"
+              << std::right << std::setw(14) << std::fixed << std::setprecision(2) << indicadorTotalInstitucion << std::endl;
     imprimirLinea(46);
 
     // --- Tabla 2: productos por grupo ---
@@ -739,7 +937,9 @@ void mostrarEstadisticas() {
     std::cout << std::left << std::setw(32) << "GRUPO"
               << std::right << std::setw(14) << "PRODUCTOS" << std::endl;
     imprimirLinea(46);
-    for (Grupo* grupo : grupos) {
+    for (size_t i = 0; i < grupos.size(); ++i) {
+        if (grupos[i] == nullptr) continue;
+        Grupo* grupo = grupos[i];
         std::cout << std::left << std::setw(32) << (grupo->nombre + " (" +
                      std::to_string(grupo->id) + ")")
                   << std::right << std::setw(14) << grupo->productos.contar()
@@ -750,7 +950,9 @@ void mostrarEstadisticas() {
     // --- Tabla 3: investigadores por area de conocimiento ---
     // std::map ordena las areas alfabeticamente, lo que mejora la lectura.
     std::map<std::string, int> porArea;
-    for (Grupo* grupo : grupos) {
+    for (size_t i = 0; i < grupos.size(); ++i) {
+        if (grupos[i] == nullptr) continue;
+        Grupo* grupo = grupos[i];
         for (ListaInvestigadores::Nodo* nodo = grupo->integrantes.primero();
              nodo != nullptr; nodo = nodo->siguiente) {
             porArea[nodo->dato.areaConocimiento] += 1;
@@ -795,7 +997,9 @@ void procesarColaValidacion() {
     // Se llena la cola con los IDs de los productos NO validados, en el orden
     // en que aparecen (grupo por grupo).
     Cola cola;
-    for (Grupo* grupo : grupos) {
+    for (size_t i = 0; i < grupos.size(); ++i) {
+        if (grupos[i] == nullptr) continue;
+        Grupo* grupo = grupos[i];
         for (ListaProductos::Nodo* nodo = grupo->productos.primero();
              nodo != nullptr; nodo = nodo->siguiente) {
             if (!nodo->dato.validado) {
@@ -867,10 +1071,12 @@ void guardarCSV() {
         return;
     }
 
-    for (Grupo* grupo : grupos) {
+    for (size_t i = 0; i < grupos.size(); ++i) {
+        if (grupos[i] == nullptr) continue;
+        Grupo* grupo = grupos[i];
         archivo << "GRUPO," << grupo->id << ","
                 << sanitizarCSV(grupo->nombre) << ","
-                << sanitizarCSV(grupo->plan) << "\n";
+                << sanitizarCSV(grupo->plan) << "," << (grupo->activo ? 1 : 0) << "\n";
 
         for (ListaInvestigadores::Nodo* nodo = grupo->integrantes.primero();
              nodo != nullptr; nodo = nodo->siguiente) {
@@ -878,7 +1084,7 @@ void guardarCSV() {
             archivo << "INVESTIGADOR," << grupo->id << "," << inv.id << ","
                     << sanitizarCSV(inv.nombre) << ","
                     << sanitizarCSV(inv.areaConocimiento) << ","
-                    << sanitizarCSV(inv.categoria) << "\n";
+                    << sanitizarCSV(inv.categoria) << "," << (inv.activo ? 1 : 0) << "\n";
         }
 
         for (ListaProductos::Nodo* nodo = grupo->productos.primero();
@@ -887,7 +1093,7 @@ void guardarCSV() {
             archivo << "PRODUCTO," << grupo->id << "," << prod.id << ","
                     << sanitizarCSV(prod.titulo) << "," << prod.anio << ","
                     << sanitizarCSV(prod.categoria) << ","
-                    << (prod.validado ? 1 : 0) << "\n";
+                    << (prod.validado ? 1 : 0) << "," << (prod.activo ? 1 : 0) << "\n";
         }
     }
 
@@ -933,21 +1139,39 @@ void cargarCSV() {
 
         try {
             if (partes[0] == "GRUPO" && partes.size() >= 4) {
-                grupos.push_back(new Grupo(std::stoi(partes[1]), partes[2], partes[3]));
+                Grupo* g = new Grupo(std::stoi(partes[1]), partes[2], partes[3]);
+                if (partes.size() >= 5) {
+                    g->activo = (partes[4] == "1");
+                }
+                grupos.push_back(g);
                 ++contadorGrupos;
             } else if (partes[0] == "INVESTIGADOR" && partes.size() >= 6) {
                 Grupo* grupo = buscarGrupo(std::stoi(partes[1]));
                 if (grupo != nullptr) {
-                    grupo->integrantes.insertar({std::stoi(partes[2]), partes[3],
-                                                 partes[4], partes[5]});
+                    Investigador inv;
+                    inv.id = std::stoi(partes[2]);
+                    inv.nombre = partes[3];
+                    inv.areaConocimiento = partes[4];
+                    inv.categoria = partes[5];
+                    if (partes.size() >= 7) {
+                        inv.activo = (partes[6] == "1");
+                    }
+                    grupo->integrantes.insertar(inv);
                     ++contadorInvestigadores;
                 }
             } else if (partes[0] == "PRODUCTO" && partes.size() >= 7) {
                 Grupo* grupo = buscarGrupo(std::stoi(partes[1]));
                 if (grupo != nullptr) {
-                    grupo->productos.insertar({std::stoi(partes[2]), partes[3],
-                                               std::stoi(partes[4]), partes[5],
-                                               partes[6] == "1"});
+                    Producto prod;
+                    prod.id = std::stoi(partes[2]);
+                    prod.titulo = partes[3];
+                    prod.anio = std::stoi(partes[4]);
+                    prod.categoria = partes[5];
+                    prod.validado = (partes[6] == "1");
+                    if (partes.size() >= 8) {
+                        prod.activo = (partes[7] == "1");
+                    }
+                    grupo->productos.insertar(prod);
                     ++contadorProductos;
                 }
             }
@@ -993,7 +1217,9 @@ void mostrarMenu() {
     std::cout << " 7) Modificar investigador 16) Ver historial\n";
     std::cout << " 8) Mostrar investigadores 17) Cola de validacion\n";
     std::cout << " 9) Guardar datos         18) Cargar datos\n";
-    std::cout << "                          19) Salir\n";
+    std::cout << " 19) Reactivar grupo      20) Reactivar investigador\n";
+    std::cout << " 21) Reactivar producto   22) Calcular indicador investigador\n";
+    std::cout << " 23) Calcular indicador grupo 24) Salir\n";
     std::cout << CIAN << "==============================================" << RESET << std::endl;
 }
 
@@ -1002,14 +1228,21 @@ void mostrarMenu() {
 // ============================================================================
 int main() {
     habilitarColoresANSI();
-    cargarCSV();  // Carga los datos guardados, si existen.
+    std::cout << CIAN << "¿Desea cargar los datos guardados previamente? (1 = Sí, 0 = No): " << RESET;
+    std::string respCarga;
+    std::getline(std::cin, respCarga);
+    std::string respTrim = recortar(respCarga);
+    if (respTrim == "1" || respTrim == "s" || respTrim == "S" || respTrim == "si" || respTrim == "Si" || respTrim == "SI") {
+        cargarCSV();  // Carga los datos guardados, si existen.
+    }
+    // Si ingresa 0, inicia con las listas vacías.
 
     bool salir = false;
     while (!salir) {
         mostrarTitulo();
         mostrarMenu();
 
-        int opcion = leerEnteroEnRango("Seleccione una opcion: ", 1, 19);
+        int opcion = leerEnteroEnRango("Seleccione una opcion: ", 1, 24);
 
         switch (opcion) {
             case 1:  agregarGrupo();          pausar(); break;
@@ -1030,7 +1263,72 @@ int main() {
             case 16: verHistorial();          pausar(); break;
             case 17: procesarColaValidacion(); pausar(); break;
             case 18: cargarCSV();             pausar(); break;
-            case 19:
+            case 19: reactivarGrupo();        pausar(); break;
+            case 20: reactivarInvestigador(); pausar(); break;
+            case 21: reactivarProducto();     pausar(); break;
+            case 22: {
+                std::cout << CIAN << "\n--- CALCULAR INDICADOR DE UN INVESTIGADOR ---" << RESET << std::endl;
+                int idInv = leerEntero("ID del investigador: ");
+                Investigador* invEncontrado = nullptr;
+                for (size_t i = 0; i < grupos.size(); ++i) {
+                    if (grupos[i] == nullptr) continue;
+                    ListaInvestigadores::Nodo* nodo = grupos[i]->integrantes.buscar(idInv);
+                    if (nodo != nullptr) {
+                        invEncontrado = &nodo->dato;
+                        break;
+                    }
+                }
+                if (invEncontrado == nullptr) {
+                    error("No existe un investigador con ese ID.");
+                    pausar(); break;
+                }
+                int anioInicio = 0;
+                int anioFin = 9999;
+                std::cout << "\n¿Desea aplicar un filtro de años? (1 = Últimos 2 años, 2 = Últimos 5 años, 3 = Rango personalizado, 0 = Sin filtro)\n";
+                int filtroAnios = leerEnteroEnRango("Opcion: ", 0, 3);
+                if (filtroAnios == 1) {
+                    anioInicio = anioActual() - 2;
+                    anioFin = anioActual();
+                } else if (filtroAnios == 2) {
+                    anioInicio = anioActual() - 5;
+                    anioFin = anioActual();
+                } else if (filtroAnios == 3) {
+                    anioInicio = leerEntero("Año inicio: ");
+                    anioFin = leerEntero("Año fin: ");
+                } else {
+                    anioInicio = 0;
+                    anioFin = 9999;
+                }
+                double ind = calcularIndicadorInvestigador(*invEncontrado, anioInicio, anioFin);
+                std::cout << VERDE << "Indicador del investigador: " << std::fixed << std::setprecision(2) << ind << RESET << std::endl;
+                pausar(); break;
+            }
+            case 23: {
+                std::cout << CIAN << "\n--- CALCULAR INDICADOR DE UN GRUPO ---" << RESET << std::endl;
+                Grupo* grupo = pedirGrupo();
+                if (grupo == nullptr) { pausar(); break; }
+                int anioInicio = 0;
+                int anioFin = 9999;
+                std::cout << "\n¿Desea aplicar un filtro de años? (1 = Últimos 2 años, 2 = Últimos 5 años, 3 = Rango personalizado, 0 = Sin filtro)\n";
+                int filtroAnios = leerEnteroEnRango("Opcion: ", 0, 3);
+                if (filtroAnios == 1) {
+                    anioInicio = anioActual() - 2;
+                    anioFin = anioActual();
+                } else if (filtroAnios == 2) {
+                    anioInicio = anioActual() - 5;
+                    anioFin = anioActual();
+                } else if (filtroAnios == 3) {
+                    anioInicio = leerEntero("Año inicio: ");
+                    anioFin = leerEntero("Año fin: ");
+                } else {
+                    anioInicio = 0;
+                    anioFin = 9999;
+                }
+                double indG = calcularIndicadorGrupo(*grupo, anioInicio, anioFin);
+                std::cout << VERDE << "Indicador del grupo: " << std::fixed << std::setprecision(2) << indG << RESET << std::endl;
+                pausar(); break;
+            }
+            case 24:
                 if (leerBooleano("Guardar los datos antes de salir?")) {
                     guardarCSV();
                 }
