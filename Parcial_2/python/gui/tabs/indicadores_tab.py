@@ -100,11 +100,11 @@ class IndicadoresTab(ctk.CTkFrame):
         # Selector de Modo: Grupo o Investigador
         lbl_tipo = ctk.CTkLabel(
             ctrl_inner,
-            text="Calcular para:",
+            text="Entidad:",
             font=font("body_bold"),
             text_color=COLORS["ink"],
         )
-        lbl_tipo.pack(side="left", padx=(0, 10))
+        lbl_tipo.pack(side="left", padx=(0, 6))
 
         self.seg_mode = ctk.CTkSegmentedButton(
             ctrl_inner,
@@ -115,20 +115,20 @@ class IndicadoresTab(ctk.CTkFrame):
             selected_hover_color=COLORS["primary_hover"],
         )
         self.seg_mode.set("Grupo")
-        self.seg_mode.pack(side="left", padx=(0, 20))
+        self.seg_mode.pack(side="left", padx=(0, 12))
 
         # Selector desplegable (ComboBox)
         self.lbl_target = ctk.CTkLabel(
             ctrl_inner,
-            text="Seleccionar Grupo:",
+            text="Grupo:",
             font=font("body_bold"),
             text_color=COLORS["ink"],
         )
-        self.lbl_target.pack(side="left", padx=(0, 10))
+        self.lbl_target.pack(side="left", padx=(0, 6))
 
         self.combo_target = ctk.CTkComboBox(
             ctrl_inner,
-            width=360,
+            width=270,
             values=["Cargando..."],
             command=self._on_target_changed,
             font=font("body"),
@@ -136,12 +136,13 @@ class IndicadoresTab(ctk.CTkFrame):
             corner_radius=RADIUS["control"],
             border_color=COLORS["border"],
         )
-        self.combo_target.pack(side="left", padx=(0, 15))
+        self.combo_target.pack(side="left", padx=(0, 10))
 
-        # Botón Calcular
+        # Botón Calcular (ancho explícito y padding ajustado para no cortarse en ventanas angostas)
         self.btn_calc = ctk.CTkButton(
             ctrl_inner,
-            text="  Calcular Indicador",
+            text="Calcular Indicador",
+            width=165,
             font=font("body_bold"),
             fg_color=COLORS["primary"],
             hover_color=COLORS["primary_hover"],
@@ -149,13 +150,13 @@ class IndicadoresTab(ctk.CTkFrame):
             height=36,
             command=self.calcular,
         )
-        self.btn_calc.pack(side="left", padx=(0, 10))
+        self.btn_calc.pack(side="left", padx=(0, 8))
 
         # Botón Actualizar listas
         self.btn_refresh = ctk.CTkButton(
             ctrl_inner,
             text="⟳ Actualizar",
-            width=90,
+            width=85,
             font=font("small"),
             fg_color=COLORS["surface_alt"],
             text_color=COLORS["ink"],
@@ -354,7 +355,7 @@ class IndicadoresTab(ctk.CTkFrame):
         )
         lbl_prods_title.pack(anchor="w", padx=12, pady=(10, 6))
 
-        prod_cols = ("id", "titulo", "tipo", "categoria", "peso", "puntaje", "validado")
+        prod_cols = ("id", "titulo", "tipo", "categoria", "peso", "puntaje", "estado")
         self.tree_prods = ttk.Treeview(
             self.prods_frame,
             columns=prod_cols,
@@ -367,15 +368,19 @@ class IndicadoresTab(ctk.CTkFrame):
         self.tree_prods.heading("categoria", text="Categoría")
         self.tree_prods.heading("peso", text="Peso Rel.")
         self.tree_prods.heading("puntaje", text="Puntaje")
-        self.tree_prods.heading("validado", text="Validado")
+        self.tree_prods.heading("estado", text="Estado")
 
         self.tree_prods.column("id", width=65, anchor="center")
-        self.tree_prods.column("titulo", width=240, anchor="w")
+        self.tree_prods.column("titulo", width=230, anchor="w")
         self.tree_prods.column("tipo", width=140, anchor="w")
-        self.tree_prods.column("categoria", width=100, anchor="center")
+        self.tree_prods.column("categoria", width=95, anchor="center")
         self.tree_prods.column("peso", width=65, anchor="center")
         self.tree_prods.column("puntaje", width=65, anchor="center")
-        self.tree_prods.column("validado", width=70, anchor="center")
+        self.tree_prods.column("estado", width=100, anchor="center")
+
+        # Configurar colores para estados de productos (excluidos en gris)
+        self.tree_prods.tag_configure("cuenta", foreground=COLORS.get("ink", "#1E293B"))
+        self.tree_prods.tag_configure("excluido", foreground="#888888")
 
         prod_scroll = ttk.Scrollbar(self.prods_frame, orient="vertical", command=self.tree_prods.yview)
         self.tree_prods.configure(yscrollcommand=prod_scroll.set)
@@ -387,13 +392,15 @@ class IndicadoresTab(ctk.CTkFrame):
         """Manejador al alternar entre Grupo e Investigador."""
         self._selected_mode = mode
         if mode == "Grupo":
-            self.lbl_target.configure(text="Seleccionar Grupo:")
+            self.lbl_target.configure(text="Grupo:")
         else:
-            self.lbl_target.configure(text="Seleccionar Investigador:")
+            self.lbl_target.configure(text="Investigador:")
         self._populate_combo()
         selected = self.combo_target.get() if self.combo_target else ""
         if selected and "No hay" not in selected and "Cargando" not in selected:
             self.calcular(silent=True)
+        else:
+            self._reset_results()
 
     def refresh(self, silent: bool = True):
         """Recarga los datos de grupos e investigadores desde la multilista."""
@@ -488,13 +495,13 @@ class IndicadoresTab(ctk.CTkFrame):
             self.tree_prods.delete(item)
 
     def calcular(self, silent: bool = False):
-        """Calcula el indicador según la entidad seleccionada en el ComboBox."""
+        """Función única de cálculo utilizada tanto por el botón como por el cálculo automático."""
         print("Calculando indicador...")
 
         app = self._app_ref
         if not app or not hasattr(app, "multilista") or app.multilista.head_group is None:
             if not silent:
-                messagebox.showwarning("Atención", "No hay datos para calcular")
+                messagebox.showwarning("Atención", "No hay datos cargados para calcular.")
             self._reset_results()
             return
 
@@ -503,34 +510,29 @@ class IndicadoresTab(ctk.CTkFrame):
 
         if self._selected_mode == "Grupo" and not self._grupos_cache:
             if not silent:
-                messagebox.showwarning("Atención", "No hay datos para calcular")
+                messagebox.showwarning("Atención", "Selecciona un grupo")
             self._reset_results()
             return
         elif self._selected_mode == "Investigador" and not self._investigadores_cache:
             if not silent:
-                messagebox.showwarning("Atención", "No hay datos para calcular")
+                messagebox.showwarning("Atención", "Selecciona un investigador")
             self._reset_results()
             return
 
         selected_text = self.combo_target.get().strip() if self.combo_target else ""
-        if not selected_text or "No hay" in selected_text or "Cargando" in selected_text:
-            if not silent:
-                messagebox.showwarning("Atención", "No hay datos para calcular")
-            self._reset_results()
-            return
-
-        # Extraer el ID o Cédula dentro de los corchetes [ID]
         target_id = None
         if "[" in selected_text and "]" in selected_text:
             target_id = selected_text.split("[")[1].split("]")[0].strip()
 
-        if not target_id:
+        # Validación 3.a: si no hay grupo o investigador seleccionado
+        if not selected_text or "No hay" in selected_text or "Cargando" in selected_text or not target_id:
             if not silent:
-                messagebox.showwarning("Atención", "No hay datos para calcular")
+                msg_entidad = "un investigador" if self._selected_mode == "Investigador" else "un grupo"
+                messagebox.showwarning("Atención", f"Selecciona {msg_entidad}")
             self._reset_results()
             return
 
-        # Determinar filtro por año desde el ComboBox
+        # Validación 3.b: Filtro por año y Rango personalizado
         filtro_modo = self.combo_year.get().strip()
         anio_min = None
         anio_max = None
@@ -546,22 +548,29 @@ class IndicadoresTab(ctk.CTkFrame):
             anio_max = current_year
             filtro_desc = f"{anio_min} - {anio_max}"
         elif "Personalizado" in filtro_modo or "Rango" in filtro_modo:
+            d_str = self.entry_desde.get().strip()
+            h_str = self.entry_hasta.get().strip()
+            if not d_str or not h_str:
+                if not silent:
+                    messagebox.showwarning("Atención", "Ingresa los años 'Desde' y 'Hasta'.")
+                return
             try:
-                d_str = self.entry_desde.get().strip()
-                h_str = self.entry_hasta.get().strip()
-                if d_str:
-                    anio_min = int(d_str)
-                if h_str:
-                    anio_max = int(h_str)
-                if anio_min is not None and anio_max is not None and anio_min > anio_max:
-                    anio_min, anio_max = anio_max, anio_min
-                filtro_desc = f"{anio_min or 'inicio'} - {anio_max or 'fin'}"
+                anio_min = int(d_str)
+                anio_max = int(h_str)
             except ValueError:
                 if not silent:
-                    messagebox.showwarning("Atención", "Los años del rango deben ser números enteros.")
+                    messagebox.showwarning("Atención", "Los años del rango deben ser números enteros válidos.")
                 return
+            if anio_min > anio_max:
+                if not silent:
+                    messagebox.showwarning(
+                        "Atención",
+                        f"El año 'Desde' ({anio_min}) no puede ser mayor que 'Hasta' ({anio_max})."
+                    )
+                return
+            filtro_desc = f"{anio_min} - {anio_max}"
 
-        # Ejecutar cálculo
+        # 3.c: Ejecutar cálculo llamando a calcular_indicador_grupo o calcular_indicador_investigador
         try:
             if self._selected_mode == "Grupo":
                 calc_id = int(target_id) if str(target_id).isdigit() else target_id
@@ -587,21 +596,46 @@ class IndicadoresTab(ctk.CTkFrame):
                 messagebox.showerror("Error", f"Error al calcular el indicador: {err}")
             return
 
-        # Actualizar KPIs usando .configure() y set_value / update_value
-        indicador_str = f"{res['indicador']:.2f}"
+        # 3.e: Detección de motivo si ningún producto cumple los criterios de medición
+        total_validados = res.get("total_validados", 0)
+        total_prods_entidad = len(productos)
+        razon_cero = None
+
+        if total_validados == 0:
+            if total_prods_entidad == 0:
+                razon_cero = "No hay productos registrados para esta entidad."
+            else:
+                activos = [p for p in productos if indicadores._es_activo(p)]
+                if not activos:
+                    razon_cero = "Todos los productos están marcados como inactivos."
+                else:
+                    validados = [p for p in activos if indicadores._es_validado(p)]
+                    if not validados:
+                        razon_cero = "Ningún producto cuenta con validación ('No validado')."
+                    else:
+                        en_rango = [p for p in validados if indicadores._filtra_anio(p, anio_min, anio_max)]
+                        if not en_rango:
+                            razon_cero = f"Ningún producto validado está dentro del rango ({filtro_desc})."
+                        else:
+                            razon_cero = "Ningún producto califica para la medición."
+
+        # 3.d: Actualizar las 4 tarjetas KPI
+        indicador_str = f"{res.get('indicador', 0.0):.2f}"
+        note_total = "Puntaje de producción MinCiencias"
+        if razon_cero:
+            note_total = f"0.00 pts: {razon_cero}"
         self.card_total.lbl_value.configure(text=indicador_str)
+        if self.card_total.lbl_note is not None:
+            self.card_total.lbl_note.configure(text=note_total)
         if hasattr(self.card_total, "update_value"):
-            self.card_total.update_value(indicador_str)
+            self.card_total.update_value(indicador_str, note=note_total)
         elif hasattr(self.card_total, "set_value"):
-            self.card_total.set_value(indicador_str)
+            self.card_total.set_value(indicador_str, note=note_total)
 
-        total_prods_count = res.get("total_productos", 0)
-        if productos:
-            prods_en_periodo = [p for p in productos if indicadores._filtra_anio(p, anio_min, anio_max)]
-            total_prods_count = max(len(prods_en_periodo), res.get("total_validados", 0))
-
-        prods_str = str(total_prods_count)
-        prods_note = f"{res.get('total_validados', 0)} validados · Filtro: {filtro_desc}"
+        prods_str = str(total_prods_entidad)
+        prods_note = f"{total_validados} validados · Filtro: {filtro_desc}"
+        if razon_cero:
+            prods_note = f"0 válidos · {razon_cero}"
         self.card_prods.lbl_value.configure(text=prods_str)
         if self.card_prods.lbl_note is not None:
             self.card_prods.lbl_note.configure(text=prods_note)
@@ -629,7 +663,7 @@ class IndicadoresTab(ctk.CTkFrame):
         elif hasattr(self.card_entidad, "set_value"):
             self.card_entidad.set_value(entidad_nombre, note=entidad_note)
 
-        # Limpiar y actualizar tabla de desglose
+        # 3.d: Actualizar tabla de desglose por variable
         for item in self.tree_breakdown.get_children():
             self.tree_breakdown.delete(item)
 
@@ -640,38 +674,59 @@ class IndicadoresTab(ctk.CTkFrame):
             val_str = f"{val:.2f}" if isinstance(val, float) else str(val)
             self.tree_breakdown.insert("", "end", values=(var, desc, f"{coef}", val_str, f"{sub:.2f}"))
 
-        # Limpiar y actualizar tabla de productos detallada filtrada por año
+        # 5: Actualizar tabla de productos evaluados mostrando TAMBIÉN los excluidos en gris con su motivo
         for item in self.tree_prods.get_children():
             self.tree_prods.delete(item)
 
         for p in productos:
-            if not indicadores._filtra_anio(p, anio_min, anio_max):
-                continue
             is_val = indicadores._es_validado(p)
             is_act = indicadores._es_activo(p)
+            in_range = indicadores._filtra_anio(p, anio_min, anio_max)
             indicadores.asignar_puntaje_producto(p)
+
             pid = getattr(p, "id", "")
             ptit = getattr(p, "titulo", "")
             ptip = getattr(p, "tipo", "")
             pcat = getattr(p, "categoria", "")
             pw = getattr(p, "peso_relativo", 0.0)
-            psc = getattr(p, "puntaje", 0.0) if (is_val and is_act) else 0.0
-            if not is_act:
-                pval = "No (Inactivo)"
-            elif not is_val:
-                pval = "No (No validado)"
-            else:
-                pval = "Sí (Validado)"
-            self.tree_prods.insert("", "end", values=(pid, ptit, ptip, pcat, f"{pw:.1f}", f"{psc:.1f}", pval))
 
-        # Feedback visual cuando el cálculo fue ejecutado explícitamente con el botón
+            if not is_act:
+                estado = "Inactivo"
+                psc = 0.0
+                tag = "excluido"
+            elif not is_val:
+                estado = "No validado"
+                psc = 0.0
+                tag = "excluido"
+            elif not in_range:
+                estado = "Fuera de rango"
+                psc = 0.0
+                tag = "excluido"
+            else:
+                estado = "Cuenta"
+                psc = pw
+                tag = "cuenta"
+
+            self.tree_prods.insert(
+                "",
+                "end",
+                values=(pid, ptit, ptip, pcat, f"{pw:.1f}", f"{psc:.2f}", estado),
+                tags=(tag,),
+            )
+
+        # Feedback visual si el cálculo fue solicitado manualmente mediante el botón
         if not silent:
             try:
-                original_text = self.btn_calc.cget("text")
-                self.btn_calc.configure(text="  ✓ Calculado")
+                original_text = "Calcular Indicador"
+                self.btn_calc.configure(text="✓ Calculado")
                 self.after(1400, lambda: self.btn_calc.configure(text=original_text))
             except Exception:
                 pass
-            if app and hasattr(app, "show_toast"):
+            if razon_cero:
+                messagebox.showinfo(
+                    "Resultado del Cálculo",
+                    f"Indicador: 0.00 pts\n\nMotivo: {razon_cero}"
+                )
+            elif app and hasattr(app, "show_toast"):
                 app.show_toast(f"Indicador calculado: {res['indicador']:.2f} pts ({entidad_nombre})")
 
