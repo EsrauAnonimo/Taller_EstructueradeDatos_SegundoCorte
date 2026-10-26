@@ -664,3 +664,14 @@ class IndicadoresTab(ctk.CTkFrame):
                 pval = "Sí (Validado)"
             self.tree_prods.insert("", "end", values=(pid, ptit, ptip, pcat, f"{pw:.1f}", f"{psc:.1f}", pval))
 
+        # Feedback visual cuando el cálculo fue ejecutado explícitamente con el botón
+        if not silent:
+            try:
+                original_text = self.btn_calc.cget("text")
+                self.btn_calc.configure(text="  ✓ Calculado")
+                self.after(1400, lambda: self.btn_calc.configure(text=original_text))
+            except Exception:
+                pass
+            if app and hasattr(app, "show_toast"):
+                app.show_toast(f"Indicador calculado: {res['indicador']:.2f} pts ({entidad_nombre})")
+

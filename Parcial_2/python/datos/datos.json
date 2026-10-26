@@ -2614,7 +2614,7 @@
                     },
                     "productos": [
                         {
-                            "id": "PRD-35",
+                            "id": "PRD-38",
                             "titulo": "Exploring the History and Culture of Main Square Los Tupes with Augmented Reality in San Diego, Cesar Alemania, SPRINGERBRIEFS IN COMPUTER SCIENCE",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
@@ -2632,43 +2632,7 @@
                             "investigador_cedula": "0000599484"
                         },
                         {
-                            "id": "PRD-50",
-                            "titulo": "Machine Learning approach applied to Human Activity Recognition ¿ An application to the VanKasteren dataset Bélgica, PROCEDIA COMPUTER SCIENCE",
-                            "tipo": "Artículos de investigación (A1, A2, B y C)",
-                            "categoria": "Nuevo conocimiento",
-                            "validado": true,
-                            "anio": 2021,
-                            "investigador_id": "0000599484",
-                            "grupo_id": 1,
-                            "raw": null,
-                            "gran_categoria": "GNC",
-                            "codigo_minciencias": "2.2.1.1",
-                            "categoria_producto": "Nuevo conocimiento",
-                            "validacion": "No validado",
-                            "peso_relativo": 0.0,
-                            "puntaje": 0.0,
-                            "investigador_cedula": "0000599484"
-                        },
-                        {
                             "id": "PRD-51",
-                            "titulo": "Strengthening the teaching of the narrative genre: story and fable in primary school children in the Department of Magdalena ¿",
-                            "tipo": "Artículos de investigación (A1, A2, B y C)",
-                            "categoria": "Nuevo conocimiento",
-                            "validado": true,
-                            "anio": 2021,
-                            "investigador_id": "0000599484",
-                            "grupo_id": 1,
-                            "raw": null,
-                            "gran_categoria": "GNC",
-                            "codigo_minciencias": "2.2.1.1",
-                            "categoria_producto": "Nuevo conocimiento",
-                            "validacion": "No validado",
-                            "peso_relativo": 0.0,
-                            "puntaje": 0.0,
-                            "investigador_cedula": "0000599484"
-                        },
-                        {
-                            "id": "PRD-56",
                             "titulo": "\"GlyphReader App: A support game for the application of the Orton Gillingham Method with DataMining Techniques Bélgica, PROCEDIA COMPUTER SCIENCE",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
@@ -2686,8 +2650,44 @@
                             "investigador_cedula": "0000599484"
                         },
                         {
-                            "id": "PRD-57",
+                            "id": "PRD-52",
                             "titulo": "Predictive model for the identification of activities of daily living (ADL) in indoor environments using classification techniques basedon Machine Learning Bélgica, PROCEDIA COMPUTER SCIENCE",
+                            "tipo": "Artículos de investigación (A1, A2, B y C)",
+                            "categoria": "Nuevo conocimiento",
+                            "validado": true,
+                            "anio": 2021,
+                            "investigador_id": "0000599484",
+                            "grupo_id": 1,
+                            "raw": null,
+                            "gran_categoria": "GNC",
+                            "codigo_minciencias": "2.2.1.1",
+                            "categoria_producto": "Nuevo conocimiento",
+                            "validacion": "No validado",
+                            "peso_relativo": 0.0,
+                            "puntaje": 0.0,
+                            "investigador_cedula": "0000599484"
+                        },
+                        {
+                            "id": "PRD-53",
+                            "titulo": "Machine Learning approach applied to Human Activity Recognition ¿ An application to the VanKasteren dataset Bélgica, PROCEDIA COMPUTER SCIENCE",
+                            "tipo": "Artículos de investigación (A1, A2, B y C)",
+                            "categoria": "Nuevo conocimiento",
+                            "validado": true,
+                            "anio": 2021,
+                            "investigador_id": "0000599484",
+                            "grupo_id": 1,
+                            "raw": null,
+                            "gran_categoria": "GNC",
+                            "codigo_minciencias": "2.2.1.1",
+                            "categoria_producto": "Nuevo conocimiento",
+                            "validacion": "No validado",
+                            "peso_relativo": 0.0,
+                            "puntaje": 0.0,
+                            "investigador_cedula": "0000599484"
+                        },
+                        {
+                            "id": "PRD-54",
+                            "titulo": "Strengthening the teaching of the narrative genre: story and fable in primary school children in the Department of Magdalena ¿",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
                             "validado": true,
@@ -4995,7 +4995,7 @@
                     },
                     "productos": [
                         {
-                            "id": "PRD-62",
+                            "id": "PRD-63",
                             "titulo": "ANÁLISIS DE LOS FACTORES ASOCIADOS AL RENDIMIENTO ACADÉMICO DE ESTUDIANTES DE UN CURSO DE INFORMÁTICA Venezuela, REVISTA DE PEDAGOGIA",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
@@ -5116,7 +5116,7 @@
                             "investigador_cedula": "0000666106"
                         },
                         {
-                            "id": "PRD-24",
+                            "id": "PRD-27",
                             "titulo": "Instrumento para medir las percepciones de las comunidades de desarrollo de software respecto a la comunicación, coordinación y cooperación: Resultado de la validación mediante juicio de expertos",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
@@ -5152,7 +5152,7 @@
                             "investigador_cedula": "0000666106"
                         },
                         {
-                            "id": "PRD-41",
+                            "id": "PRD-40",
                             "titulo": "An Application Based on the Concept of Gamification to Promote Cultural Tourism in the Municipality of San Diego in the Department of Cesar",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
@@ -5188,44 +5188,8 @@
                             "investigador_cedula": "0000666106"
                         },
                         {
-                            "id": "PRD-52",
-                            "titulo": "Predictive model for the identification of activities of daily living (ADL) in indoor environments using classification techniques basedon Machine Learning",
-                            "tipo": "Artículos de investigación (A1, A2, B y C)",
-                            "categoria": "Nuevo conocimiento",
-                            "validado": true,
-                            "anio": 2021,
-                            "investigador_id": "0000666106",
-                            "grupo_id": 1,
-                            "raw": null,
-                            "gran_categoria": "GNC",
-                            "codigo_minciencias": "2.2.1.1",
-                            "categoria_producto": "Nuevo conocimiento",
-                            "validacion": "No validado",
-                            "peso_relativo": 0.0,
-                            "puntaje": 0.0,
-                            "investigador_cedula": "0000666106"
-                        },
-                        {
-                            "id": "PRD-53",
-                            "titulo": "GlyphReader App: A support game for the application of the Orton Gillingham Method with DataMining Techniques",
-                            "tipo": "Artículos de investigación (A1, A2, B y C)",
-                            "categoria": "Nuevo conocimiento",
-                            "validado": true,
-                            "anio": 2021,
-                            "investigador_id": "0000666106",
-                            "grupo_id": 1,
-                            "raw": null,
-                            "gran_categoria": "GNC",
-                            "codigo_minciencias": "2.2.1.1",
-                            "categoria_producto": "Nuevo conocimiento",
-                            "validacion": "No validado",
-                            "peso_relativo": 0.0,
-                            "puntaje": 0.0,
-                            "investigador_cedula": "0000666106"
-                        },
-                        {
-                            "id": "PRD-54",
-                            "titulo": "Machine Learning approach applied to Human Activity Recognition ¿ An application to the VanKasteren dataset",
+                            "id": "PRD-50",
+                            "titulo": "Strengthening the teaching of the narrative genre: story and fable in primary school children in the Department of Magdalena ¿",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
                             "validado": true,
@@ -5243,7 +5207,43 @@
                         },
                         {
                             "id": "PRD-55",
-                            "titulo": "Strengthening the teaching of the narrative genre: story and fable in primary school children in the Department of Magdalena ¿",
+                            "titulo": "Machine Learning approach applied to Human Activity Recognition ¿ An application to the VanKasteren dataset",
+                            "tipo": "Artículos de investigación (A1, A2, B y C)",
+                            "categoria": "Nuevo conocimiento",
+                            "validado": true,
+                            "anio": 2021,
+                            "investigador_id": "0000666106",
+                            "grupo_id": 1,
+                            "raw": null,
+                            "gran_categoria": "GNC",
+                            "codigo_minciencias": "2.2.1.1",
+                            "categoria_producto": "Nuevo conocimiento",
+                            "validacion": "No validado",
+                            "peso_relativo": 0.0,
+                            "puntaje": 0.0,
+                            "investigador_cedula": "0000666106"
+                        },
+                        {
+                            "id": "PRD-56",
+                            "titulo": "Predictive model for the identification of activities of daily living (ADL) in indoor environments using classification techniques basedon Machine Learning",
+                            "tipo": "Artículos de investigación (A1, A2, B y C)",
+                            "categoria": "Nuevo conocimiento",
+                            "validado": true,
+                            "anio": 2021,
+                            "investigador_id": "0000666106",
+                            "grupo_id": 1,
+                            "raw": null,
+                            "gran_categoria": "GNC",
+                            "codigo_minciencias": "2.2.1.1",
+                            "categoria_producto": "Nuevo conocimiento",
+                            "validacion": "No validado",
+                            "peso_relativo": 0.0,
+                            "puntaje": 0.0,
+                            "investigador_cedula": "0000666106"
+                        },
+                        {
+                            "id": "PRD-57",
+                            "titulo": "GlyphReader App: A support game for the application of the Orton Gillingham Method with DataMining Techniques",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
                             "validado": true,
@@ -5296,7 +5296,7 @@
                             "investigador_cedula": "0000666106"
                         },
                         {
-                            "id": "PRD-63",
+                            "id": "PRD-62",
                             "titulo": "RECORRIDO VIRTUAL TRIDIMENSIONAL PARA LA UNIVERSIDAD POPULAR DEL CESAR",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
@@ -6695,7 +6695,7 @@
                     },
                     "productos": [
                         {
-                            "id": "PRD-74",
+                            "id": "PRD-75",
                             "titulo": "Método de Colocación Simétrico RBF Para la Solución Numérica de la Ecuación de Difusión en Estado Transiente",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
@@ -6817,11 +6817,11 @@
                         },
                         {
                             "id": "PRD-78",
-                            "titulo": "Extending the local radial basis function collocation methods for solving semilinear partial differential equations Inglaterra, WIT TRANSACTIONS ON MODELLING AND SIMULATION",
+                            "titulo": "solving delay differential equations through RBF collocation China, ADVANCES IN APPLIED MATHEMATICS AND MECHANICS",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
                             "validado": true,
-                            "anio": 2009,
+                            "anio": 0,
                             "investigador_id": "0000310581",
                             "grupo_id": 1,
                             "raw": null,
@@ -6835,11 +6835,11 @@
                         },
                         {
                             "id": "PRD-79",
-                            "titulo": "solving delay differential equations through RBF collocation China, ADVANCES IN APPLIED MATHEMATICS AND MECHANICS",
+                            "titulo": "Extending the local radial basis function collocation methods for solving semilinear partial differential equations Inglaterra, WIT TRANSACTIONS ON MODELLING AND SIMULATION",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
                             "validado": true,
-                            "anio": 0,
+                            "anio": 2009,
                             "investigador_id": "0000310581",
                             "grupo_id": 1,
                             "raw": null,
@@ -6960,7 +6960,7 @@
                             "investigador_cedula": "0000310581"
                         },
                         {
-                            "id": "PRD-89",
+                            "id": "PRD-90",
                             "titulo": "Diseño y Simulación de un Controlador difuso para control de nivel y temperatura de liquido en un tanque",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
@@ -7954,8 +7954,8 @@
                     },
                     "productos": [
                         {
-                            "id": "PRD-75",
-                            "titulo": "Simulación de una Torre de Enfriamiento Mecánica comparada con Curvas Reales",
+                            "id": "PRD-74",
+                            "titulo": "Simulación de una Torre de Enfriamiento Mecánica Comparada con Curvas Experimentales",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
                             "validado": true,
@@ -7973,7 +7973,7 @@
                         },
                         {
                             "id": "PRD-76",
-                            "titulo": "Simulación de una Torre de Enfriamiento Mecánica Comparada con Curvas Experimentales",
+                            "titulo": "Simulación de una Torre de Enfriamiento Mecánica comparada con Curvas Reales",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
                             "validado": true,
@@ -8100,7 +8100,7 @@
                     },
                     "productos": [
                         {
-                            "id": "PRD-27",
+                            "id": "PRD-24",
                             "titulo": "Artificial Intelligence (AI) in Scientific Research India, LETTERS IN HIGH ENERGY PHYSICS",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
@@ -8871,7 +8871,7 @@
                             "investigador_cedula": "0001450217"
                         },
                         {
-                            "id": "PRD-49",
+                            "id": "PRD-48",
                             "titulo": "Sistema móvil de gestión para servicios en atención en instituciones prestadoras de salud IV nivel",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
@@ -9248,7 +9248,7 @@
                             "investigador_cedula": "0000442712"
                         },
                         {
-                            "id": "PRD-40",
+                            "id": "PRD-41",
                             "titulo": "Platform Based on Augmented Reality to Support Cultural Tourism in the Department of Cesar",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
@@ -10156,7 +10156,7 @@
                             "investigador_cedula": "0001401057"
                         },
                         {
-                            "id": "PRD-31",
+                            "id": "PRD-30",
                             "titulo": "Instruments for Collecting Information in Quantitative Research",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
@@ -10429,12 +10429,30 @@
                     },
                     "productos": [
                         {
-                            "id": "PRD-30",
+                            "id": "PRD-31",
                             "titulo": "Sustainability in Hybrid Technologies for Heritage Preservation: A Scientometric Study",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
                             "validado": true,
                             "anio": 1937,
+                            "investigador_id": "0000955450",
+                            "grupo_id": 1,
+                            "raw": null,
+                            "gran_categoria": "GNC",
+                            "codigo_minciencias": "2.2.1.1",
+                            "categoria_producto": "Nuevo conocimiento",
+                            "validacion": "No validado",
+                            "peso_relativo": 0.0,
+                            "puntaje": 0.0,
+                            "investigador_cedula": "0000955450"
+                        },
+                        {
+                            "id": "PRD-35",
+                            "titulo": "Exploring the History and Culture of Main Square Los Tupes with Augmented Reality in San Diego, Cesar. Singapur, LECTURE NOTES ON DATA ENGINEERING AND COMMUNICATIONS TECHNOLOGIES",
+                            "tipo": "Artículos de investigación (A1, A2, B y C)",
+                            "categoria": "Nuevo conocimiento",
+                            "validado": true,
+                            "anio": 2023,
                             "investigador_id": "0000955450",
                             "grupo_id": 1,
                             "raw": null,
@@ -10453,24 +10471,6 @@
                             "categoria": "Nuevo conocimiento",
                             "validado": true,
                             "anio": 1937,
-                            "investigador_id": "0000955450",
-                            "grupo_id": 1,
-                            "raw": null,
-                            "gran_categoria": "GNC",
-                            "codigo_minciencias": "2.2.1.1",
-                            "categoria_producto": "Nuevo conocimiento",
-                            "validacion": "No validado",
-                            "peso_relativo": 0.0,
-                            "puntaje": 0.0,
-                            "investigador_cedula": "0000955450"
-                        },
-                        {
-                            "id": "PRD-38",
-                            "titulo": "Exploring the History and Culture of Main Square Los Tupes with Augmented Reality in San Diego, Cesar. Singapur, LECTURE NOTES ON DATA ENGINEERING AND COMMUNICATIONS TECHNOLOGIES",
-                            "tipo": "Artículos de investigación (A1, A2, B y C)",
-                            "categoria": "Nuevo conocimiento",
-                            "validado": true,
-                            "anio": 2023,
                             "investigador_id": "0000955450",
                             "grupo_id": 1,
                             "raw": null,
@@ -10519,7 +10519,7 @@
                             "investigador_cedula": "0000955450"
                         },
                         {
-                            "id": "PRD-48",
+                            "id": "PRD-49",
                             "titulo": "Aplicativo móvil para la gestión de procesos administrativos y operativos para una inmobiliaria en la ciudad de Valledupar",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
@@ -11162,24 +11162,6 @@
                     "productos": [
                         {
                             "id": "PRD-86",
-                            "titulo": "Diseño y desarrollo de un software para el proceso de pasteurización po medio de intercambiadores de calor de placas",
-                            "tipo": "Artículos de investigación (A1, A2, B y C)",
-                            "categoria": "Nuevo conocimiento",
-                            "validado": true,
-                            "anio": 2005,
-                            "investigador_id": "0000235164",
-                            "grupo_id": 1,
-                            "raw": null,
-                            "gran_categoria": "GNC",
-                            "codigo_minciencias": "2.2.1.1",
-                            "categoria_producto": "Nuevo conocimiento",
-                            "validacion": "No validado",
-                            "peso_relativo": 0.0,
-                            "puntaje": 0.0,
-                            "investigador_cedula": "0000235164"
-                        },
-                        {
-                            "id": "PRD-87",
                             "titulo": "ESTUDIO DEL GRADO DE PREDICCIÓN DE UN MODELO MATEMATICO Y SU SIMULACIÓN PARA EL PROCESO DE PRODUCCION DE VAPOR EN LA CALDERA DE LA UNIVERSIDAD POPULAR DEL CESAR",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",
@@ -11197,7 +11179,25 @@
                             "investigador_cedula": "0000235164"
                         },
                         {
-                            "id": "PRD-90",
+                            "id": "PRD-87",
+                            "titulo": "Diseño y desarrollo de un software para el proceso de pasteurización po medio de intercambiadores de calor de placas",
+                            "tipo": "Artículos de investigación (A1, A2, B y C)",
+                            "categoria": "Nuevo conocimiento",
+                            "validado": true,
+                            "anio": 2005,
+                            "investigador_id": "0000235164",
+                            "grupo_id": 1,
+                            "raw": null,
+                            "gran_categoria": "GNC",
+                            "codigo_minciencias": "2.2.1.1",
+                            "categoria_producto": "Nuevo conocimiento",
+                            "validacion": "No validado",
+                            "peso_relativo": 0.0,
+                            "puntaje": 0.0,
+                            "investigador_cedula": "0000235164"
+                        },
+                        {
+                            "id": "PRD-89",
                             "titulo": "El uso de la simulación como herramienta de diseño y optimización de sistemas de distribución de agua potable",
                             "tipo": "Artículos de investigación (A1, A2, B y C)",
                             "categoria": "Nuevo conocimiento",

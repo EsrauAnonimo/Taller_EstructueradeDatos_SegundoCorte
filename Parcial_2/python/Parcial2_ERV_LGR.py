@@ -1247,28 +1247,26 @@ class App(ctk.CTk):
                     if not self.inv_crud.get_by_cedula(inv_obj.cedula):
                         self.inv_crud.create(inv_obj)
 
-                # Si no había investigadores pero hay productos, asegurar investigador receptor
-                prod_list = datos.get("productos", [])
-                if not primary_cedula and prod_list:
-                    existing_invs = self.inv_crud.list_by_group(gid)
-                    if existing_invs:
-                        primary_cedula = getattr(existing_invs[0], "cedula", None)
-                    else:
-                        fallback_inv = Investigador(
-                            cedula=f"INV-{gid}",
-                            nombres=getattr(grupo_obj, "lider", "Investigador Principal") or "Investigador Principal",
-                            grupo_id=gid,
-                            activo=True,
-                        )
-                        self.inv_crud.create(fallback_inv)
-                        primary_cedula = fallback_inv.cedula
+                # Asegurar un contenedor de Producción Institucional / Grupal para productos sin autor individual
+                inst_cedula = f"INST-{gid}"
+                if not self.inv_crud.get_by_cedula(inst_cedula):
+                    inst_inv = Investigador(
+                        id=inst_cedula,
+                        cedula=inst_cedula,
+                        nombres="Producción Institucional / Grupal",
+                        apellidos="",
+                        email="",
+                        grupo_id=gid,
+                        activo=True,
+                    )
+                    self.inv_crud.create(inst_inv)
 
                 # 3. Insertar Productos
                 for p_raw in prod_list:
                     if isinstance(p_raw, dict):
                         p_ced = p_raw.get("investigador_cedula") or p_raw.get("investigador_id") or p_raw.get("cedula")
                         if not p_ced or not self.inv_crud.get_by_cedula(p_ced):
-                            p_ced = primary_cedula
+                            p_ced = inst_cedula
 
                         pid = p_raw.get("id") or f"PRD-{len(self.prod_crud.list_all()) + 1}"
                         p_obj = Producto(
@@ -1288,7 +1286,8 @@ class App(ctk.CTk):
                     elif isinstance(p_raw, Producto):
                         p_obj = p_raw
                         if not getattr(p_obj, "investigador_id", None) or not self.inv_crud.get_by_cedula(p_obj.investigador_id):
-                            p_obj.investigador_id = primary_cedula
+                            p_obj.investigador_id = inst_cedula
+                            p_obj.investigador_cedula = inst_cedula
                         if not getattr(p_obj, "grupo_id", None):
                             p_obj.grupo_id = gid
                         if not getattr(p_obj, "id", None):

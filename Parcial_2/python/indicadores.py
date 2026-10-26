@@ -114,42 +114,100 @@ def mapear_categoria_variable(categoria: str = "", tipo: str = "", gran_categori
     Returns:
         Tuple[str, float]: (nombre_variable, peso_relativo).
     """
-    text = f"{categoria} {tipo} {gran_categoria}".upper()
+    cat = str(categoria or "").strip().upper()
+    tip = str(tipo or "").strip().upper()
+    gc = str(gran_categoria or "").strip().upper()
+    text = f"{cat} {tip} {gc}"
 
-    # 1. Detección de Artículos / Productos A1 o Top
-    if re.search(r'\b(A1|TOP|Q1)\b', text):
+    # 1. Productos Top / A1 (Nc_Top: 3.7)
+    if (
+        cat in ("A1", "TOP", "Q1", "NC_TOP")
+        or re.search(r"\b(A1|TOP|Q1)\b", cat)
+        or re.search(r"\b(A1|TOP|Q1)\b", tip)
+        or "PATENTE DE INVENCION" in text
+        or "LIBRO DE FORMACION Q1" in text
+    ):
         return ("Nc_Top", COEFFICIENTS["Nc_Top"])
 
-    # 2. Detección de Artículos / Productos A2 o A
-    if re.search(r'\b(A2|A)\b', text) or "ARTICULO A" in text or "NUEVO CONOCIMIENTO" in text:
-        return ("Nc_A", COEFFICIENTS["Nc_A"])
-
-    # 3. Detección de Artículos / Productos B
-    if re.search(r'\b(B)\b', text) or "ARTICULO B" in text or "CATEGORIA B" in text:
-        return ("Nc_B", COEFFICIENTS["Nc_B"])
-
-    # 4. Detección de Artículos / Productos C
-    if re.search(r'\b(C)\b', text) or "ARTICULO C" in text or "CATEGORIA C" in text:
-        return ("AP", COEFFICIENTS["AP"])
-
-    # 5. Formación de Recurso Humano (FRH)
-    if "DOCTORADO" in text or "MAESTR" in text or "FR_A" in text:
-        return ("Fr_A", COEFFICIENTS["Fr_A"])
-    if "PREGRADO" in text or "FR_B" in text:
-        return ("Fr_B", COEFFICIENTS["Fr_B"])
-    if "FRH" in text:
+    # 2. Formación de Recurso Humano (FRH)
+    if (
+        gc == "FRH"
+        or "FRH" in gc
+        or "TESIS" in tip
+        or "TRABAJO DIRIGIDO" in tip
+        or "TUTOR" in tip
+        or "JURADO" in tip
+        or "FORMACION" in tip
+    ):
+        if any(w in text for w in ("DOCTOR", "MAESTR", "POSGRADO", "FR_A")):
+            return ("Fr_A", COEFFICIENTS["Fr_A"])
         return ("Fr_B", COEFFICIENTS["Fr_B"])
 
-    # 6. Apropiación Social del Conocimiento (ASC)
-    if "APROPIACI" in text or "ASC" in text or "CREACI" in text:
+    # 3. Apropiación Social del Conocimiento (ASC)
+    if (
+        gc == "ASC"
+        or "ASC" in gc
+        or "APROPIACI" in tip
+        or "CIRCULACI" in tip
+        or "EVENTOS" in tip
+        or "CONGRESO" in tip
+        or "SIMPOSIO" in tip
+        or "COLOQUIO" in tip
+        or "ENCUENTRO" in tip
+        or "CREACI" in tip
+    ):
+        if any(w in text for w in ("DIVULGACI", "TRANSMEDIA", "DPC")):
+            return ("DPC", COEFFICIENTS["DPC"])
         return ("AP", COEFFICIENTS["AP"])
 
-    # 7. Desarrollo Tecnológico e Innovación (DTI) o Divulgación (DPC)
-    if "DIVULGACI" in text or "DTI" in text or "DPC" in text or "CONCEPTO" in text or "SOFTWARE" in text:
+    # 4. Desarrollo Tecnológico e Innovación (DTI)
+    if (
+        gc == "DTI"
+        or "DTI" in gc
+        or "CONCEPTO" in tip
+        or "CONSULTOR" in tip
+        or "SOFTWARE" in tip
+        or "TECNOL" in tip
+        or "PROTOTIPO" in tip
+        or "INNOVACI" in tip
+    ):
         return ("DPC", COEFFICIENTS["DPC"])
 
-    # 8. Generación de Nuevo Conocimiento sin categoría específica
-    if "GNC" in text or "NUEVO CONOCIMIENTO" in text or "LIBRO" in text:
+    # 5. Artículos con categoría explícita de calidad editorial
+    if (
+        cat in ("A2", "A", "NC_A")
+        or re.search(r"\b(A2|ARTICULO\s+A|CATEGORIA\s+A)\b", text)
+        or (cat == "A" and ("ARTICULO" in tip or "REVISTA" in tip or gc == "GNC"))
+    ):
+        return ("Nc_A", COEFFICIENTS["Nc_A"])
+
+    if (
+        cat in ("B", "NC_B")
+        or re.search(r"\b(ARTICULO\s+B|CATEGORIA\s+B)\b", text)
+        or (cat == "B" and ("ARTICULO" in tip or "REVISTA" in tip or gc == "GNC"))
+    ):
+        return ("Nc_B", COEFFICIENTS["Nc_B"])
+
+    if (
+        cat in ("C", "AP")
+        or re.search(r"\b(ARTICULO\s+C|CATEGORIA\s+C)\b", text)
+        or (cat == "C" and ("ARTICULO" in tip or "REVISTA" in tip or gc == "GNC"))
+    ):
+        return ("AP", COEFFICIENTS["AP"])
+
+    if (
+        cat in ("D", "DPC")
+        or re.search(r"\b(ARTICULO\s+D|CATEGORIA\s+D)\b", text)
+        or (cat == "D" and ("ARTICULO" in tip or "REVISTA" in tip or gc == "GNC"))
+    ):
+        return ("DPC", COEFFICIENTS["DPC"])
+
+    # 6. Libros y Capítulos de libro de investigación
+    if "LIBRO" in text or "CAPITULO" in text:
+        return ("Nc_A", COEFFICIENTS["Nc_A"])
+
+    # 7. Generación de Nuevo Conocimiento sin categoría de revista específica
+    if gc == "GNC" or "GNC" in gc or "NUEVO CONOCIMIENTO" in text or "ARTICULO" in text:
         return ("Nc_A", COEFFICIENTS["Nc_A"])
 
     # Por defecto
@@ -375,7 +433,12 @@ def calcular_indicador_investigador(
                 iid = getattr(inv_curr.data, "id", None)
                 ced = getattr(inv_curr.data, "cedula", None)
                 if inv_curr.active and (str(iid) == str(investigator_id) or str(ced) == str(investigator_id)):
-                    inv_nombre = getattr(inv_curr.data, "nombre", f"Investigador {investigator_id}")
+                    nom = getattr(inv_curr.data, "nombre", None)
+                    if not nom:
+                        nombres = getattr(inv_curr.data, "nombres", "") or ""
+                        apellidos = getattr(inv_curr.data, "apellidos", "") or ""
+                        nom = f"{nombres} {apellidos}".strip()
+                    inv_nombre = nom or f"Investigador {investigator_id}"
                     inv_categoria = getattr(inv_curr.data, "categoria", "")
                     found_group = getattr(g_curr.data, "nombre", "")
                     prod_curr = inv_curr.sublist
