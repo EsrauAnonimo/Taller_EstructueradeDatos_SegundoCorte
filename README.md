@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # PEA-i — Programa Estadístico de Análisis de Investigación
 
 > **Universidad Popular del Cesar (UPC)**  
@@ -164,3 +165,15 @@ Trabajo realizado para la asignatura **Estructura de Datos (Grupo 05)** — **Un
 | **LINK DEL VIDEO :**           | https://youtu.be/AXiJqifF1NA|
 - **Docente:** Ing. Adith Pérez  
 - **Entrega Académica:** Octubre de 2026 — Valledupar, Cesar, Colombia
+=======
+# Estructura de Datos - Segundo Corte
+
+**Estudiantes:** Esteban Raúl Vergara Jaime y Luis Eduardo Gómez Rosales.  
+**Video Explicativo:** [PEGAR ENLACE AQUÍ]
+
+Este repositorio contiene:
+- `Taller_2/`: Solución base del taller.
+- `Parcial_2/`: Solución del parcial (incluye el cálculo del Indicador Científico).
+
+⚠️ **Lee el archivo [CAMBIOS_PARCIAL.md](CAMBIOS_PARCIAL.md) para ver exactamente qué se agregó para el Parcial 2.**
+>>>>>>> python
