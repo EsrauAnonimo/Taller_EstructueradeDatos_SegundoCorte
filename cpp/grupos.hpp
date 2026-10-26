@@ -21,6 +21,11 @@
 
 // Reutilizamos Producto, Investigador y la ListaEnlazada<T>.
 #include "estructuras.hpp"
+#include "investigador.hpp"
+
+// Declaraciones de funciones de indicador
+inline double calcularPuntajeProducto(const Producto& p);
+inline double calcularIndicadorInvestigador(const Investigador& inv, int anioInicio, int anioFin);
 
 // ============================================================================
 //  1. Estructura Grupo
@@ -35,10 +40,11 @@ struct Grupo {
     std::string plan;
     ListaInvestigadores integrantes;  // Lista enlazada de Investigadores.
     ListaProductos productos;         // Lista enlazada de Productos.
+    bool activo = true;
 
     // Constructor por comodidad: crea un grupo vacio (listas vacias).
     Grupo(int idGrupo, const std::string& nombreGrupo, const std::string& planGrupo)
-        : id(idGrupo), nombre(nombreGrupo), plan(planGrupo) {
+        : id(idGrupo), nombre(nombreGrupo), plan(planGrupo), activo(true) {
         // Las listas se construyen solas (sus constructores dejan las
         // cabezas en nullptr), por eso no hay nada que hacer aqui.
     }
@@ -91,6 +97,37 @@ struct Grupo {
         return integrantes.vacia() && productos.vacia();
     }
 };
+
+// Función para calcular indicador de investigador
+inline double calcularIndicadorInvestigador(const Investigador& inv, int anioInicio, int anioFin) {
+    double total = 0.0;
+    if (!inv.activo) return 0.0;
+    // If we have a pointer to misProductos
+    if (inv.misProductosPtr != nullptr) {
+        for (ListaProductos::Nodo* nodo = inv.misProductosPtr->primero();
+             nodo != nullptr; nodo = nodo->siguiente) {
+            const Producto& p = nodo->dato;
+            if (p.activo && p.validado) {
+                if (p.anio >= anioInicio && p.anio <= anioFin) {
+                    total += calcularPuntajeProducto(p);
+                }
+            }
+        }
+        return total;
+    }
+    return 0.0;
+}
+
+// Función para calcular indicador de grupo
+inline double calcularIndicadorGrupo(const Grupo& g, int anioInicio, int anioFin) {
+    double total = 0.0;
+    if (!g.activo) return 0.0;
+    for (ListaInvestigadores::Nodo* nodo = g.integrantes.primero();
+         nodo != nullptr; nodo = nodo->siguiente) {
+        total += calcularIndicadorInvestigador(nodo->dato, anioInicio, anioFin);
+    }
+    return total;
+}
 
 // ============================================================================
 //  2. Clase Pila (LIFO: Last In, First Out)

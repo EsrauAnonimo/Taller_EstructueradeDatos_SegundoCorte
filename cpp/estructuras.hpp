@@ -16,10 +16,15 @@
 
 #include <iostream>
 #include <string>
+#include <type_traits>
 
-// Reutilizamos la estructura Investigador definida en investigador.hpp
-// (mismo taller, mismo modulo).
 #include "investigador.hpp"
+
+// Forward declarations
+template <typename T>
+class ListaEnlazada;
+struct Producto;
+struct Grupo;
 
 // ============================================================================
 //  1. Estructura Producto
@@ -31,7 +36,25 @@ struct Producto {
                // C++ no deben contener caracteres especiales.
     std::string categoria;
     bool validado;
+    bool activo = true;
 };
+
+// -----------------------------------------------------------------------------
+// Funciones para calcular puntaje e indicador
+// -----------------------------------------------------------------------------
+inline double calcularPuntajeProducto(const Producto& p) {
+    if (p.categoria == "ART_A1") return 3.7;
+    if (p.categoria == "ART_A2") return 2.3;
+    if (p.categoria == "ART_B")  return 0.4;
+    if (p.categoria == "LIBRO") return 1.5;
+    if (p.categoria == "PATENTE") return 1.0;
+    if (p.categoria == "PONENCIA") return 0.3;
+    return 0.0;
+}
+
+// Forward declarations for indicators
+inline double calcularIndicadorInvestigador(const Investigador& inv, int anioInicio = 0, int anioFin = 9999);
+inline double calcularIndicadorGrupo(const Grupo& g, int anioInicio = 0, int anioFin = 9999);
 
 // ----------------------------------------------------------------------------
 // Operadores de flujo (operator<<)
@@ -150,9 +173,12 @@ public:
         Nodo* anterior = nullptr;
 
         // Recorremos mientras no lleguemos al final ni encontremos el id.
-        while (actual != nullptr && actual->dato.id != id) {
-            anterior = actual;              // anterior se queda un paso atras.
-            actual = actual->siguiente;     // actual avanza al siguiente nodo.
+        while (actual != nullptr) {
+            bool coincide = false;
+            coincide = (actual->dato.id == id);
+            if (coincide) break;
+            anterior = actual;
+            actual = actual->siguiente;
         }
 
         if (actual == nullptr) {
@@ -185,12 +211,10 @@ public:
     Nodo* buscar(int id) {
         Nodo* actual = cabeza;
         while (actual != nullptr) {
-            if (actual->dato.id == id) {
-                return actual;  // Encontrado: devolvemos el nodo.
-            }
-            actual = actual->siguiente;  // Avanzamos al siguiente nodo.
+            if (actual->dato.id == id) return actual;
+            actual = actual->siguiente;
         }
-        return nullptr;  // Se recorrio toda la lista sin encontrar el id.
+        return nullptr;
     }
 
     // -----------------------------------------------------------------
