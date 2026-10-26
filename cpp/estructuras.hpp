@@ -18,9 +18,13 @@
 #include <string>
 #include <type_traits>
 
-// Reutilizamos la estructura Investigador definida en investigador.hpp
-// (mismo taller, mismo modulo).
 #include "investigador.hpp"
+
+// Forward declarations
+template <typename T>
+class ListaEnlazada;
+struct Producto;
+struct Grupo;
 
 // ============================================================================
 //  1. Estructura Producto
@@ -34,6 +38,23 @@ struct Producto {
     bool validado;
     bool activo = true;
 };
+
+// -----------------------------------------------------------------------------
+// Funciones para calcular puntaje e indicador
+// -----------------------------------------------------------------------------
+inline double calcularPuntajeProducto(const Producto& p) {
+    if (p.categoria == "ART_A1") return 3.7;
+    if (p.categoria == "ART_A2") return 2.3;
+    if (p.categoria == "ART_B")  return 0.4;
+    if (p.categoria == "LIBRO") return 1.5;
+    if (p.categoria == "PATENTE") return 1.0;
+    if (p.categoria == "PONENCIA") return 0.3;
+    return 0.0;
+}
+
+// Forward declarations for indicators
+inline double calcularIndicadorInvestigador(const Investigador& inv);
+inline double calcularIndicadorGrupo(const Grupo& g);
 
 // ----------------------------------------------------------------------------
 // Operadores de flujo (operator<<)

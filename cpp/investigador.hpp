@@ -3,13 +3,20 @@
 #include <iostream>
 #include <string>
 
-// Estructura que representa a un Investigador.
+template <typename T>
+class ListaEnlazada;
+struct Producto;
+
+// ============================================================================
+//  Estructura Investigador
+// ============================================================================
 struct Investigador {
     int id;
     std::string nombre;
     std::string areaConocimiento;
     std::string categoria;
     bool activo = true;
+    ListaEnlazada<Producto>* misProductosPtr = nullptr;
 };
 
 // Función que imprime los datos de un investigador.

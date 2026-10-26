@@ -43,9 +43,9 @@
 #endif
 
 // Encabezados del taller (cada uno incluye lo que necesita).
-#include "investigador.hpp"
 #include "estructuras.hpp"
 #include "grupos.hpp"
+#include "investigador.hpp"
 
 // ============================================================================
 //  Colores ANSI
@@ -696,8 +696,10 @@ void agregarProducto() {
         int idInv = leerEntero("ID del investigador: ");
         ListaInvestigadores::Nodo* nodoInvSel = grupo->integrantes.buscar(idInv);
         if (nodoInvSel != nullptr) {
-            // Asignación: si se requiere guardar en misProductos del investigador,
-            // se necesita la estructura modificada. Por ahora solo confirmamos.
+            if (nodoInvSel->dato.misProductosPtr == nullptr) {
+                nodoInvSel->dato.misProductosPtr = new ListaEnlazada<Producto>();
+            }
+            nodoInvSel->dato.misProductosPtr->insertar(prod);
             exito("Producto asignado al investigador correctamente.");
         } else {
             aviso("No se encontro el investigador, producto solo guardado en el grupo.");
@@ -900,6 +902,11 @@ void mostrarEstadisticas() {
     for (size_t i = 0; i < grupos.size(); ++i) {
         if (grupos[i] != nullptr) totalGruposCnt++;
     }
+    double indicadorTotalInstitucion = 0.0;
+    for (size_t i = 0; i < grupos.size(); ++i) {
+        if (grupos[i] == nullptr) continue;
+        indicadorTotalInstitucion += calcularIndicadorGrupo(*grupos[i]);
+    }
     std::cout << std::left << std::setw(32) << "Grupos registrados"
               << std::right << std::setw(14) << totalGruposCnt << std::endl;
     std::cout << std::left << std::setw(32) << "Investigadores"
@@ -911,6 +918,8 @@ void mostrarEstadisticas() {
     std::cout << std::left << std::setw(32) << "Productos sin validar"
               << std::right << std::setw(14) << (totalProductos - productosValidados)
               << std::endl;
+    std::cout << std::left << std::setw(32) << "Indicador Total de la Institución"
+              << std::right << std::setw(14) << std::fixed << std::setprecision(2) << indicadorTotalInstitucion << std::endl;
     imprimirLinea(46);
 
     // --- Tabla 2: productos por grupo ---
@@ -1200,7 +1209,8 @@ void mostrarMenu() {
     std::cout << " 8) Mostrar investigadores 17) Cola de validacion\n";
     std::cout << " 9) Guardar datos         18) Cargar datos\n";
     std::cout << " 19) Reactivar grupo      20) Reactivar investigador\n";
-    std::cout << " 21) Reactivar producto   22) Salir\n";
+    std::cout << " 21) Reactivar producto   22) Calcular indicador investigador\n";
+    std::cout << " 23) Calcular indicador grupo 24) Salir\n";
     std::cout << CIAN << "==============================================" << RESET << std::endl;
 }
 
@@ -1216,7 +1226,7 @@ int main() {
         mostrarTitulo();
         mostrarMenu();
 
-        int opcion = leerEnteroEnRango("Seleccione una opcion: ", 1, 22);
+        int opcion = leerEnteroEnRango("Seleccione una opcion: ", 1, 24);
 
         switch (opcion) {
             case 1:  agregarGrupo();          pausar(); break;
@@ -1240,7 +1250,35 @@ int main() {
             case 19: reactivarGrupo();        pausar(); break;
             case 20: reactivarInvestigador(); pausar(); break;
             case 21: reactivarProducto();     pausar(); break;
-            case 22:
+            case 22: {
+                std::cout << CIAN << "\n--- CALCULAR INDICADOR DE UN INVESTIGADOR ---" << RESET << std::endl;
+                int idInv = leerEntero("ID del investigador: ");
+                Investigador* invEncontrado = nullptr;
+                for (size_t i = 0; i < grupos.size(); ++i) {
+                    if (grupos[i] == nullptr) continue;
+                    ListaInvestigadores::Nodo* nodo = grupos[i]->integrantes.buscar(idInv);
+                    if (nodo != nullptr) {
+                        invEncontrado = &nodo->dato;
+                        break;
+                    }
+                }
+                if (invEncontrado == nullptr) {
+                    error("No existe un investigador con ese ID.");
+                } else {
+                    double ind = calcularIndicadorInvestigador(*invEncontrado);
+                    std::cout << VERDE << "Indicador del investigador: " << std::fixed << std::setprecision(2) << ind << RESET << std::endl;
+                }
+                pausar(); break;
+            }
+            case 23: {
+                std::cout << CIAN << "\n--- CALCULAR INDICADOR DE UN GRUPO ---" << RESET << std::endl;
+                Grupo* grupo = pedirGrupo();
+                if (grupo == nullptr) { pausar(); break; }
+                double indG = calcularIndicadorGrupo(*grupo);
+                std::cout << VERDE << "Indicador del grupo: " << std::fixed << std::setprecision(2) << indG << RESET << std::endl;
+                pausar(); break;
+            }
+            case 24:
                 if (leerBooleano("Guardar los datos antes de salir?")) {
                     guardarCSV();
                 }

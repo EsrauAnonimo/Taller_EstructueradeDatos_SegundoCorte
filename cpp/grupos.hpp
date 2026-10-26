@@ -21,6 +21,11 @@
 
 // Reutilizamos Producto, Investigador y la ListaEnlazada<T>.
 #include "estructuras.hpp"
+#include "investigador.hpp"
+
+// Declaraciones de funciones de indicador
+inline double calcularPuntajeProducto(const Producto& p);
+inline double calcularIndicadorInvestigador(const Investigador& inv);
 
 // ============================================================================
 //  1. Estructura Grupo
@@ -92,6 +97,37 @@ struct Grupo {
         return integrantes.vacia() && productos.vacia();
     }
 };
+
+// Función para calcular indicador de investigador
+inline double calcularIndicadorInvestigador(const Investigador& inv) {
+    double total = 0.0;
+    if (!inv.activo) return 0.0;
+    // If we have a pointer to misProductos
+    if (inv.misProductosPtr != nullptr) {
+        for (ListaProductos::Nodo* nodo = inv.misProductosPtr->primero();
+             nodo != nullptr; nodo = nodo->siguiente) {
+            const Producto& p = nodo->dato;
+            if (p.activo && p.validado) {
+                total += calcularPuntajeProducto(p);
+            }
+        }
+        return total;
+    }
+    // If no pointer, try to sum if there's any embedded list? Or return 0
+    // Also check if misProductos might be stored differently
+    return 0.0;
+}
+
+// Función para calcular indicador de grupo
+inline double calcularIndicadorGrupo(const Grupo& g) {
+    double total = 0.0;
+    if (!g.activo) return 0.0;
+    for (ListaInvestigadores::Nodo* nodo = g.integrantes.primero();
+         nodo != nullptr; nodo = nodo->siguiente) {
+        total += calcularIndicadorInvestigador(nodo->dato);
+    }
+    return total;
+}
 
 // ============================================================================
 //  2. Clase Pila (LIFO: Last In, First Out)
