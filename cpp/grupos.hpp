@@ -25,7 +25,7 @@
 
 // Declaraciones de funciones de indicador
 inline double calcularPuntajeProducto(const Producto& p);
-inline double calcularIndicadorInvestigador(const Investigador& inv);
+inline double calcularIndicadorInvestigador(const Investigador& inv, int anioInicio, int anioFin);
 
 // ============================================================================
 //  1. Estructura Grupo
@@ -99,7 +99,7 @@ struct Grupo {
 };
 
 // Función para calcular indicador de investigador
-inline double calcularIndicadorInvestigador(const Investigador& inv) {
+inline double calcularIndicadorInvestigador(const Investigador& inv, int anioInicio, int anioFin) {
     double total = 0.0;
     if (!inv.activo) return 0.0;
     // If we have a pointer to misProductos
@@ -108,23 +108,23 @@ inline double calcularIndicadorInvestigador(const Investigador& inv) {
              nodo != nullptr; nodo = nodo->siguiente) {
             const Producto& p = nodo->dato;
             if (p.activo && p.validado) {
-                total += calcularPuntajeProducto(p);
+                if (p.anio >= anioInicio && p.anio <= anioFin) {
+                    total += calcularPuntajeProducto(p);
+                }
             }
         }
         return total;
     }
-    // If no pointer, try to sum if there's any embedded list? Or return 0
-    // Also check if misProductos might be stored differently
     return 0.0;
 }
 
 // Función para calcular indicador de grupo
-inline double calcularIndicadorGrupo(const Grupo& g) {
+inline double calcularIndicadorGrupo(const Grupo& g, int anioInicio, int anioFin) {
     double total = 0.0;
     if (!g.activo) return 0.0;
     for (ListaInvestigadores::Nodo* nodo = g.integrantes.primero();
          nodo != nullptr; nodo = nodo->siguiente) {
-        total += calcularIndicadorInvestigador(nodo->dato);
+        total += calcularIndicadorInvestigador(nodo->dato, anioInicio, anioFin);
     }
     return total;
 }

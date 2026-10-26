@@ -53,8 +53,8 @@ inline double calcularPuntajeProducto(const Producto& p) {
 }
 
 // Forward declarations for indicators
-inline double calcularIndicadorInvestigador(const Investigador& inv);
-inline double calcularIndicadorGrupo(const Grupo& g);
+inline double calcularIndicadorInvestigador(const Investigador& inv, int anioInicio = 0, int anioFin = 9999);
+inline double calcularIndicadorGrupo(const Grupo& g, int anioInicio = 0, int anioFin = 9999);
 
 // ----------------------------------------------------------------------------
 // Operadores de flujo (operator<<)

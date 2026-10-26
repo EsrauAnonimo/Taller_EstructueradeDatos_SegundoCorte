@@ -880,6 +880,10 @@ void mostrarEstadisticas() {
 
     int totalInvestigadores = contarTotalInvestigadores();
     int totalProductos = contarTotalProductos();
+    if (totalProductos == 0 && totalInvestigadores == 0) {
+        aviso("No hay datos suficientes para calcular estadísticas.");
+        return;
+    }
     int productosValidados = 0;
     for (size_t i = 0; i < grupos.size(); ++i) {
         if (grupos[i] == nullptr) continue;
@@ -900,12 +904,17 @@ void mostrarEstadisticas() {
     imprimirLinea(46);
     int totalGruposCnt = 0;
     for (size_t i = 0; i < grupos.size(); ++i) {
-        if (grupos[i] != nullptr) totalGruposCnt++;
+        if (grupos[i] != nullptr && grupos[i]->activo) totalGruposCnt++;
+    }
+    if (totalGruposCnt == 0) {
+        aviso("No hay datos suficientes para calcular estadísticas.");
+        return;
     }
     double indicadorTotalInstitucion = 0.0;
     for (size_t i = 0; i < grupos.size(); ++i) {
         if (grupos[i] == nullptr) continue;
-        indicadorTotalInstitucion += calcularIndicadorGrupo(*grupos[i]);
+        if (!grupos[i]->activo) continue;
+        indicadorTotalInstitucion += calcularIndicadorGrupo(*grupos[i], 0, 9999);
     }
     std::cout << std::left << std::setw(32) << "Grupos registrados"
               << std::right << std::setw(14) << totalGruposCnt << std::endl;
@@ -1219,7 +1228,14 @@ void mostrarMenu() {
 // ============================================================================
 int main() {
     habilitarColoresANSI();
-    cargarCSV();  // Carga los datos guardados, si existen.
+    std::cout << CIAN << "¿Desea cargar los datos guardados previamente? (1 = Sí, 0 = No): " << RESET;
+    std::string respCarga;
+    std::getline(std::cin, respCarga);
+    std::string respTrim = recortar(respCarga);
+    if (respTrim == "1" || respTrim == "s" || respTrim == "S" || respTrim == "si" || respTrim == "Si" || respTrim == "SI") {
+        cargarCSV();  // Carga los datos guardados, si existen.
+    }
+    // Si ingresa 0, inicia con las listas vacías.
 
     bool salir = false;
     while (!salir) {
@@ -1264,17 +1280,51 @@ int main() {
                 }
                 if (invEncontrado == nullptr) {
                     error("No existe un investigador con ese ID.");
-                } else {
-                    double ind = calcularIndicadorInvestigador(*invEncontrado);
-                    std::cout << VERDE << "Indicador del investigador: " << std::fixed << std::setprecision(2) << ind << RESET << std::endl;
+                    pausar(); break;
                 }
+                int anioInicio = 0;
+                int anioFin = 9999;
+                std::cout << "\n¿Desea aplicar un filtro de años? (1 = Últimos 2 años, 2 = Últimos 5 años, 3 = Rango personalizado, 0 = Sin filtro)\n";
+                int filtroAnios = leerEnteroEnRango("Opcion: ", 0, 3);
+                if (filtroAnios == 1) {
+                    anioInicio = anioActual() - 2;
+                    anioFin = anioActual();
+                } else if (filtroAnios == 2) {
+                    anioInicio = anioActual() - 5;
+                    anioFin = anioActual();
+                } else if (filtroAnios == 3) {
+                    anioInicio = leerEntero("Año inicio: ");
+                    anioFin = leerEntero("Año fin: ");
+                } else {
+                    anioInicio = 0;
+                    anioFin = 9999;
+                }
+                double ind = calcularIndicadorInvestigador(*invEncontrado, anioInicio, anioFin);
+                std::cout << VERDE << "Indicador del investigador: " << std::fixed << std::setprecision(2) << ind << RESET << std::endl;
                 pausar(); break;
             }
             case 23: {
                 std::cout << CIAN << "\n--- CALCULAR INDICADOR DE UN GRUPO ---" << RESET << std::endl;
                 Grupo* grupo = pedirGrupo();
                 if (grupo == nullptr) { pausar(); break; }
-                double indG = calcularIndicadorGrupo(*grupo);
+                int anioInicio = 0;
+                int anioFin = 9999;
+                std::cout << "\n¿Desea aplicar un filtro de años? (1 = Últimos 2 años, 2 = Últimos 5 años, 3 = Rango personalizado, 0 = Sin filtro)\n";
+                int filtroAnios = leerEnteroEnRango("Opcion: ", 0, 3);
+                if (filtroAnios == 1) {
+                    anioInicio = anioActual() - 2;
+                    anioFin = anioActual();
+                } else if (filtroAnios == 2) {
+                    anioInicio = anioActual() - 5;
+                    anioFin = anioActual();
+                } else if (filtroAnios == 3) {
+                    anioInicio = leerEntero("Año inicio: ");
+                    anioFin = leerEntero("Año fin: ");
+                } else {
+                    anioInicio = 0;
+                    anioFin = 9999;
+                }
+                double indG = calcularIndicadorGrupo(*grupo, anioInicio, anioFin);
                 std::cout << VERDE << "Indicador del grupo: " << std::fixed << std::setprecision(2) << indG << RESET << std::endl;
                 pausar(); break;
             }
