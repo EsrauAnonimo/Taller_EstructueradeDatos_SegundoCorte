@@ -45,6 +45,9 @@ class IndicadoresTab(ctk.CTkFrame):
         # 3. Contenedor de resultados (KPIs + Desglose + Tabla de productos)
         self._build_results_area()
 
+        # 4. Cargar datos iniciales en la pestaña
+        self.refresh(silent=True)
+
     def _build_header(self):
         """Construye el encabezado de la pestaña."""
         self.header_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -127,6 +130,7 @@ class IndicadoresTab(ctk.CTkFrame):
             ctrl_inner,
             width=360,
             values=["Cargando..."],
+            command=self._on_target_changed,
             font=font("body"),
             dropdown_font=font("body"),
             corner_radius=RADIUS["control"],
@@ -195,12 +199,31 @@ class IndicadoresTab(ctk.CTkFrame):
         self.entry_desde = ctk.CTkEntry(self.frame_range, width=70, font=font("small"), corner_radius=RADIUS["control"])
         self.entry_desde.insert(0, "2020")
         self.entry_desde.pack(side="left", padx=(0, 10))
+        self.entry_desde.bind("<Return>", lambda _e: self.calcular(silent=False))
 
         lbl_h = ctk.CTkLabel(self.frame_range, text="Hasta:", font=font("small"), text_color=COLORS["ink"])
         lbl_h.pack(side="left", padx=(0, 4))
         self.entry_hasta = ctk.CTkEntry(self.frame_range, width=70, font=font("small"), corner_radius=RADIUS["control"])
         self.entry_hasta.insert(0, "2026")
         self.entry_hasta.pack(side="left")
+        self.entry_hasta.bind("<Return>", lambda _e: self.calcular(silent=False))
+
+        self.btn_apply_range = ctk.CTkButton(
+            self.frame_range,
+            text="Aplicar",
+            width=65,
+            height=28,
+            font=font("small"),
+            fg_color=COLORS["primary"],
+            hover_color=COLORS["primary_hover"],
+            corner_radius=RADIUS["control"],
+            command=lambda: self.calcular(silent=False),
+        )
+        self.btn_apply_range.pack(side="left", padx=(8, 0))
+
+    def _on_target_changed(self, choice: Optional[str] = None):
+        """Manejador al cambiar la selección en el ComboBox de Grupo o Investigador."""
+        self.calcular(silent=True)
 
     def _on_year_filter_mode_change(self, mode: str):
         """Maneja el cambio de modo en el filtro por año."""
@@ -208,6 +231,8 @@ class IndicadoresTab(ctk.CTkFrame):
             self.frame_range.pack(side="left")
         else:
             self.frame_range.pack_forget()
+        self.calcular(silent=True)
+
 
     def _build_results_area(self):
         """Construye el área inferior con scroll, tarjetas KPI, desglose y lista de productos."""
@@ -366,11 +391,20 @@ class IndicadoresTab(ctk.CTkFrame):
         else:
             self.lbl_target.configure(text="Seleccionar Investigador:")
         self._populate_combo()
+        selected = self.combo_target.get() if self.combo_target else ""
+        if selected and "No hay" not in selected and "Cargando" not in selected:
+            self.calcular(silent=True)
 
-    def refresh(self):
+    def refresh(self, silent: bool = True):
         """Recarga los datos de grupos e investigadores desde la multilista."""
         self._load_caches()
         self._populate_combo()
+        selected = self.combo_target.get() if self.combo_target else ""
+        if selected and "No hay" not in selected and "Cargando" not in selected:
+            try:
+                self.calcular(silent=silent)
+            except Exception as e:
+                print(f"Aviso al actualizar indicador: {e}")
 
     def _load_caches(self):
         """Carga las listas de grupos e investigadores disponibles."""
@@ -386,15 +420,22 @@ class IndicadoresTab(ctk.CTkFrame):
         while curr_g is not None:
             if curr_g.active:
                 gid = getattr(curr_g.data, "id", None)
+                if gid is None or gid == "":
+                    gid = getattr(curr_g.data, "codigo_gruplac", "")
                 gnom = getattr(curr_g.data, "nombre", f"Grupo {gid}")
                 self._grupos_cache.append((gid, f"[{gid}] {gnom}"))
 
                 curr_i = curr_g.sublist
                 while curr_i is not None:
                     if curr_i.active:
-                        iid = getattr(curr_i.data, "id", None) or getattr(curr_i.data, "cedula", "")
-                        inom = getattr(curr_i.data, "nombre", f"Investigador {iid}")
-                        self._investigadores_cache.append((iid, f"[{iid}] {inom} ({gnom})"))
+                        cedula = getattr(curr_i.data, "cedula", None)
+                        iid = cedula if cedula else (getattr(curr_i.data, "id", None) or "")
+                        nom_full = (
+                            getattr(curr_i.data, "nombre", "")
+                            or f"{getattr(curr_i.data, 'nombres', '')} {getattr(curr_i.data, 'apellidos', '')}".strip()
+                            or f"Investigador {iid}"
+                        )
+                        self._investigadores_cache.append((iid, f"[{iid}] {nom_full} ({gnom})"))
                     curr_i = curr_i.next
             curr_g = curr_g.next
 
@@ -416,30 +457,78 @@ class IndicadoresTab(ctk.CTkFrame):
             self.combo_target.configure(values=items)
             self.combo_target.set(items[0])
 
-    def calcular(self):
+    def _reset_results(self):
+        """Restablece los textos de KPIs y vacía las tablas de resultados."""
+        self.card_total.lbl_value.configure(text="0.0")
+        if self.card_total.lbl_note is not None:
+            self.card_total.lbl_note.configure(text="Puntaje de producción MinCiencias")
+        if hasattr(self.card_total, "update_value"):
+            self.card_total.update_value("0.0")
+
+        self.card_prods.lbl_value.configure(text="0")
+        if self.card_prods.lbl_note is not None:
+            self.card_prods.lbl_note.configure(text="0 validados para medición")
+        if hasattr(self.card_prods, "update_value"):
+            self.card_prods.update_value("0", note="0 validados para medición")
+
+        self.card_top.lbl_value.configure(text="0")
+        if hasattr(self.card_top, "update_value"):
+            self.card_top.update_value("0")
+
+        self.card_entidad.lbl_value.configure(text="—")
+        if self.card_entidad.lbl_note is not None:
+            self.card_entidad.lbl_note.configure(text="Seleccione una entidad para calcular")
+        if hasattr(self.card_entidad, "update_value"):
+            self.card_entidad.update_value("—", note="Seleccione una entidad para calcular")
+
+        for item in self.tree_breakdown.get_children():
+            self.tree_breakdown.delete(item)
+
+        for item in self.tree_prods.get_children():
+            self.tree_prods.delete(item)
+
+    def calcular(self, silent: bool = False):
         """Calcula el indicador según la entidad seleccionada en el ComboBox."""
-        selected_text = self.combo_target.get()
-        if not selected_text or "No hay" in selected_text or "Cargando" in selected_text:
-            messagebox.showwarning("Atención", "Por favor seleccione una entidad válida para calcular el indicador.")
-            return
+        print("Calculando indicador...")
 
         app = self._app_ref
-        if not app or not hasattr(app, "multilista"):
-            messagebox.showerror("Error", "No se encontró la estructura de datos activa.")
+        if not app or not hasattr(app, "multilista") or app.multilista.head_group is None:
+            if not silent:
+                messagebox.showwarning("Atención", "No hay datos para calcular")
+            self._reset_results()
             return
 
-        # Extraer el ID dentro de los corchetes [ID]
+        if not self._grupos_cache and not self._investigadores_cache:
+            self._load_caches()
+
+        if self._selected_mode == "Grupo" and not self._grupos_cache:
+            if not silent:
+                messagebox.showwarning("Atención", "No hay datos para calcular")
+            self._reset_results()
+            return
+        elif self._selected_mode == "Investigador" and not self._investigadores_cache:
+            if not silent:
+                messagebox.showwarning("Atención", "No hay datos para calcular")
+            self._reset_results()
+            return
+
+        selected_text = self.combo_target.get().strip() if self.combo_target else ""
+        if not selected_text or "No hay" in selected_text or "Cargando" in selected_text:
+            if not silent:
+                messagebox.showwarning("Atención", "No hay datos para calcular")
+            self._reset_results()
+            return
+
+        # Extraer el ID o Cédula dentro de los corchetes [ID]
         target_id = None
         if "[" in selected_text and "]" in selected_text:
             target_id = selected_text.split("[")[1].split("]")[0].strip()
 
         if not target_id:
-            messagebox.showerror("Error", "No se pudo identificar el ID de la entidad seleccionada.")
+            if not silent:
+                messagebox.showwarning("Atención", "No hay datos para calcular")
+            self._reset_results()
             return
-
-        # Intentar convertir a int si es numérico
-        if target_id.isdigit():
-            target_id = int(target_id)
 
         # Determinar filtro por año desde el ComboBox
         filtro_modo = self.combo_year.get().strip()
@@ -468,32 +557,79 @@ class IndicadoresTab(ctk.CTkFrame):
                     anio_min, anio_max = anio_max, anio_min
                 filtro_desc = f"{anio_min or 'inicio'} - {anio_max or 'fin'}"
             except ValueError:
-                messagebox.showwarning("Atención", "Los años del rango deben ser números enteros.")
+                if not silent:
+                    messagebox.showwarning("Atención", "Los años del rango deben ser números enteros.")
                 return
 
         # Ejecutar cálculo
-        if self._selected_mode == "Grupo":
-            res = indicadores.calcular_indicador_grupo(app.multilista, target_id, anio_min=anio_min, anio_max=anio_max)
-            productos = app.multilista.get_productos_by_grupo(target_id)
-        else:
-            res = indicadores.calcular_indicador_investigador(app.multilista, target_id, anio_min=anio_min, anio_max=anio_max)
-            productos = app.multilista.get_productos_by_investigador(target_id)
+        try:
+            if self._selected_mode == "Grupo":
+                calc_id = int(target_id) if str(target_id).isdigit() else target_id
+                res = indicadores.calcular_indicador_grupo(
+                    app.multilista, calc_id, anio_min=anio_min, anio_max=anio_max
+                )
+                productos = app.multilista.get_productos_by_grupo(calc_id)
+                if not productos and not str(target_id).isdigit():
+                    g_node = app.multilista.get_group_by_code(str(target_id))
+                    if g_node and hasattr(g_node.data, "id"):
+                        productos = app.multilista.get_productos_by_grupo(g_node.data.id)
+            else:
+                calc_id = str(target_id)
+                res = indicadores.calcular_indicador_investigador(
+                    app.multilista, calc_id, anio_min=anio_min, anio_max=anio_max
+                )
+                productos = app.multilista.get_productos_by_investigador(calc_id)
 
-        # Actualizar KPIs
-        self.card_total.update_value(f"{res['indicador']:.2f}")
-        self.card_prods.update_value(
-            str(res["total_productos"]),
-            note=f"{res['total_validados']} validados · Filtro: {filtro_desc}",
-        )
-        top_a_count = res["counts"].get("Nc_Top", 0) + res["counts"].get("Nc_A", 0)
-        self.card_top.update_value(str(top_a_count))
+            print(f"Indicador calculado exitosamente: {res.get('indicador', 0.0):.2f} ({res.get('entidad_nombre', '')})")
+        except Exception as err:
+            print(f"Error al calcular indicador: {err}")
+            if not silent:
+                messagebox.showerror("Error", f"Error al calcular el indicador: {err}")
+            return
+
+        # Actualizar KPIs usando .configure() y set_value / update_value
+        indicador_str = f"{res['indicador']:.2f}"
+        self.card_total.lbl_value.configure(text=indicador_str)
+        if hasattr(self.card_total, "update_value"):
+            self.card_total.update_value(indicador_str)
+        elif hasattr(self.card_total, "set_value"):
+            self.card_total.set_value(indicador_str)
+
+        total_prods_count = res.get("total_productos", 0)
+        if productos:
+            prods_en_periodo = [p for p in productos if indicadores._filtra_anio(p, anio_min, anio_max)]
+            total_prods_count = max(len(prods_en_periodo), res.get("total_validados", 0))
+
+        prods_str = str(total_prods_count)
+        prods_note = f"{res.get('total_validados', 0)} validados · Filtro: {filtro_desc}"
+        self.card_prods.lbl_value.configure(text=prods_str)
+        if self.card_prods.lbl_note is not None:
+            self.card_prods.lbl_note.configure(text=prods_note)
+        if hasattr(self.card_prods, "update_value"):
+            self.card_prods.update_value(prods_str, note=prods_note)
+        elif hasattr(self.card_prods, "set_value"):
+            self.card_prods.set_value(prods_str, note=prods_note)
+
+        top_a_count = str(res["counts"].get("Nc_Top", 0) + res["counts"].get("Nc_A", 0))
+        self.card_top.lbl_value.configure(text=top_a_count)
+        if hasattr(self.card_top, "update_value"):
+            self.card_top.update_value(top_a_count)
+        elif hasattr(self.card_top, "set_value"):
+            self.card_top.set_value(top_a_count)
 
         entidad_nombre = res.get("entidad_nombre", str(target_id))
         if len(entidad_nombre) > 22:
             entidad_nombre = entidad_nombre[:20] + "..."
-        self.card_entidad.update_value(entidad_nombre, note=f"Tipo: {res['entidad_tipo']}")
+        entidad_note = f"Tipo: {res.get('entidad_tipo', self._selected_mode)}"
+        self.card_entidad.lbl_value.configure(text=entidad_nombre)
+        if self.card_entidad.lbl_note is not None:
+            self.card_entidad.lbl_note.configure(text=entidad_note)
+        if hasattr(self.card_entidad, "update_value"):
+            self.card_entidad.update_value(entidad_nombre, note=entidad_note)
+        elif hasattr(self.card_entidad, "set_value"):
+            self.card_entidad.set_value(entidad_nombre, note=entidad_note)
 
-        # Actualizar tabla de desglose
+        # Limpiar y actualizar tabla de desglose
         for item in self.tree_breakdown.get_children():
             self.tree_breakdown.delete(item)
 
@@ -504,7 +640,7 @@ class IndicadoresTab(ctk.CTkFrame):
             val_str = f"{val:.2f}" if isinstance(val, float) else str(val)
             self.tree_breakdown.insert("", "end", values=(var, desc, f"{coef}", val_str, f"{sub:.2f}"))
 
-        # Actualizar tabla de productos detallada filtrada por año
+        # Limpiar y actualizar tabla de productos detallada filtrada por año
         for item in self.tree_prods.get_children():
             self.tree_prods.delete(item)
 
@@ -527,3 +663,4 @@ class IndicadoresTab(ctk.CTkFrame):
             else:
                 pval = "Sí (Validado)"
             self.tree_prods.insert("", "end", values=(pid, ptit, ptip, pcat, f"{pw:.1f}", f"{psc:.1f}", pval))
+

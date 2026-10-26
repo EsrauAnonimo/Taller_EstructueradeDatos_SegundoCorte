@@ -145,4 +145,16 @@ class StatCard(ctk.CTkFrame):
                 text_color=self._variation_color(variation),
             )
         if note is not None and self.lbl_note is not None:
-            self.lbl_note.configure(text=note)
+            self.lbl_note.configure(text=str(note))
+
+    def update_value(self, value, note: Optional[str] = None, variation: Optional[str] = None):
+        """Actualiza el valor numérico, nota y variación usando .configure()."""
+        self.lbl_value.configure(text=str(value))
+        if variation is not None:
+            self.lbl_variation.configure(
+                text=str(variation),
+                text_color=self._variation_color(variation),
+            )
+        if note is not None and self.lbl_note is not None:
+            self.lbl_note.configure(text=str(note))
+
