@@ -1262,6 +1262,7 @@ class App(ctk.CTk):
                     self.inv_crud.create(inst_inv)
 
                 # 3. Insertar Productos
+                prod_list = datos.get("productos", [])
                 for p_raw in prod_list:
                     if isinstance(p_raw, dict):
                         p_ced = p_raw.get("investigador_cedula") or p_raw.get("investigador_id") or p_raw.get("cedula")
