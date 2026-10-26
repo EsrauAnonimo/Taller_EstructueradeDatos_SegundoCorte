@@ -17,6 +17,35 @@ Mapeo de categorías estándar MinCiencias:
 from typing import List, Dict, Any, Tuple, Optional
 
 
+def _es_activo(prod: Any) -> bool:
+    """Retorna True si el producto está activo, False si activo == False (borrado lógico)."""
+    if hasattr(prod, "activo"):
+        val = getattr(prod, "activo")
+        if isinstance(val, bool):
+            return val
+        if isinstance(val, (int, float)):
+            return bool(val)
+        if isinstance(val, str):
+            return val.strip().lower() in ("true", "1", "si", "sí", "activo")
+    if hasattr(prod, "active"):
+        val = getattr(prod, "active")
+        if isinstance(val, bool):
+            return val
+        if isinstance(val, (int, float)):
+            return bool(val)
+        if isinstance(val, str):
+            return val.strip().lower() in ("true", "1", "si", "sí", "activo")
+    if isinstance(prod, dict):
+        val = prod.get("activo", prod.get("active", True))
+        if isinstance(val, bool):
+            return val
+        if isinstance(val, (int, float)):
+            return bool(val)
+        if isinstance(val, str):
+            return val.strip().lower() in ("true", "1", "si", "sí", "activo")
+    return True
+
+
 def _es_validado(prod: Any) -> bool:
     """Retorna True si el producto está validado, False si validado == False o No validado."""
     if hasattr(prod, "validado"):
@@ -198,8 +227,8 @@ def calcular_indicador_productos(productos: List[Any], cohe: float = 0.0, coop: 
     total_validados = 0
 
     for prod in productos:
-        # Excluir no validados (validado == False se ignora en el cálculo)
-        if not _es_validado(prod):
+        # Excluir no validados (validado == False) e inactivos (activo == False)
+        if not _es_validado(prod) or not _es_activo(prod):
             continue
 
         cat = getattr(prod, "categoria", "") if hasattr(prod, "categoria") else prod.get("categoria", "")
@@ -295,8 +324,8 @@ def calcular_indicador_grupo(
                 total_integrantes += 1
                 prod_curr = inv_curr.sublist
                 while prod_curr is not None:
-                    if prod_curr.active and _filtra_anio(prod_curr.data, anio_min, anio_max):
-                        # Excluir no validados del cálculo del indicador
+                    if prod_curr.active and _es_activo(prod_curr.data) and _filtra_anio(prod_curr.data, anio_min, anio_max):
+                        # Excluir no validados (validado == False) e inactivos (activo == False)
                         if _es_validado(prod_curr.data):
                             productos.append(prod_curr.data)
                     prod_curr = prod_curr.next
@@ -351,8 +380,8 @@ def calcular_indicador_investigador(
                     found_group = getattr(g_curr.data, "nombre", "")
                     prod_curr = inv_curr.sublist
                     while prod_curr is not None:
-                        if prod_curr.active and _filtra_anio(prod_curr.data, anio_min, anio_max):
-                            # Excluir no validados del cálculo del indicador
+                        if prod_curr.active and _es_activo(prod_curr.data) and _filtra_anio(prod_curr.data, anio_min, anio_max):
+                            # Excluir no validados (validado == False) e inactivos (activo == False)
                             if _es_validado(prod_curr.data):
                                 productos.append(prod_curr.data)
                         prod_curr = prod_curr.next

@@ -512,12 +512,18 @@ class IndicadoresTab(ctk.CTkFrame):
             if not indicadores._filtra_anio(p, anio_min, anio_max):
                 continue
             is_val = indicadores._es_validado(p)
+            is_act = indicadores._es_activo(p)
             indicadores.asignar_puntaje_producto(p)
             pid = getattr(p, "id", "")
             ptit = getattr(p, "titulo", "")
             ptip = getattr(p, "tipo", "")
             pcat = getattr(p, "categoria", "")
             pw = getattr(p, "peso_relativo", 0.0)
-            psc = getattr(p, "puntaje", 0.0) if is_val else 0.0
-            pval = "Sí (Validado)" if is_val else "No (Excluido)"
+            psc = getattr(p, "puntaje", 0.0) if (is_val and is_act) else 0.0
+            if not is_act:
+                pval = "No (Inactivo)"
+            elif not is_val:
+                pval = "No (No validado)"
+            else:
+                pval = "Sí (Validado)"
             self.tree_prods.insert("", "end", values=(pid, ptit, ptip, pcat, f"{pw:.1f}", f"{psc:.1f}", pval))
