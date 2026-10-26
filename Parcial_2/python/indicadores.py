@@ -15,6 +15,36 @@ Mapeo de categorías estándar MinCiencias:
 """
 
 from typing import List, Dict, Any, Tuple, Optional
+
+
+def _es_validado(prod: Any) -> bool:
+    """Retorna True si el producto está validado, False si validado == False o No validado."""
+    if hasattr(prod, "validado"):
+        val = getattr(prod, "validado")
+        if isinstance(val, bool):
+            return val
+        if isinstance(val, (int, float)):
+            return bool(val)
+        if isinstance(val, str):
+            return val.strip().lower() in ("true", "1", "si", "sí", "validado")
+    if hasattr(prod, "validacion"):
+        val = getattr(prod, "validacion")
+        if isinstance(val, str):
+            return val.strip().lower() in ("validado", "si", "sí")
+    if isinstance(prod, dict):
+        val = prod.get("validado")
+        if isinstance(val, bool):
+            return val
+        if isinstance(val, (int, float)):
+            return bool(val)
+        if isinstance(val, str):
+            return val.strip().lower() in ("true", "1", "si", "sí", "validado")
+        val2 = prod.get("validacion")
+        if isinstance(val2, str):
+            return val2.strip().lower() in ("validado", "si", "sí")
+    return False
+
+
 import re
 
 # Pesos oficiales de la fórmula del parcial
@@ -168,22 +198,24 @@ def calcular_indicador_productos(productos: List[Any], cohe: float = 0.0, coop: 
     total_validados = 0
 
     for prod in productos:
-        # Extraer atributos compatibles con objetos o dicts
+        # Excluir no validados (validado == False se ignora en el cálculo)
+        if not _es_validado(prod):
+            continue
+
         cat = getattr(prod, "categoria", "") if hasattr(prod, "categoria") else prod.get("categoria", "")
         tipo = getattr(prod, "tipo", "") if hasattr(prod, "tipo") else prod.get("tipo", "")
         gran_cat = getattr(prod, "gran_categoria", "") if hasattr(prod, "gran_categoria") else prod.get("gran_categoria", "")
-        is_valid = getattr(prod, "validado", True) if hasattr(prod, "validado") else prod.get("validado", True)
 
         var_name, weight = mapear_categoria_variable(cat, tipo, gran_cat)
 
         if hasattr(prod, "peso_relativo"):
             prod.peso_relativo = float(weight)
-            prod.puntaje = float(weight) if is_valid else 0.0
+        if hasattr(prod, "puntaje"):
+            prod.puntaje = float(weight)
 
-        if is_valid:
-            total_validados += 1
-            counts[var_name] += 1
-            subtotals[var_name] += float(weight)
+        total_validados += 1
+        counts[var_name] += 1
+        subtotals[var_name] += float(weight)
 
     subtotals["Cohe"] = round(counts["Cohe"] * COEFFICIENTS["Cohe"], 4)
     subtotals["Coop"] = round(counts["Coop"] * COEFFICIENTS["Coop"], 4)
@@ -264,7 +296,9 @@ def calcular_indicador_grupo(
                 prod_curr = inv_curr.sublist
                 while prod_curr is not None:
                     if prod_curr.active and _filtra_anio(prod_curr.data, anio_min, anio_max):
-                        productos.append(prod_curr.data)
+                        # Excluir no validados del cálculo del indicador
+                        if _es_validado(prod_curr.data):
+                            productos.append(prod_curr.data)
                     prod_curr = prod_curr.next
             inv_curr = inv_curr.next
 
@@ -318,7 +352,9 @@ def calcular_indicador_investigador(
                     prod_curr = inv_curr.sublist
                     while prod_curr is not None:
                         if prod_curr.active and _filtra_anio(prod_curr.data, anio_min, anio_max):
-                            productos.append(prod_curr.data)
+                            # Excluir no validados del cálculo del indicador
+                            if _es_validado(prod_curr.data):
+                                productos.append(prod_curr.data)
                         prod_curr = prod_curr.next
                 inv_curr = inv_curr.next
         g_curr = g_curr.next

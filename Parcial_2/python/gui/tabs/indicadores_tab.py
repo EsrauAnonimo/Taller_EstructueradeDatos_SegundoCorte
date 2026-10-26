@@ -2,6 +2,7 @@
 """Pestaña de Indicador de Producción Científica (Modelo MinCiencias - Parcial 2)."""
 
 from typing import Optional, List, Dict, Any
+import datetime
 import tkinter as tk
 from tkinter import ttk, messagebox
 import customtkinter as ctk
@@ -173,19 +174,21 @@ class IndicadoresTab(ctk.CTkFrame):
         )
         lbl_filtro.pack(side="left", padx=(0, 10))
 
-        self.seg_year = ctk.CTkSegmentedButton(
+        self.combo_year = ctk.CTkComboBox(
             filter_row,
-            values=["Todos", "Últimos 3 años", "Últimos 5 años", "Rango"],
+            width=180,
+            values=["Todos", "Últimos 2", "Últimos 5", "Personalizado"],
             command=self._on_year_filter_mode_change,
             font=font("body"),
-            selected_color=COLORS["primary"],
-            selected_hover_color=COLORS["primary_hover"],
+            dropdown_font=font("body"),
+            corner_radius=RADIUS["control"],
+            border_color=COLORS["border"],
         )
-        self.seg_year.set("Todos")
-        self.seg_year.pack(side="left", padx=(0, 15))
+        self.combo_year.set("Todos")
+        self.combo_year.pack(side="left", padx=(0, 15))
 
         self.frame_range = ctk.CTkFrame(filter_row, fg_color="transparent")
-        self.frame_range.pack(side="left")
+        # Se muestra únicamente cuando se selecciona Personalizado
 
         lbl_d = ctk.CTkLabel(self.frame_range, text="Desde:", font=font("small"), text_color=COLORS["ink"])
         lbl_d.pack(side="left", padx=(0, 4))
@@ -201,7 +204,10 @@ class IndicadoresTab(ctk.CTkFrame):
 
     def _on_year_filter_mode_change(self, mode: str):
         """Maneja el cambio de modo en el filtro por año."""
-        pass
+        if mode == "Personalizado":
+            self.frame_range.pack(side="left")
+        else:
+            self.frame_range.pack_forget()
 
     def _build_results_area(self):
         """Construye el área inferior con scroll, tarjetas KPI, desglose y lista de productos."""
@@ -435,22 +441,22 @@ class IndicadoresTab(ctk.CTkFrame):
         if target_id.isdigit():
             target_id = int(target_id)
 
-        # Determinar filtro por año
-        filtro_modo = self.seg_year.get()
+        # Determinar filtro por año desde el ComboBox
+        filtro_modo = self.combo_year.get().strip()
         anio_min = None
         anio_max = None
-        current_year = 2026
+        current_year = datetime.date.today().year
         filtro_desc = "Todos los años"
 
-        if filtro_modo == "Últimos 3 años":
-            anio_min = current_year - 3 + 1
+        if "2" in filtro_modo:
+            anio_min = current_year - 2
             anio_max = current_year
             filtro_desc = f"{anio_min} - {anio_max}"
-        elif filtro_modo == "Últimos 5 años":
-            anio_min = current_year - 5 + 1
+        elif "5" in filtro_modo:
+            anio_min = current_year - 5
             anio_max = current_year
             filtro_desc = f"{anio_min} - {anio_max}"
-        elif filtro_modo == "Rango":
+        elif "Personalizado" in filtro_modo or "Rango" in filtro_modo:
             try:
                 d_str = self.entry_desde.get().strip()
                 h_str = self.entry_hasta.get().strip()
@@ -505,12 +511,13 @@ class IndicadoresTab(ctk.CTkFrame):
         for p in productos:
             if not indicadores._filtra_anio(p, anio_min, anio_max):
                 continue
+            is_val = indicadores._es_validado(p)
             indicadores.asignar_puntaje_producto(p)
             pid = getattr(p, "id", "")
             ptit = getattr(p, "titulo", "")
             ptip = getattr(p, "tipo", "")
             pcat = getattr(p, "categoria", "")
             pw = getattr(p, "peso_relativo", 0.0)
-            psc = getattr(p, "puntaje", 0.0)
-            pval = "Sí" if getattr(p, "validado", True) else "No"
+            psc = getattr(p, "puntaje", 0.0) if is_val else 0.0
+            pval = "Sí (Validado)" if is_val else "No (Excluido)"
             self.tree_prods.insert("", "end", values=(pid, ptit, ptip, pcat, f"{pw:.1f}", f"{psc:.1f}", pval))
