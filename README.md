@@ -152,6 +152,8 @@ g++ -std=c++17 -Wall -Wextra -I Taller_2/cpp Taller_2/cpp/Taller2_ERV_LGR.cpp -o
 
 ## 🎥 Enlace al Video Explicativo
 
-- **Video Explicativo en YouTube:** [PEGAR ENLACE AQUÍ]
+- **Video Explicativo en YouTube (EXPLICACION DEL TALLER ):** [https://youtu.be/AXiJqifF1NA]
+- **Video Explicativo en YouTube (EXPLICACION DEL PARCIAL):** [https://youtu.be/WLI6ps9aR20]
+- 
 - **Docente:** Ing. Adith Pérez  
 - **Asignatura:** Estructura de Datos (Grupo 05) — Universidad Popular del Cesar (UPC)
